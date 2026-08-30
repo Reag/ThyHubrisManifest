@@ -1,5 +1,8 @@
 {
-	"authors": [],
+	"authors": [
+		"Mr_Reag",
+		"original work by Porter \"Cornylious\" Botterud"
+	],
 	"compatible_game_version": [
 		"1.3.3"
 	],
@@ -24,9 +27,12 @@
 	"namespace": "Reag",
 	"optional_dependencies": [],
 	"requires_restart": false,
-	"summary": "",
-	"tags": [],
-	"title": "",
+	"summary": "[i]As humanity spreads across the vast worlds of the Orion arm, so too does its shadow. In the dark corners of a million worlds fester twisted reflections of forgotten cruelties. From the resplendent Baronies to the dutiful Armory, from the just Union to the sacred Ascendancy, the ghosts of their pasts reach out in retribution with sins made manifest.[/i]\n\nA partial implementation of HORUS: Thy Hubris Manifest, a 3pp suplement for Lancer. Please support the official release at itch.io",
+	"tags": [
+		"PC frames",
+		"Systems and weapons"
+	],
+	"title": "HORUS: Thy Hubris Manifest",
 	"version_number": "0.0.1",
 	"website_url": ""
 }

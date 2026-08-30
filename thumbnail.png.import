@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://gjr0ct0cwr6n"
-path="res://.godot/imported/thumbnail.png-7c725d0080d2e0aa742e2cf5a91fea88.ctex"
+path="res://.godot/imported/thumbnail.png-33336431745ca001eab95c1e4e50b016.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://unpacked/bk/thumbnail.png"
-dest_files=["res://.godot/imported/thumbnail.png-7c725d0080d2e0aa742e2cf5a91fea88.ctex"]
+source_file="res://unpacked/Reag-ThyHubris/thumbnail.png"
+dest_files=["res://.godot/imported/thumbnail.png-33336431745ca001eab95c1e4e50b016.ctex"]
 
 [params]
 

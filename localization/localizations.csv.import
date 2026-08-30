@@ -6,10 +6,10 @@ uid="uid://dakug74bkf1ki"
 
 [deps]
 
-files=["res://unpacked/bk/localization/localizations.en.translation"]
+files=["res://unpacked/Reag-ThyHubris/localization/localizations.en.translation"]
 
-source_file="res://unpacked/bk/localization/localizations.csv"
-dest_files=["res://unpacked/bk/localization/localizations.en.translation"]
+source_file="res://unpacked/Reag-ThyHubris/localization/localizations.csv"
+dest_files=["res://unpacked/Reag-ThyHubris/localization/localizations.en.translation"]
 
 [params]
 

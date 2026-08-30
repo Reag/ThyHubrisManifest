@@ -1,2 +1,11 @@
 id,en
 mod.reag_thyhubris.name,ThyHubris
+,
+frame.mf_draugr.name,Draugr
+frame.mf_draugr.flavor,"While it is widely accepted that the Draugr appeared sometime during the Sanjak Revolution, little is known of its origins beyond that. Some point to reports made by the KTS early in the conflict where soldiers described encountering a specialized Vlad shrouded in fog. Others question whether certain Hecatoncheires sightings were in fact Draugrs due to inordinate Karrakin losses. From rumors of possessed Balors to blurry photos of upscaled Kobolds, the mystery surrounding the Draugr’s history makes it a hotspot for speculation across the omninet.
+One curious fact, however, is that deep within the Draugr pattern’s metadata, buried in liturgicode and empty files, is a number: 4600."
+frame.mf_draugr.flavor.short,Infectious Invader
+gear.buff_infection.name,Infection
+gear.buff_infection.effect,"Infection works similarly to Burn, but applies Heat instead of damage.
+When characters take Infection, they immediately take an equal amount of Heat, and mark down how much Infection they received. If a character already has Infection, additional Infection is added on top of what they already had. At the end of their turn, Infected characters must roll a Systems check. On a success, they clear all Infection; otherwise, they take Heat equal to the amount of Infection currently marked.
+If an action would clear BURN, such as stabilize, it also clears INFECTION"
