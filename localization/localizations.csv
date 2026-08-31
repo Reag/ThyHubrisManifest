@@ -9,3 +9,12 @@ gear.buff_infection.name,Infection
 gear.buff_infection.effect,"Infection works similarly to Burn, but applies Heat instead of damage.
 When characters take Infection, they immediately take an equal amount of Heat, and mark down how much Infection they received. If a character already has Infection, additional Infection is added on top of what they already had. At the end of their turn, Infected characters must roll a Systems check. On a success, they clear all Infection; otherwise, they take Heat equal to the amount of Infection currently marked.
 If an action would clear BURN, such as stabilize, it also clears INFECTION"
+gear.mt_spreading_stain.name,
+gear.mt_spreading_stain.effect,
+gear.mt_spreading_stain.trigger,
+gear.mt_raging_plague.name,
+gear.mt_raging_plague.effect,
+gear.mt_raging_plague.trigger,
+gear.mt_seeping_rot.name,
+gear.mt_seeping_rot.effect,
+gear.mt_seeping_rot.trigger,
