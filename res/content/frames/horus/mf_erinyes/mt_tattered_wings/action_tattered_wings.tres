@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ActionSystemApplyBuff" format=3]
+
+[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="1_buff"]
+[ext_resource type="Script" uid="uid://cm50wdj5g8syg" path="res://engine/character/gear_action/archtypes/action_system_apply_buff.gd" id="2_action_apply_buff"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_tattered_wings/buff_tattered_wings.tres" id="3_buff_tattered_wings"]
+[ext_resource type="Texture2D" uid="uid://dxoy2swel7lsj" path="res://assets/icons/buffs/buff_maneuverability_jets.svg" id="4_icon"]
+
+[resource]
+script = ExtResource("2_action_apply_buff")
+buffs = Array[ExtResource("1_buff")]([ExtResource("3_buff_tattered_wings")])
+apply_range = 0
+apply_only_to_self = true
+can_apply_to_self = true
+can_reapply = false
+action_type = 4
+self_heat_dice = "1"
+icon_override = ExtResource("4_icon")
+emit_text_popcorn_on_use = true
+metadata/_custom_type_script = "uid://cm50wdj5g8syg"

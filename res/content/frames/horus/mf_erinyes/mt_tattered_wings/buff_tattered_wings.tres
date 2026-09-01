@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BuffMovementType" format=3]
+
+[ext_resource type="Script" uid="uid://udxarj3kb6nm" path="res://engine/character/unit/movement_type.gd" id="1_movement_type"]
+[ext_resource type="Script" uid="uid://bw1bv7eturuo0" path="res://engine/character/buff/archtypes/buff_movement_type.gd" id="2_buff_movement_type"]
+[ext_resource type="Texture2D" uid="uid://dxoy2swel7lsj" path="res://assets/icons/buffs/buff_maneuverability_jets.svg" id="3_icon"]
+
+[sub_resource type="Resource" id="Resource_tattered_wings_hover"]
+script = ExtResource("1_movement_type")
+hovering = true
+
+[resource]
+script = ExtResource("2_buff_movement_type")
+movement_type = SubResource("Resource_tattered_wings_hover")
+until = 3
+to = &"movement_type"
+applies_statuses = Array[StringName]([&"eva"])
+icon = ExtResource("3_icon")
+metadata/_custom_type_script = "uid://bw1bv7eturuo0"
