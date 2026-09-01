@@ -138,3 +138,21 @@ func test_erinyes_gear_effects_are_written():
 		return
 
 	assert_true(true, 'Every Erinyes trait and the core power has effect text.')
+
+const DRAUGR_TRAITS := [&'mt_spreading_stain', &'mt_raging_plague', &'mt_seeping_rot']
+
+func test_the_draugr_frame_carries_its_traits():
+	# These three loaded and were indexed for two commits while attached to nothing: the frame had
+	# no traits array at all. Registration alone is not evidence a trait does anything.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_draugr')
+	if not is_instance_valid(frame): return fail_test('mf_draugr loaded.')
+	var wired:Array[StringName] = []
+	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
+	assert_eq(wired, DRAUGR_TRAITS, 'All three Draugr traits are on the frame.')
+
+func test_draugr_traits_are_flagged_as_traits():
+	for kit_id:StringName in DRAUGR_TRAITS:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
+		assert_false(kit.is_destructable(), 'And so is not destructible.')

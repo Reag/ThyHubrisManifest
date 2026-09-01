@@ -6,4 +6,5 @@
 
 [resource]
 script = ExtResource("3_jjm0x")
+is_trait = true
 metadata/_custom_type_script = "uid://ckrv6mvs5q65e"

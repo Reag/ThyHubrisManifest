@@ -3,7 +3,7 @@ mod.reag_thyhubris.name,ThyHubris
 ,
 frame.mf_draugr.name,Draugr
 frame.mf_draugr.flavor,"While it is widely accepted that the Draugr appeared sometime during the Sanjak Revolution, little is known of its origins beyond that. Some point to reports made by the KTS early in the conflict where soldiers described encountering a specialized Vlad shrouded in fog. Others question whether certain Hecatoncheires sightings were in fact Draugrs due to inordinate Karrakin losses. From rumors of possessed Balors to blurry photos of upscaled Kobolds, the mystery surrounding the Draugr’s history makes it a hotspot for speculation across the omninet.
-One curious fact, however, is that deep within the Draugr pattern’s metadata, buried in liturgicode and empty files, is a number: 4600."
+One curious fact, however, is that deep within the Draugr pattern's metadata, buried in liturgicode and empty files, is a number: 4600."
 frame.mf_draugr.flavor.short,Infectious Invader
 gear.buff_infection.name,Infection
 gear.buff_infection.effect,"Infection works similarly to Burn, but applies Heat instead of damage.
@@ -30,7 +30,7 @@ gear.mt_know_thy_sins.name,Know Thy Sins
 gear.mt_know_thy_sins.effect,
 gear.mt_know_thy_sins.trigger,
 gear.mt_tattered_wings.name,Tattered Wings
-gear.mt_tattered_wings.effect,
+gear.mt_tattered_wings.effect,"As a protocol, the Erinyes may take |1 HEAT| to hover until the start of its next turn."
 gear.mt_tattered_wings.trigger,
 gear.cp_dhiyed_observation.name,DHIYED Observation
 gear.cp_dhiyed_observation.effect,
