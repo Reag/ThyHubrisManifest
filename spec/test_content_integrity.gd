@@ -88,3 +88,53 @@ func test_erinyes_flavor_is_written():
 		return
 
 	assert_true(true, 'The Erinyes has flavor text.')
+
+const ERINYES_TRAITS := [&'mt_bind_thy_flesh', &'mt_know_thy_sins', &'mt_tattered_wings']
+const ERINYES_CORE_POWER := &'cp_dhiyed_observation'
+
+func test_erinyes_traits_and_core_power_are_registered():
+	for kit_id:StringName in ERINYES_TRAITS + [ERINYES_CORE_POWER]:
+		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
+
+func test_the_frame_carries_its_traits_in_book_order():
+	# An unwired trait is a resource that loads fine and does nothing, which is the quiet way for
+	# this to go wrong. Order is asserted because it drives display order on the character sheet.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_erinyes')
+	if not is_instance_valid(frame): return fail_test('mf_erinyes loaded.')
+	var wired:Array[StringName] = []
+	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
+	assert_eq(wired, ERINYES_TRAITS + [ERINYES_CORE_POWER], 'Three traits, then the core power.')
+
+func test_erinyes_traits_are_flagged_as_traits():
+	# is_trait drives Kit.is_destructable() and which half of the character sheet a kit shows in.
+	# A frame trait that misses the flag is a destructible system sitting in the gear list.
+	for kit_id:StringName in ERINYES_TRAITS + [ERINYES_CORE_POWER]:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
+		assert_false(kit.is_destructable(), 'And so is not destructible.')
+
+func test_the_core_power_reads_as_a_core_power():
+	# Kit.is_core_power() is nothing but a cp_ prefix check, so this is really a filename test.
+	var kit:Kit = ContentLibrary.get_kit(ERINYES_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % ERINYES_CORE_POWER)
+	assert_true(kit.is_core_power(), '%s is a core power.' % ERINYES_CORE_POWER)
+
+func test_erinyes_gear_names_are_localized():
+	for kit_id:StringName in ERINYES_TRAITS + [ERINYES_CORE_POWER]:
+		var key := 'gear.%s.name' % kit_id
+		assert_ne(tr(key), key, '%s resolves to real text.' % key)
+
+func test_erinyes_gear_effects_are_written():
+	# Stubs: the rows exist but are blank until the effect text is filled in. Pending, not failing -
+	# same treatment as the Draugr traits above.
+	var unwritten:PackedStringArray = []
+	for kit_id:StringName in ERINYES_TRAITS + [ERINYES_CORE_POWER]:
+		var key := 'gear.%s.effect' % kit_id
+		if tr(key) == key: unwritten.append(key)
+
+	if not unwritten.is_empty():
+		pending('Effect text not written yet: %s' % ', '.join(unwritten))
+		return
+
+	assert_true(true, 'Every Erinyes trait and the core power has effect text.')

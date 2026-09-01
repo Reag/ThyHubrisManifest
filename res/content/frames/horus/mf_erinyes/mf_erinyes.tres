@@ -7,6 +7,10 @@
 [ext_resource type="Resource" uid="uid://dvhgasnfwqbym" path="res://content/mounts/mount_main.tres" id="4_mount_main"]
 [ext_resource type="Resource" uid="uid://bsktp4ushq6g1" path="res://content/mounts/mount_flex.tres" id="5_mount_flex"]
 [ext_resource type="Texture2D" uid="uid://b16uotq4bbt8b" path="res://assets/dev/horus_minotaur_perfect_form.png" id="6_sprite_wip"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/mt_bind_thy_flesh.tres" id="7_mt_bind_thy_flesh"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_know_thy_sins/mt_know_thy_sins.tres" id="8_mt_know_thy_sins"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_tattered_wings/mt_tattered_wings.tres" id="9_mt_tattered_wings"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/cp_dhiyed_observation/cp_dhiyed_observation.tres" id="10_cp_dhiyed_observation"]
 
 [sub_resource type="Resource" id="Resource_erinyes_stat"]
 script = ExtResource("2_statblock")
@@ -31,6 +35,7 @@ metadata/_custom_type_script = "uid://bxpc46igtsmvw"
 [resource]
 script = ExtResource("1_frame")
 sprites = Array[Texture2D]([ExtResource("6_sprite_wip")])
+traits = Array[ExtResource("4_7tgj3")]([ExtResource("7_mt_bind_thy_flesh"), ExtResource("8_mt_know_thy_sins"), ExtResource("9_mt_tattered_wings"), ExtResource("10_cp_dhiyed_observation")])
 mount_types = Array[ExtResource("3_mount_type")]([ExtResource("5_mount_flex"), ExtResource("4_mount_main")])
 stat = SubResource("Resource_erinyes_stat")
 role_primary = 3

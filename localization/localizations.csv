@@ -22,3 +22,15 @@ gear.mt_seeping_rot.trigger,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,
 frame.mf_erinyes.flavor.short,
+,
+gear.mt_bind_thy_flesh.name,Bind Thy Flesh
+gear.mt_bind_thy_flesh.effect,
+gear.mt_bind_thy_flesh.trigger,
+gear.mt_know_thy_sins.name,Know Thy Sins
+gear.mt_know_thy_sins.effect,
+gear.mt_know_thy_sins.trigger,
+gear.mt_tattered_wings.name,Tattered Wings
+gear.mt_tattered_wings.effect,
+gear.mt_tattered_wings.trigger,
+gear.cp_dhiyed_observation.name,DHIYED Observation
+gear.cp_dhiyed_observation.effect,
