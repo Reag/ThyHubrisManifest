@@ -33,6 +33,12 @@ func test_every_variant_grants_exactly_its_base_licenses_gear():
 		var base:UnlockTree = ContentLibrary.get_license_tree(VARIANTS[variant_id][&'clones'])
 		if not _both_loaded(variant, variant_id, base, VARIANTS[variant_id][&'clones']): continue
 
+		# Guard against a vacuous pass: if BOTH licenses somehow came back empty, comparing them
+		# would be [] == [] and this test would go green on two broken files.
+		var base_gear_count:int = 0
+		for rank:int in [1, 2, 3]: base_gear_count += _gear_ids(base.get_rank(rank)).size()
+		assert_gt(base_gear_count, 0, '%s actually grants gear to compare against.' % base.compcon_id)
+
 		for rank:int in [1, 2, 3]:
 			assert_eq(_gear_ids(variant.get_rank(rank)), _gear_ids(base.get_rank(rank)),
 				'%s rank %d grants the same gear as %s.' % [variant_id, rank, base.compcon_id])
