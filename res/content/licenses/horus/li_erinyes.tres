@@ -3,25 +3,35 @@
 [ext_resource type="Script" uid="uid://dq0jowvw37x6i" path="res://engine/character/unit_core/unlock_tree.gd" id="1_unlock_tree"]
 [ext_resource type="Script" uid="uid://ctb1pfqlfgmni" path="res://engine/character/unit_core/unlock_rank.gd" id="2_unlock_rank"]
 [ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="3_frame"]
-[ext_resource type="Texture2D" uid="uid://h17gn7ncv4p7" path="res://assets/media/horus.png" id="4_horus_icon"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mf_erinyes.tres" id="5_mf_erinyes"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="4_kit"]
+[ext_resource type="Texture2D" uid="uid://h17gn7ncv4p7" path="res://assets/media/horus.png" id="5_horus_icon"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mf_erinyes.tres" id="6_mf_erinyes"]
+[ext_resource type="Resource" uid="uid://dtlepsnrqgbvb" path="res://content/gear/ssc/weapons/mw_veil_rifle/mw_veil_rifle.tres" id="7_mw_veil_rifle"]
+[ext_resource type="Resource" uid="uid://t3orj20iavm3" path="res://content/gear/ssc/systems/ms_neurospike/ms_neurospike.tres" id="8_ms_neurospike"]
+[ext_resource type="Resource" uid="uid://becfgy82dd4lw" path="res://content/gear/ssc/weapons/mw_burst_launcher.tres" id="9_mw_burst_launcher"]
+[ext_resource type="Resource" uid="uid://wwre857lgvti" path="res://content/gear/ssc/systems/ms_flicker_field_projector/ms_flicker_field_projector.tres" id="10_ms_flicker_field_projector"]
+[ext_resource type="Resource" uid="uid://dw7j6qq8yxuuk" path="res://content/gear/ssc/systems/ms_stuncrown/ms_stuncrown.tres" id="11_ms_stuncrown"]
+[ext_resource type="Resource" uid="uid://7rbj65byixns" path="res://content/gear/ssc/systems/ms_oasis_wall/ms_oasis_wall.tres" id="12_ms_oasis_wall"]
 
 [sub_resource type="Resource" id="Resource_erinyes_rank_1"]
 script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("7_mw_veil_rifle"), ExtResource("8_ms_neurospike")])
 metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
 
 [sub_resource type="Resource" id="Resource_erinyes_rank_2"]
 script = ExtResource("2_unlock_rank")
-granted_frames = Array[ExtResource("3_frame")]([ExtResource("5_mf_erinyes")])
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("9_mw_burst_launcher"), ExtResource("10_ms_flicker_field_projector")])
+granted_frames = Array[ExtResource("3_frame")]([ExtResource("6_mf_erinyes")])
 metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
 
 [sub_resource type="Resource" id="Resource_erinyes_rank_3"]
 script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("11_ms_stuncrown"), ExtResource("12_ms_oasis_wall")])
 metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
 
 [resource]
 script = ExtResource("1_unlock_tree")
-icon = ExtResource("4_horus_icon")
+icon = ExtResource("5_horus_icon")
 rank_1 = SubResource("Resource_erinyes_rank_1")
 rank_2 = SubResource("Resource_erinyes_rank_2")
 rank_3 = SubResource("Resource_erinyes_rank_3")
