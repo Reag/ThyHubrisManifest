@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="UnlockTree" format=3]
+
+[ext_resource type="Script" uid="uid://dq0jowvw37x6i" path="res://engine/character/unit_core/unlock_tree.gd" id="1_unlock_tree"]
+[ext_resource type="Script" uid="uid://ctb1pfqlfgmni" path="res://engine/character/unit_core/unlock_rank.gd" id="2_unlock_rank"]
+[ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="3_frame"]
+[ext_resource type="Texture2D" uid="uid://h17gn7ncv4p7" path="res://assets/media/horus.png" id="4_horus_icon"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mf_erinyes.tres" id="5_mf_erinyes"]
+
+[sub_resource type="Resource" id="Resource_erinyes_rank_1"]
+script = ExtResource("2_unlock_rank")
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[sub_resource type="Resource" id="Resource_erinyes_rank_2"]
+script = ExtResource("2_unlock_rank")
+granted_frames = Array[ExtResource("3_frame")]([ExtResource("5_mf_erinyes")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[sub_resource type="Resource" id="Resource_erinyes_rank_3"]
+script = ExtResource("2_unlock_rank")
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[resource]
+script = ExtResource("1_unlock_tree")
+icon = ExtResource("4_horus_icon")
+rank_1 = SubResource("Resource_erinyes_rank_1")
+rank_2 = SubResource("Resource_erinyes_rank_2")
+rank_3 = SubResource("Resource_erinyes_rank_3")
+metadata/_custom_type_script = "uid://dq0jowvw37x6i"

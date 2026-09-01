@@ -18,3 +18,7 @@ gear.mt_raging_plague.trigger,
 gear.mt_seeping_rot.name,
 gear.mt_seeping_rot.effect,
 gear.mt_seeping_rot.trigger,
+,
+frame.mf_erinyes.name,Erinyes
+frame.mf_erinyes.flavor,
+frame.mf_erinyes.flavor.short,

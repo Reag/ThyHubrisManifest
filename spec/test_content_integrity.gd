@@ -54,3 +54,37 @@ func test_draugr_traits_are_localized():
 		return
 
 	assert_true(true, 'Every Draugr trait has a localized name.')
+
+func test_erinyes_frame_is_registered():
+	# Stub frame: statblock and mounts are placeholders, traits array is still empty. This asserts
+	# the wiring only - that it lands in the frames index with its declared squad roles intact.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_erinyes')
+	assert_true(is_instance_valid(frame), 'mf_erinyes is in the frames index.')
+	if not is_instance_valid(frame): return
+	assert_eq(frame.role_primary, Lancer.SQUAD_ROLE.CONTROLLER, 'Erinyes is a Controller first.')
+	assert_eq(frame.role_secondary, Lancer.SQUAD_ROLE.STRIKER, 'Erinyes is a Striker second.')
+
+func test_erinyes_license_grants_the_frame_at_rank_2():
+	# A frame nobody can unlock is invisible in game, so the license link is the thing worth guarding.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_erinyes')
+	assert_true(is_instance_valid(license), 'li_erinyes is in the licenses index.')
+	if not is_instance_valid(license): return
+	var primary:Frame = license.get_primary_frame()
+	assert_true(is_instance_valid(primary), 'Rank 2 grants a frame.')
+	if is_instance_valid(primary): assert_eq(primary.compcon_id, &'mf_erinyes', 'That frame is the Erinyes.')
+
+func test_erinyes_name_is_localized():
+	assert_ne(tr('frame.mf_erinyes.name'), 'frame.mf_erinyes.name', 'The Erinyes has a real name.')
+
+func test_erinyes_flavor_is_written():
+	# Same treatment as the Draugr traits: the CSV rows exist but are blank while the frame is a
+	# stub. Pending, not failing - see test_draugr_traits_are_localized.
+	var unwritten:PackedStringArray = []
+	for key:String in ['frame.mf_erinyes.flavor', 'frame.mf_erinyes.flavor.short']:
+		if tr(key) == key: unwritten.append(key)
+
+	if not unwritten.is_empty():
+		pending('Erinyes flavor not written yet: %s' % ', '.join(unwritten))
+		return
+
+	assert_true(true, 'The Erinyes has flavor text.')
