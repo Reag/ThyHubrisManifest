@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_my_domain/buff_my_domain_tether.gd" id="1_buff_script"]
+[ext_resource type="PackedScene" path="res://unpacked/Reag-ThyHubris/res/content/fx_endless/character/fxe_my_domain_tether.tscn" id="2_fxe_tether"]
+
+[resource]
+script = ExtResource("1_buff_script")
+fxe = ExtResource("2_fxe_tether")
+hide_from_player = true

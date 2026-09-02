@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="Frame" format=3]
+[gd_resource type="Resource" script_class="Frame" format=3 uid="uid://b6mxbxxsmq8a6"]
 
 [ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="1_frame"]
 [ext_resource type="Script" uid="uid://bxpc46igtsmvw" path="res://engine/character/unit/statblock.gd" id="2_statblock"]
@@ -17,14 +17,14 @@ script = ExtResource("2_statblock")
 size = 2
 structure = 4
 stress = 4
-health = 12
+health = 10
 armor = 1
 evasion = 6
 edef = 8
-speed = 3
-heat = 8
+speed = 4
+heat = 7
 save_target = 10
-sensor_range = 10
+sensor_range = 8
 repairs = 4
 systems_points = 8
 reactions = 1

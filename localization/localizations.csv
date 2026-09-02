@@ -64,18 +64,24 @@ frame.mf_kraken.name,Kraken
 frame.mf_kraken.flavor,
 frame.mf_kraken.flavor.short,
 gear.mt_undulating_form.name,Undulating Form
-gear.mt_undulating_form.effect,
+gear.mt_undulating_form.effect,"The Kraken can move through gaps of |size 1| or larger, and may end its movement as long as at least one space it occupies is free."
 gear.mt_undulating_form.trigger,
 gear.mt_my_domain.name,My Domain
-gear.mt_my_domain.effect,
+gear.mt_my_domain.effect,"The Kraken can |Grapple| characters at least partially within any |Bursts| centered on itself. Characters grappled this way count as though they are |adjacent| and within |Range 1| of the Kraken."
 gear.mt_my_domain.trigger,
+gear.mt_my_domain.prompt,"Drag {count} character(s) into your domain?"
 gear.mt_irrepressible.name,Irrepressible
-gear.mt_irrepressible.effect,
+gear.mt_irrepressible.effect,"If an effect would prevent the Kraken from taking a |reaction| (like |grapple|), it may take |1 HEAT| to use a reaction anyway."
 gear.mt_irrepressible.trigger,
 gear.cp_the_endless_black_sea.name,The Endless Black Sea
 gear.cp_the_endless_black_sea.effect,
 gear.cp_the_endless_black_sea.flavor,
 gear.cp_the_endless_black_sea.action_drag_to_the_depths.name,Drag To The Depths
-gear.cp_the_endless_black_sea.action_drag_to_the_depths.effect,
+gear.cp_the_endless_black_sea.action_drag_to_the_depths.effect,"While |IMMOBILIZED|, you may expend your base movement to:
+• |Grapple|.
+• Pull a character within |SENSORS| 2 spaces towards you (|HULL| save resists)
+• Move a character you are grappling 3 spaces in any direction."
 gear.cp_the_endless_black_sea.action_the_all_consuming_tide.name,The All-Consuming Tide
-gear.cp_the_endless_black_sea.action_the_all_consuming_tide.effect,
+gear.cp_the_endless_black_sea.action_the_all_consuming_tide.effect,"For the rest of the |scene|, the Kraken counts as both tangible and |INTANGIBLE|, and characters you have |GRAPPLED| are |INTANGIBLE| during their turn.
+Characters of your choice are pulled 1 space toward you at the beginning of their turn. Hostile characters within your |SENSORS| treat movement away from you as |difficult terrain|.
+If a character collides with you, you may expend your |OVERWATCH| to attempt to |Grapple| the character as a |reaction|."
