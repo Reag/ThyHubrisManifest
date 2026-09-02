@@ -176,7 +176,10 @@ func test_the_core_power_carries_both_of_its_abilities():
 	if not Kit.is_valid(kit): return fail_test('%s loaded.' % ERINYES_CORE_POWER)
 	var action_ids:Array[StringName] = []
 	for action:Action in kit.actions: action_ids.append(action.get_id())
-	assert_eq(action_ids, CORE_POWER_ACTIONS as Array[StringName], 'Face Thy Judgement, then Punishment.')
+	for ability_id:StringName in CORE_POWER_ACTIONS:
+		assert_true(action_ids.has(ability_id), '%s is on the core power.' % ability_id)
+	# The kit also carries the Efficient refund, which is bookkeeping rather than an ability.
+	assert_true(action_ids.has(&'action_dhiyed_observation_efficient'), 'And the Efficient refund.')
 
 func test_face_thy_judgement_is_a_reaction_that_costs_the_reaction():
 	# consumes_rxn is what limits it to 1/round: ActionReaction.get_per_round_hard_limit returns 1

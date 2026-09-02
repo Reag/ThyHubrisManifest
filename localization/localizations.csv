@@ -20,8 +20,22 @@ gear.mt_seeping_rot.effect,
 gear.mt_seeping_rot.trigger,
 ,
 frame.mf_erinyes.name,Erinyes
-frame.mf_erinyes.flavor,
-frame.mf_erinyes.flavor.short,
+frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)
+LOCATION: Himalaya-Annapurna, Agni-Cabalia1
+DATE: 08-5015u
+CLASS: MAG-8, Anthropogenic, Paracausal
+
+Following a disaster on the core world of Cabalia, a joint USB-DOJ/HR investigation report was provided to members of CentComm. It compiled CAM reports, local responder accounts, disaster relief reports. A second report was filed later, linking the events to the rumored Erinyes frame.
+
+ADDENDUM, ERINYES
+The Erinyes Pattern group's first appearance correlates with the disaster at Cabalia 3, the research facility run by SSC's Foreign Bodies Department at the event's center. The facility was responsible for pushing the boundaries of SSC's FCA-compliant machine learning programs. Though the specific research and methods were highly confidential, current information suggests the facility focused on neural links, Intelligence Bridging, and pilot-insight systems. The facility was also a well-known matriculation center for admittance to the Constellar Worlds. Individuals with notable experience and genetics would be brought to Cabalia 3 to assist in research before being redistributed to a fitting Constellar world. Cabalia 3 was the last point of contact before individuals disappeared into SSC's self-managed bureaucracy.
+
+In 5015u, Cabalia 3 was subject to a paracausal event that resulted in the death or disappearance of all present personnel. Constellar Security were the first responders on sight, followed by CAM-LTs and USB investigators. Evidence discovered on site failed to reveal the event's cause, implying a paracausal source, though USB reports indicate a frustration with Constellar Security's handling of materials during the investigation. Field teams discovered that the facility and recoverable bodies bore heavy laceration and burn marks, with one report describing sections of reinforced concrete as having “melted like wax.” Surviving computer systems surrounding the facility contained unidentified files, which have since been linked to the Erinyes.
+
+The Erinyes Pattern group started appearing in SSC-associated conflicts shortly after the events of Cabalia 3. The machine's small size, maneuverability, and painful weaponry have given it a reputation among Constellar forces and their detractors as a predator of predators. The unique pattern of lacerated burn marks left on flesh and metal make its work easy to identify, and appears to cause paranoia among those who believe themselves targeted.
+
+SSC maintains an open bounty on the destruction or retrieval of any Erinyes models."
+frame.mf_erinyes.flavor.short,"Vengeful Vigilant"
 ,
 gear.mt_bind_thy_flesh.name,Bind Thy Flesh
 gear.mt_bind_thy_flesh.effect,"When the Erinyes creates an area pattern (such as a |LINE| or |BURST|), and a character is hit by or fails a save against the effect, the Erinyes may create a Chain on an object within the area. The targeted character cannot move away from the chain. This effect lasts until the target makes a |HULL| check as a quick action, or the object is moved or destroyed"
@@ -34,9 +48,12 @@ gear.mt_tattered_wings.effect,"As a protocol, the Erinyes may take |1 HEAT| to h
 gear.mt_tattered_wings.trigger,
 gear.cp_dhiyed_observation.name,DHIYED Observation
 gear.cp_dhiyed_observation.effect,
+gear.cp_dhiyed_observation.flavor,"[i]It knows me. It knows where I am and what I've done, what I will do. I will be judged. And I will fail.[/i]"
 ,
 gear.cp_dhiyed_observation.action_face_thy_judgement.name,Face Thy Judgement
-gear.cp_dhiyed_observation.action_face_thy_judgement.effect,
-gear.cp_dhiyed_observation.action_face_thy_judgement.trigger,
+gear.cp_dhiyed_observation.action_face_thy_judgement.effect,"When the effect of a tech action would naturally end on a chained character within |SENSORS|, you may extend its duration to the end of the target's next turn instead. This cannot be used to extend the duration of |STUNNED|. An effect cannot be extended more than once."
+gear.cp_dhiyed_observation.action_face_thy_judgement.trigger,Effects of a Tech Action end on a chained character in |sensors|
 gear.cp_dhiyed_observation.action_punishment.name,Punishment
-gear.cp_dhiyed_observation.action_punishment.effect,
+gear.cp_dhiyed_observation.action_punishment.effect,"You may spend your core (no action required) for one of the following effects:
+• Before rolling an attack, spend your core to cause the attack to automatically critically hit. This does not allow you to roll damage twice.
+• Before forcing a target to make a save, spend your core to force the target to fail the save."
