@@ -19,14 +19,22 @@ const LEASH_KEY := 'leash' ## how far from it this character may remain
 ## exact rather than off by one. UnitRelation.distance_between uses a different convention; do not
 ## mix the two.
 static func measure(anchor:Unit, chained:Unit) -> int:
-	var closest_pair := Tile.get_closest_pair_between(anchor.occupied_tiles(), chained.occupied_tiles())
+	return measure_from_tiles(anchor.occupied_tiles(), chained)
+
+static func measure_from_tiles(anchor_tiles:Array[Vector2i], chained:Unit) -> int:
+	var closest_pair := Tile.get_closest_pair_between(anchor_tiles, chained.occupied_tiles())
 	return Tile.distance(closest_pair.from, closest_pair.to)
 
 ## Called when the chain is made, to record what this particular character is tethered to and how far
 ## away it was at that moment.
 func bind(core:BuffCore, anchor:Unit, chained:Unit) -> void:
-	core.set_state(ANCHOR_KEY, String(anchor.core.persistent_id))
-	core.set_state(LEASH_KEY, measure(anchor, chained))
+	bind_to_tile(core, anchor.core.persistent_id, anchor.tile(), chained)
+
+## As bind, for when the anchor is spawning from a queued event and so is not on the map yet: its
+## UnitCore already has the persistent id, and the tile it is about to occupy is enough to measure.
+func bind_to_tile(core:BuffCore, anchor_id:StringName, anchor_tile:Vector2i, chained:Unit) -> void:
+	core.set_state(ANCHOR_KEY, String(anchor_id))
+	core.set_state(LEASH_KEY, measure_from_tiles([anchor_tile] as Array[Vector2i], chained))
 
 func get_anchor(core:BuffCore, map:MapState) -> Unit:
 	return map.get_unit_by_id(StringName(core.get_state(ANCHOR_KEY, '')))
