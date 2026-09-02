@@ -1,0 +1,15 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_reposition.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+action_type = 3
+consumes_cp = false
+usage_group = &"action_drag_reposition"
+emit_text_popcorn_on_use = true
+target_range_is_sensors = true
+requires_target_character = true
+can_target_enemies = true
+can_target_allies = true
+can_target_self = false

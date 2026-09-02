@@ -227,7 +227,10 @@ func test_the_core_power_abilities_are_written():
 const KRAKEN_TRAITS := [&'mt_undulating_form', &'mt_my_domain', &'mt_irrepressible']
 const KRAKEN_SHARED_TRAIT := &'mt_guardian'
 const KRAKEN_CORE_POWER := &'cp_the_endless_black_sea'
-const KRAKEN_CORE_POWER_MODES := [&'action_drag_to_the_depths', &'action_the_all_consuming_tide']
+## Drag To The Depths is three separate FREE actions rather than one with a sub-menu: they target
+## completely differently, and VariantActionGroup only modifies a single action. See the design doc.
+const KRAKEN_DRAG_MODES := [&'action_drag_grapple', &'action_drag_pull', &'action_drag_reposition']
+const KRAKEN_CORE_POWER_MODES := KRAKEN_DRAG_MODES + [&'action_the_all_consuming_tide']
 
 func test_kraken_frame_is_registered():
 	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_kraken')
@@ -262,22 +265,23 @@ func test_the_kraken_core_power_reads_as_a_core_power():
 	if not Kit.is_valid(kit): return fail_test('%s loaded.' % KRAKEN_CORE_POWER)
 	assert_true(kit.is_core_power(), '%s is a core power.' % KRAKEN_CORE_POWER)
 
-func test_the_kraken_core_power_has_two_distinct_modes():
-	# The whole point of the core power's shape: Drag To The Depths is a FREE action that costs
-	# nothing, The All-Consuming Tide is a QUICK action that spends the core. Getting consumes_cp
-	# backwards would leave a frame whose core power either never depletes or depletes on every
-	# free use, and neither shows up as an error - just as a mech that plays wrong.
+func test_the_kraken_core_power_has_four_distinct_modes():
+	# The whole point of the core power's shape: the three Drag To The Depths options are FREE
+	# actions that cost no core power, The All-Consuming Tide is a QUICK action that spends it.
+	# Getting consumes_cp backwards would leave a frame whose core power either never depletes or
+	# depletes on every free use, and neither shows up as an error - just as a mech that plays wrong.
 	var kit:Kit = ContentLibrary.get_kit(KRAKEN_CORE_POWER)
 	if not Kit.is_valid(kit): return fail_test('%s loaded.' % KRAKEN_CORE_POWER)
 
 	var by_id := {}
 	for action:Action in kit.actions: by_id[action.get_id()] = action
-	assert_eq(by_id.keys(), KRAKEN_CORE_POWER_MODES, 'It carries exactly its two modes.')
+	assert_eq(by_id.keys(), KRAKEN_CORE_POWER_MODES, 'It carries exactly its four modes.')
 
-	var free_mode:Action = by_id.get(&'action_drag_to_the_depths')
-	if Action.is_valid(free_mode):
-		assert_eq(free_mode.get_action_type(null), Lancer.ACTION.FREE, 'Drag To The Depths is free.')
-		assert_false(bool(free_mode.consumes_core_power()), 'And does not spend the core.')
+	for mode_id:StringName in KRAKEN_DRAG_MODES:
+		var free_mode:Action = by_id.get(mode_id)
+		if not Action.is_valid(free_mode): continue
+		assert_eq(free_mode.get_action_type(null), Lancer.ACTION.FREE, '%s is free.' % mode_id)
+		assert_false(bool(free_mode.consumes_core_power()), 'And %s does not spend the core.' % mode_id)
 
 	var core_mode:Action = by_id.get(&'action_the_all_consuming_tide')
 	if Action.is_valid(core_mode):

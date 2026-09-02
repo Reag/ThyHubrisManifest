@@ -76,11 +76,12 @@ gear.mt_irrepressible.trigger,"An effect would prevent the Kraken from taking a 
 gear.cp_the_endless_black_sea.name,The Endless Black Sea
 gear.cp_the_endless_black_sea.effect,
 gear.cp_the_endless_black_sea.flavor,
-gear.cp_the_endless_black_sea.action_drag_to_the_depths.name,Drag To The Depths
-gear.cp_the_endless_black_sea.action_drag_to_the_depths.effect,"While |IMMOBILIZED|, you may expend your base movement to:
-• |Grapple|.
-• Pull a character within |SENSORS| 2 spaces towards you (|HULL| save resists)
-• Move a character you are grappling 3 spaces in any direction."
+gear.cp_the_endless_black_sea.action_drag_grapple.name,Drag To The Depths: Grapple
+gear.cp_the_endless_black_sea.action_drag_grapple.effect,"While |IMMOBILIZED|, expend your base movement to |Grapple|."
+gear.cp_the_endless_black_sea.action_drag_pull.name,Drag To The Depths: Pull
+gear.cp_the_endless_black_sea.action_drag_pull.effect,"While |IMMOBILIZED|, expend your base movement to pull a character within |SENSORS| 2 spaces towards you. A |HULL| save resists."
+gear.cp_the_endless_black_sea.action_drag_reposition.name,Drag To The Depths: Reposition
+gear.cp_the_endless_black_sea.action_drag_reposition.effect,"While |IMMOBILIZED|, expend your base movement to move a character you are grappling 3 spaces in any direction."
 gear.cp_the_endless_black_sea.action_the_all_consuming_tide.name,The All-Consuming Tide
 gear.cp_the_endless_black_sea.action_the_all_consuming_tide.effect,"For the rest of the |scene|, the Kraken counts as both tangible and |INTANGIBLE|, and characters you have |GRAPPLED| are |INTANGIBLE| during their turn.
 Characters of your choice are pulled 1 space toward you at the beginning of their turn. Hostile characters within your |SENSORS| treat movement away from you as |difficult terrain|.

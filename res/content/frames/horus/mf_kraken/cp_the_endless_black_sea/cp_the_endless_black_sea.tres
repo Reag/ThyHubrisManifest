@@ -2,11 +2,13 @@
 
 [ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_action"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_to_the_depths.tres" id="3_drag_to_the_depths"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_the_all_consuming_tide.tres" id="4_the_all_consuming_tide"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_grapple.tres" id="3_drag_grapple"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_pull.tres" id="4_drag_pull"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_reposition.tres" id="5_drag_reposition"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_the_all_consuming_tide.tres" id="6_the_all_consuming_tide"]
 
 [resource]
 script = ExtResource("2_kit")
-actions = Array[ExtResource("1_action")]([ExtResource("3_drag_to_the_depths"), ExtResource("4_the_all_consuming_tide")])
+actions = Array[ExtResource("1_action")]([ExtResource("3_drag_grapple"), ExtResource("4_drag_pull"), ExtResource("5_drag_reposition"), ExtResource("6_the_all_consuming_tide")])
 is_trait = true
 metadata/_custom_type_script = "uid://ckrv6mvs5q65e"
