@@ -99,3 +99,65 @@ func test_the_cost_closes_the_gate_behind_it():
 	}))
 	for action_id:StringName in DRAG_MODES:
 		assert_false(_available(action_id), '%s is spent for the turn.' % action_id)
+
+# ============================== Grapple ==============================
+# Routed through the unit's own action_grapple via CommonActionUtil.choose_and_use rather than
+# reimplemented, so it is a genuine contested roll. choose_and_use auto-picks when there is exactly
+# one option and a player is driving, and it adds Action.FLAG.AS_FREEBIE, which is what makes the
+# grapple itself cost no action.
+
+const GRAPPLE_KIT := &'mw_grapple'
+const GRAPPLE_ACTION := &'action_grapple'
+
+func test_grapple_points_at_the_units_own_grapple():
+	var action := _action(&'action_drag_grapple')
+	if not Action.is_valid(action): return fail_test('action_drag_grapple is on the kit.')
+
+	var grapple:SpecificAction = action.grapple_for(kraken)
+	assert_true(SpecificAction.is_valid(grapple), 'It found a grapple to route to.')
+	if not SpecificAction.is_valid(grapple): return
+	assert_eq(grapple.action.get_id(), GRAPPLE_ACTION, 'And it is the real basic Grapple.')
+	assert_eq(grapple.unit, kraken, 'Made by the Kraken itself.')
+
+func test_grapple_takes_no_target_of_its_own():
+	# The grapple it routes to does the targeting. Asking for a target here would make the player
+	# pick twice, and the first pick would be meaningless.
+	var action := _action(&'action_drag_grapple')
+	if not Action.is_valid(action): return fail_test('action_drag_grapple is on the kit.')
+	var reqs:TargetRequirements = action.get_target_requirements(
+		SpecificAction.create(kraken, gear, action))
+	assert_eq(reqs.count, 0, 'It targets nothing directly.')
+
+func test_grapple_actually_grabs_and_pays_the_movement():
+	# CHEAT_ROLL_QUEUE fixes the contested roll high so the grapple lands; the point of the test is
+	# that a real roll happened at all and that the movement was the only thing spent.
+	_pin()
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+
+	var actions_before := kraken.state.actions
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_grapple')
+
+	var held:Array[StringName] = []
+	for grapple:SpecificAction in UnitCondition.get_outgoing_grapples(kraken):
+		held.append(grapple.unit.core.persistent_id)
+	assert_true(held.has(prey.core.persistent_id), 'The Kraken grabbed it.')
+	assert_eq(kraken.core.current.speed, 0, 'And paid with its base movement.')
+	assert_eq(kraken.state.actions, actions_before, 'The grapple itself was free.')
+
+func test_grapple_does_not_offer_a_character_it_already_holds():
+	# Free, from routing rather than reimplementing: action_grapple.can_target_unit strips anyone in
+	# the katamari. Worth pinning anyway - it is the kind of thing a future rewrite would lose, and
+	# re-grabbing a prisoner would be a no-op that still burned the Kraken's whole movement.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var action := _action(&'action_drag_grapple')
+	if not Action.is_valid(action): return fail_test('action_drag_grapple is on the kit.')
+
+	var grapple:SpecificAction = action.grapple_for(kraken)
+	if not SpecificAction.is_valid(grapple): return fail_test('It found a grapple to route to.')
+	assert_true(grapple.action.can_target_unit(prey, grapple), 'A loose character is a target.')
+
+	var domain := kraken.core.equip_system(&'mt_my_domain')
+	Katamari.attach_units(SpecFactory.dummy_event(), kraken, prey, domain.persistent_id)
+	assert_false(grapple.action.can_target_unit(prey, grapple),
+		'One it is already holding is not.')
