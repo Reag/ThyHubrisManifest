@@ -102,3 +102,38 @@ func _leash_of(unit:Unit) -> int:
 	for buff:BuffCore in unit.state.buffs:
 		if buff.base.compcon_id == BUFF_ID: return buff.get_state('leash', -1)
 	return -1
+
+# ============================ the chain visual ============================
+# Feedback matters here: without a drawn chain there is nothing on screen saying the trait fired,
+# and the anchor is the thing the enemy has to shoot to break it.
+
+func _chain_lines_from(anchor:Unit) -> Array:
+	var gear:GearCore = anchor.core.loadout.get_by_compcon_id(&'mt_chain_erinyes')
+	if not GearCore.is_valid(gear): return []
+	var passive:Passive = gear.kit.passives.front() if not gear.kit.passives.is_empty() else null
+	if passive == null: return []
+	return passive.get_attached_fx(gear, anchor)
+
+func test_the_anchor_draws_one_chain_per_bound_character():
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	var anchors := _anchors()
+	if anchors.is_empty(): return fail_test('An anchor was created.')
+	assert_eq(_chain_lines_from(anchors[0]).size(), 2, 'One chain drawn to each of the two bound characters.')
+
+func test_the_anchor_draws_nothing_before_anyone_is_bound():
+	# Guards against the passive drawing to every unit on the map rather than to its own chains.
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	var anchors := _anchors()
+	if anchors.is_empty(): return fail_test('An anchor was created.')
+
+	for unit:Unit in game.map.get_all_units():
+		UnitCondition.clear_buff_id(SpecFactory.dummy_event(), unit, BUFF_ID)
+	assert_eq(_chain_lines_from(anchors[0]).size(), 0, 'No chains once nobody is bound.')
+
+func test_the_anchor_is_visible():
+	# It starts as an object the player has to be able to see and shoot; a blank sprite would make
+	# the whole effect invisible.
+	var frame:Frame = ContentLibrary.get_mech_frame(ANCHOR_FRAME_ID)
+	if not Frame.is_valid(frame): return fail_test('%s loaded.' % ANCHOR_FRAME_ID)
+	assert_false(frame.sprites.is_empty(), 'The anchor has a sprite.')
+	assert_ne(frame.get_default_sprite(), Frame.SPRITE_DEPLOYABLE_DEFAULT, 'And it is not the missing-frame placeholder.')
