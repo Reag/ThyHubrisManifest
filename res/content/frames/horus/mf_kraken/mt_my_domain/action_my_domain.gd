@@ -57,8 +57,11 @@ func characters_caught(unit:Unit, gear:GearCore, triggering:Context) -> Array[Un
 	var tiles := burst_tiles(triggering)
 	if tiles.is_empty(): return caught
 
+	# unit.map rather than triggering.map: a unit_action context is a virtual event and carries no
+	# guarantee of the map property, and reading a missing one would fail the whole trigger silently.
+	if not is_instance_valid(unit.map): return caught
 	var already_held := currently_held(unit)
-	for other_unit:Unit in triggering.map.get_all_units():
+	for other_unit:Unit in unit.map.get_all_units():
 		if not Unit.is_valid(other_unit) or not other_unit.is_actor(): continue
 		if other_unit == unit: continue
 		if Faction.is_ally(unit.state.faction, other_unit.state.faction): continue
