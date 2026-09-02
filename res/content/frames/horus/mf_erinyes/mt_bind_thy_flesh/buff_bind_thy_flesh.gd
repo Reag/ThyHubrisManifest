@@ -36,6 +36,22 @@ func bind_to_tile(core:BuffCore, anchor_id:StringName, anchor_tile:Vector2i, cha
 	core.set_state(ANCHOR_KEY, String(anchor_id))
 	core.set_state(LEASH_KEY, measure_from_tiles([anchor_tile] as Array[Vector2i], chained))
 
+## The chain itself, drawn from the character it binds to the anchor holding it.
+##
+## Deliberately drawn from the CHARACTER end. The anchor holds every chain it made, and the engine's
+## attached-fx map keys by (local tile, fx id) - unit_token.update_attached_fx feeds every ticket to
+## one controller per token - so two identical lines on one token collapse into a single instance. A
+## shackle holding two prisoners drew one chain, which read in play as only one of them being
+## tethered. Each chained character holds exactly one chain buff, so from this end there is nothing
+## to collide with.
+func get_attached_fx(core:BuffCore, unit:Unit) -> Array[FxEndless.Ticket]:
+	var fxe_id := get_fxe_id()
+	if fxe_id == &'': return []
+	if not is_instance_valid(unit.map): return []
+	var anchor := get_anchor(core, unit.map)
+	if not Unit.is_valid(anchor): return []
+	return [FxEndless.Ticket.create(fxe_id, Vector2i.ZERO, {unit = unit, target_unit = anchor})]
+
 func get_anchor(core:BuffCore, map:MapState) -> Unit:
 	return map.get_unit_by_id(StringName(core.get_state(ANCHOR_KEY, '')))
 

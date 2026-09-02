@@ -22,6 +22,10 @@ const CHAIN_BUFF_ID := &'buff_bind_thy_flesh'
 const SAVE_EVENT := &'event_unit_save'
 const ACTIVATION_EVENT := &'event_gear_activate'
 
+## Written by action_bind_thy_flesh_watch, which shares this gear.
+const WATCH_AIM_TILE_KEY := 'bind_aim_tile'
+const WATCH_AIM_ROUND_KEY := 'bind_aim_round'
+
 ## The last chain we made, and the last "no" we were given. Both are keyed by round and place,
 ## because a save event cannot identify the activation it came from.
 const LAST_ANCHOR_KEY := 'bind_last_anchor'
@@ -140,6 +144,24 @@ func characters_to_chain(triggering:Context) -> Array[Unit]:
 		chaining.append(hit_unit)
 	return chaining
 
+## The tiles the effect actually covered.
+##
+## A save event has no tiles of its own, but action_bind_thy_flesh_watch recorded where this effect
+## was aimed at UNIT_ACTION/PRE, and the save event does carry the action - so the true pattern can be
+## rebuilt from the two. Before this, the save path could only offer a circle around whoever failed,
+## which is why the placement area did not line up with the blast the player had just thrown.
+##
+## Falls back to that circle if no aim was recorded, which beats offering nothing.
+func pattern_tiles_for_save(context:Context, triggering:Context, saving_unit:Unit, radius:int) -> Array[Vector2i]:
+	var gear:GearCore = context.gear
+	if gear.get_state(WATCH_AIM_ROUND_KEY, -1) == context.map.game_core.round_count:
+		var aimed_at := gear.get_state_tile(WATCH_AIM_TILE_KEY)
+		if aimed_at != Tile.INVALID:
+			var pattern := UnitTile.get_aoe_tiles_from_specific(
+				SpecificAction.from_context(triggering), [aimed_at] as Array[Vector2i])
+			if not pattern.is_empty(): return pattern
+	return UnitTile.get_tiles_within(saving_unit, radius, true)
+
 ## The anchor goes at the middle of the pattern, since every character caught chains to the same
 ## point. Snapped to a tile the pattern actually covered rather than a bare average, which for a
 ## CONE or LINE can land outside it.
@@ -179,9 +201,7 @@ func activate(context:Context, activation:EventCore) -> void:
 		var radius := area_radius(triggering)
 		reused_anchor_id = recent_anchor_id(context.gear, context, saving_unit, radius)
 		fallback_tile = saving_unit.tile()
-		# A save event carries no tiles, so the exact pattern is not available to offer. The blast
-		# radius around the character that failed is the closest honest approximation of it.
-		candidate_tiles = UnitTile.get_tiles_within(saving_unit, radius, true)
+		candidate_tiles = pattern_tiles_for_save(context, triggering, saving_unit, radius)
 	else:
 		var summary:DeclaredAttackSummary = triggering.resource
 		chaining = characters_to_chain(triggering)

@@ -2,8 +2,11 @@
 
 [ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/buff_bind_thy_flesh.gd" id="1_buff_script"]
 
+[ext_resource type="PackedScene" uid="uid://dqgmi2hi0runp" path="res://content/fx_endless/character/fxe_outgoing_grapple.tscn" id="2_fxe_chain"]
+
 [resource]
 script = ExtResource("1_buff_script")
 to = &"movement_restriction"
+fxe = ExtResource("2_fxe_chain")
 log_on_application = true
 metadata/_custom_type_script = "uid://cqrqkdgcf8mti"

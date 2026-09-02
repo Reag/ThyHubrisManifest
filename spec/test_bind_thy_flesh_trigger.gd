@@ -107,28 +107,33 @@ func _leash_of(unit:Unit) -> int:
 # Feedback matters here: without a drawn chain there is nothing on screen saying the trait fired,
 # and the anchor is the thing the enemy has to shoot to break it.
 
-func _chain_lines_from(anchor:Unit) -> Array:
-	var gear:GearCore = anchor.core.loadout.get_by_compcon_id(&'mt_chain_erinyes')
-	if not GearCore.is_valid(gear): return []
-	var passive:Passive = gear.kit.passives.front() if not gear.kit.passives.is_empty() else null
-	if passive == null: return []
-	return passive.get_attached_fx(gear, anchor)
+## The chain fx a character's own buff asks for.
+func _chain_lines_on(unit:Unit) -> Array:
+	for buff:BuffCore in unit.state.buffs:
+		if buff.base.compcon_id != BUFF_ID: continue
+		return buff.base.get_attached_fx(buff, unit)
+	return []
 
-func test_the_anchor_draws_one_chain_per_bound_character():
+func test_every_chained_character_draws_its_own_chain():
+	# Drawn from the CHARACTER, not the anchor. The engine's attached-fx map keys by (local tile, fx
+	# id), so two identical lines on the anchor's token collapsed into one - a shackle holding two
+	# prisoners drew a single chain, which read in play as only one of them being tethered.
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	assert_eq(_chain_count(), 2, 'Two characters chained.')
+	assert_eq(_chain_lines_on(enemy_near).size(), 1, 'The first draws its chain.')
+	assert_eq(_chain_lines_on(enemy_far).size(), 1, 'And so does the second.')
+
+func test_each_chain_is_drawn_to_the_anchor():
 	await _fire(BLAST_WEAPON, enemy_near.tile())
 	var anchors := _anchors()
 	if anchors.is_empty(): return fail_test('An anchor was created.')
-	assert_eq(_chain_lines_from(anchors[0]).size(), 2, 'One chain drawn to each of the two bound characters.')
+	for ticket in _chain_lines_on(enemy_near):
+		assert_eq(ticket.context.target_unit, anchors[0], 'The chain points at the shackle.')
 
-func test_the_anchor_draws_nothing_before_anyone_is_bound():
-	# Guards against the passive drawing to every unit on the map rather than to its own chains.
+func test_an_unchained_character_draws_no_chain():
 	await _fire(BLAST_WEAPON, enemy_near.tile())
-	var anchors := _anchors()
-	if anchors.is_empty(): return fail_test('An anchor was created.')
-
-	for unit:Unit in game.map.get_all_units():
-		UnitCondition.clear_buff_id(SpecFactory.dummy_event(), unit, BUFF_ID)
-	assert_eq(_chain_lines_from(anchors[0]).size(), 0, 'No chains once nobody is bound.')
+	var bystander := _tough_enemy(Vector2i(0, 4))
+	assert_eq(_chain_lines_on(bystander).size(), 0, 'Nothing drawn on someone who is not chained.')
 
 func test_the_anchor_is_visible():
 	# It starts as an object the player has to be able to see and shoot; a blank sprite would make
@@ -241,3 +246,33 @@ func test_a_chained_character_is_offered_only_its_own_anchors_escape():
 	var offered:Array = UnitAction.get_situational_actions(enemy_near).filter(
 		func(specific:SpecificAction) -> bool: return specific.gear.kit.compcon_id == &'mt_chain_erinyes')
 	assert_eq(offered.size(), 1, 'Only the anchor it is actually chained to offers a way out.')
+
+func test_the_aim_of_an_area_effect_is_recorded_for_the_save_path():
+	# A save event carries no tiles, so before this the save path could only offer a circle around
+	# whoever failed - which is why the placement area did not line up with the blast thrown.
+	# action_bind_thy_flesh_watch records the aim at UNIT_ACTION/PRE, and the save event does carry
+	# the action, so pattern_tiles_for_save rebuilds the true pattern from the two.
+	#
+	# This asserts the recording, which is the part that was missing. The offered area itself is not
+	# reachable from a spec - the responder simply takes the first tile it is handed - so the shape
+	# of the choice is confirmed by a pass in the running game.
+	var aim := Vector2i(3, 3)
+	await _throw_grenade(aim)
+
+	var gear:GearCore = erinyes.get_gear(TRAIT_ID)
+	assert_true(GearCore.is_valid(gear), 'The trait gear is on the Erinyes.')
+	if not GearCore.is_valid(gear): return
+	assert_eq(gear.get_state_tile('bind_aim_tile'), aim, 'The aim was recorded where the grenade went.')
+
+func test_the_recorded_aim_rebuilds_the_real_pattern():
+	# The rebuild itself: the tiles the watch's aim produces are the blast, and they are NOT simply
+	# the circle around the character that failed - those two sets differ once the aim is offset.
+	var aim := Vector2i(3, 3)
+	await _throw_grenade(aim)
+
+	var gear:GearCore = erinyes.get_gear(GRENADE_KIT)
+	var specific := SpecificAction.create(erinyes, gear, gear.kit.get_action(GRENADE_ACTION))
+	var blast := UnitTile.get_aoe_tiles_from_specific(specific, [aim] as Array[Vector2i])
+	var circle := UnitTile.get_tiles_within(enemy_near, 1, true)
+	assert_false(blast.is_empty(), 'The blast covers tiles.')
+	assert_ne(blast, circle, 'And it is a different set from the old circle-around-the-victim.')
