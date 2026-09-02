@@ -84,31 +84,44 @@ func activate(context:Context, activation:EventCore) -> void:
 	var caught := characters_caught(kraken, context.gear, triggering)
 	if activation.abort_when(caught.is_empty()): return
 
-	if not await confirm(context, kraken, caught):
-		activation.abort()
-		return
-
+	# Asked one at a time, not once for the burst. Every extra character in the katamari raises the
+	# size it has to beat to stay held (Katamari.recalculate_largest_unit), so grabbing everyone
+	# available can be strictly worse than grabbing one - that is a per-target judgement and has to
+	# be a per-target question.
 	var tether:Buff = ContentLibrary.get_buff(TETHER_BUFF_ID)
+	var taken:Array[Unit] = []
 	for target:Unit in caught:
+		if not await confirm(context, kraken, target): continue
 		grapple(activation, context, kraken, target)
 		if is_instance_valid(tether):
 			var buff_core := UnitCondition.apply_buff(activation, target, tether, context.gear)
 			tether.bind(buff_core, kraken)
+		taken.append(target)
+
+	# Declining every one of them is declining the trait; nothing has been changed at this point.
+	if activation.abort_when(taken.is_empty()): return
 
 	kraken.update_attached_fx()
-	for target:Unit in caught: target.update_attached_fx()
+	for target:Unit in taken: target.update_attached_fx()
 
-## "can Grapple" is a may, so it is offered rather than applied. One prompt for the whole burst
-## instead of one per character: the burst already chose who is caught, and a per-character walk
-## would be several clicks for a free action.
-func confirm(context:Context, kraken:Unit, caught:Array[Unit]) -> bool:
+## "can Grapple" is a may, offered per character.
+##
+## The camera goes to whoever is being asked about first. With several characters caught, a prompt
+## naming one of them is not much use if the player cannot see which one it means - and the answer
+## depends on where that character is standing.
+func confirm(context:Context, kraken:Unit, target:Unit) -> bool:
 	if not kraken.is_player_controlled(): return true # the AI always takes it
+
+	# No zoom reset and no rotation: this runs once per character, and re-framing the board between
+	# each question would be worse than not moving at all.
+	camera_bus.focus_on_unit(target, false, false)
+
 	# String.format rather than %, so an unwritten localization row degrades to the raw key instead
 	# of erroring on a format specifier that is not there.
 	return await choice_bus.quick_yesno(
-		kraken.tile(),
+		target.tile(),
 		tr('gear.mt_my_domain.name'),
-		tr('gear.mt_my_domain.prompt').format({count = caught.size()}),
+		tr('gear.mt_my_domain.prompt').format({name = target.core.get_pilot_or_mech_name()}),
 	)
 
 ## The grapple itself, matching what onhit_grapple.gd does for the basic Grapple weapon - the

@@ -109,18 +109,48 @@ func test_a_blast_does_not_trigger_it():
 
 # ============================== the "may" ==============================
 
-func test_the_player_is_asked_once_for_the_whole_burst():
-	# One decision per burst rather than one per character - two characters are caught here, so a
-	# per-character walk would show two prompts.
+func test_the_player_is_asked_once_per_character():
+	# One question per character, not one for the burst. Every extra character in the katamari
+	# raises the size the grapple has to beat to hold, so taking everyone on offer can be worse than
+	# taking one - which makes it a per-target decision.
 	await _use_burst()
-	assert_eq(_my_domain_prompts().size(), 1, 'Asked exactly once.')
+	assert_eq(_my_domain_prompts().size(), 2, 'Both caught characters were asked about separately.')
 
-func test_declining_grapples_nobody():
-	# "can Grapple" is a may. Backing out has to leave the board untouched.
-	responder.yesno_queue = [false]
+func test_each_prompt_names_the_character_it_is_about():
+	# A per-character prompt that does not say who is useless, and the camera move that goes with it
+	# is only meaningful if the text agrees with what is on screen.
 	await _use_burst()
-	assert_eq(_held().size(), 0, 'Saying no grappled nobody.')
+	var names:Array[String] = []
+	for prompt:Dictionary in _my_domain_prompts(): names.append(str(prompt.get('desc', '')))
+	assert_eq(names.size(), 2, 'Two prompts to check.')
+	if names.size() < 2: return
+
+	assert_ne(names[0], names[1], 'The two prompts do not say the same thing.')
+	for name:String in names:
+		assert_true(
+			name.contains(near_enemy.core.get_pilot_or_mech_name()) or
+			name.contains(other_near_enemy.core.get_pilot_or_mech_name()),
+			'Each prompt names one of the characters caught: %s' % name)
+
+func test_declining_everyone_grapples_nobody():
+	# "can Grapple" is a may. Backing out of every one has to leave the board untouched.
+	responder.yesno_queue = [false, false]
+	await _use_burst()
+	assert_eq(_held().size(), 0, 'Saying no to both grappled nobody.')
 	assert_false(UnitCondition.has_buff(near_enemy, TETHER_BUFF_ID), 'And tethered nobody.')
+
+func test_it_can_take_one_and_leave_the_other():
+	# The whole point of the change: grabbing fewer characters is sometimes the better play, so a
+	# partial yes has to be possible rather than all-or-nothing.
+	responder.yesno_queue = [true, false]
+	await _use_burst()
+	assert_eq(_held().size(), 1, 'Exactly one of the two was taken.')
+
+	# And the one taken is the one that was tethered - not both, and not the other.
+	var tethered:int = 0
+	for enemy:Unit in [near_enemy, other_near_enemy]:
+		if UnitCondition.has_buff(enemy, TETHER_BUFF_ID): tethered += 1
+	assert_eq(tethered, 1, 'And exactly one tether was drawn.')
 
 # ============================== who gets caught ==============================
 
