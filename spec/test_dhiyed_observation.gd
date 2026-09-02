@@ -217,6 +217,69 @@ func test_an_effect_cannot_be_extended_twice():
 	SpecFactory.end_turn(game, victim)
 	assert_false(victim.has_status(&'impaired'), 'And not a second time.')
 
+# --- end to end, the way it actually happens in play ---
+# The cases above hand the status straight to the victim. These fire a REAL tech attack from a real
+# piece of gear, because both bugs found from play reports lived in the gap between the two.
+
+const TECH_ATTACK_ALLY_KIT := &'ms_fragment_signal'
+
+func _ally_with(kit_id:StringName, tile:Vector2i) -> Unit:
+	var ally := SpecFactory.create_unit(game.map, tile)
+	ally.core.equip_system(kit_id)
+	return ally
+
+func _land_tech_attack(ally:Unit, victim:Unit) -> void:
+	await SpecFactory.start_turn(game, ally)
+	Dice.CHEAT_ROLL_QUEUE.append_array([20, 20, 20, 20])
+	await SpecFactory.use_solo(game, ally, TECH_ATTACK_ALLY_KIT, [victim])
+	await SpecFactory.end_turn(game, ally)
+
+func _take_a_turn(unit:Unit) -> void:
+	await SpecFactory.start_turn(game, unit)
+	await SpecFactory.end_turn(game, unit)
+
+func test_a_real_tech_attack_from_an_ally_is_extended():
+	# The ability says "the effect of a tech action" without caring whose, and in play the tech
+	# usually comes from a teammate. Fragment Signal is an ActionAttackTech, the shape that used to
+	# read as non-tech.
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	var ally := _ally_with(TECH_ATTACK_ALLY_KIT, Vector2i(1, 0))
+	var victim := await _chained_victim(Vector2i(2, 2))
+
+	await _land_tech_attack(ally, victim)
+	assert_true(victim.has_status(&'impaired'), 'The tech attack landed.')
+	await _take_a_turn(victim)
+	assert_true(victim.has_status(&'impaired'), 'And the Erinyes extended it.')
+
+## A round boundary: the counter moves and the Erinyes takes its turn, which is what resets its
+## 1/round reaction allowance. event_round_new also handles music, banners and combat-end checks,
+## so the spec moves only the value the ability actually reads.
+func _next_round() -> void:
+	game.map.game_core.round_count += 1
+	await _take_a_turn(erinyes)
+
+func test_a_later_application_of_the_same_status_is_extendable_again():
+	# "An effect cannot be extended more than once" is about one EFFECT. A status carries nothing to
+	# tell one application from the next, so the record is keyed by status TYPE - and if that record
+	# outlives the effect, the character can never have that status extended again all scene.
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	var ally := _ally_with(TECH_ATTACK_ALLY_KIT, Vector2i(1, 0))
+	var victim := await _chained_victim(Vector2i(2, 2))
+
+	await _next_round()
+	await _land_tech_attack(ally, victim)
+	await _take_a_turn(victim)
+	assert_true(victim.has_status(&'impaired'), 'Extended in the first round.')
+
+	await _next_round()
+	await _take_a_turn(victim)
+	assert_false(victim.has_status(&'impaired'), 'And expired at the end of the next turn, once.')
+
+	await _next_round()
+	await _land_tech_attack(ally, victim)
+	await _take_a_turn(victim)
+	assert_true(victim.has_status(&'impaired'), 'A fresh effect is extendable, type notwithstanding.')
+
 # --- and the same for buffs, which is most of what tech gear actually applies ---
 
 const TECH_BUFF := &'buff_bolster'

@@ -25,7 +25,8 @@ extends ActionReaction
 
 const CHAIN_BUFF_ID := &'buff_bind_thy_flesh'
 const ANCHOR_KEY := 'anchor'
-## Effects we already extended, as "<unit id>|status|<type>" or "<unit id>|buff|<instance id>".
+## Effects we already extended, as "<key>@<round>" where key is "<unit id>|status|<type>" or
+## "<unit id>|buff|<instance id>". See keys_already_extended for why the round rides along.
 const EXTENDED_KEY := 'ftj_extended'
 
 func get_required_triggering_context() -> Array[Context.PROP]:
@@ -67,7 +68,7 @@ func effect_name(effect) -> String:
 ## chained ally is extendable by the same reading.
 func extendable_effects(erinyes:Unit, gear:GearCore, ending_unit:Unit) -> Array:
 	var extendable:Array = []
-	var already_extended := gear.get_state_string_array(EXTENDED_KEY)
+	var already_extended := keys_already_extended(erinyes, gear)
 
 	for status:StatusCondition in ending_unit.state.statuses:
 		if status.until != Lancer.UNTIL.END_OF_THIS_TURN: continue # not expiring now
@@ -84,6 +85,59 @@ func extendable_effects(erinyes:Unit, gear:GearCore, ending_unit:Unit) -> Array:
 		extendable.append(buff)
 
 	return extendable
+
+## "An effect cannot be extended more than once" means one EFFECT - not one status type forever.
+##
+## A StatusCondition carries nothing that tells one application apart from the next, so a status key
+## can only be "<unit>|status|<type>" and a LATER, unrelated application of that status collides with
+## it. Left alone, an Erinyes that extended Impaired on a target in round 1 could never extend
+## Impaired on that target again for the rest of the scene, and the ability just stopped offering.
+## Reported from play.
+##
+## Records therefore carry the round they were made in, and a record is dropped once it cannot
+## possibly still describe a live effect. An extension buys exactly one more turn, so the effect is
+## gone by the end of the character's next turn - one round later at the outside. A record older than
+## that is stale by construction, whatever is on the unit now.
+##
+## Both halves are needed. The round bound alone would keep blocking a re-application inside the same
+## round; the "is it still there" test alone never fires, because it is only ever reached for a
+## chained unit in sensors and by then the NEW status of the same type is already on the unit, which
+## reads as the old one still being alive. That is the bug this replaced.
+##
+## Known gap, and small enough to accept: a status cleared early and re-applied to the same character
+## within one round of an extension still reads as the same effect, and is not offered.
+func keys_already_extended(erinyes:Unit, gear:GearCore) -> Array[String]:
+	var this_round := current_round(erinyes)
+	var kept_records:Array[String] = []
+	var kept_keys:Array[String] = []
+	for record:String in gear.get_state_string_array(EXTENDED_KEY):
+		var split := record.rsplit('@', true, 1)
+		if split.size() != 2: continue # malformed; drop it
+		if this_round - int(split[1]) > 1: continue # cannot still be the same effect
+		if not is_effect_still_present(erinyes, split[0]): continue
+		kept_records.append(record)
+		kept_keys.append(split[0])
+	gear.set_state(EXTENDED_KEY, kept_records)
+	return kept_keys
+
+func current_round(erinyes:Unit) -> int:
+	if not is_instance_valid(erinyes.map): return 0
+	if not GamemasterCore.is_valid(erinyes.map.game_core): return 0
+	return erinyes.map.game_core.round_count
+
+func is_effect_still_present(erinyes:Unit, key:String) -> bool:
+	var parts := key.split('|')
+	if parts.size() != 3: return false
+	if not is_instance_valid(erinyes.map): return false
+	var unit := erinyes.map.get_unit_by_id(StringName(parts[0]))
+	if not Unit.is_valid(unit): return false
+	if parts[1] == 'status':
+		for status:StatusCondition in unit.state.statuses:
+			if String(status.type) == parts[2]: return true
+		return false
+	for buff:BuffCore in unit.state.buffs:
+		if String(buff.persistent_id) == parts[2]: return true
+	return false
 
 ## Mirrors end_turn_for_statuses: a buff's duration is the shared resource's `until` combined with
 ## the per-instance turn_count, not a value of its own.
@@ -133,7 +187,7 @@ func activate(context:Context, activation:EventCore) -> void:
 	spend_actions(activation)
 
 	extend(chosen)
-	gear.append_to_array_state(EXTENDED_KEY, extension_key(ending_unit, chosen))
+	gear.append_to_array_state(EXTENDED_KEY, '%s@%d' % [extension_key(ending_unit, chosen), current_round(erinyes)])
 
 ## The ability extends "the effect", singular, and is a 1/round reaction - so when several tech
 ## effects expire at once the player picks which one. Cancelling is how "you may" is declined.
