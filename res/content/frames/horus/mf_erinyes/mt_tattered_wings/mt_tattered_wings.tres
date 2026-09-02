@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="Kit" format=3]
+[gd_resource type="Resource" script_class="Kit" format=3 uid="uid://dk4kv7owelmyn"]
 
 [ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_action"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_tattered_wings/action_tattered_wings.tres" id="3_action_tattered_wings"]
+[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="3_cb3j7"]
 
 [resource]
 script = ExtResource("2_kit")

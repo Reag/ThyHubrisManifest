@@ -7,9 +7,9 @@
 [ext_resource type="Resource" uid="uid://dj0bl2ve85q5o" path="res://content/mounts/mount_heavy.tres" id="3_sqb7h"]
 [ext_resource type="Script" uid="uid://bxpc46igtsmvw" path="res://engine/character/unit/statblock.gd" id="5_ecy8h"]
 [ext_resource type="Texture2D" uid="uid://bxps6dah7yyu7" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_draugr/horus_draugr_temp.png" id="6_a4rnf"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_spreading_stain/mt_spreading_stain.tres" id="7_mt_spreading_stain"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_raging_plague/mt_raging_plague.tres" id="8_mt_raging_plague"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_seeping_rot/mt_seeping_rot.tres" id="9_mt_seeping_rot"]
+[ext_resource type="Resource" uid="uid://dqmg1ek75nxek" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_spreading_stain/mt_spreading_stain.tres" id="7_mt_spreading_stain"]
+[ext_resource type="Resource" uid="uid://dlamei1p86ehr" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_raging_plague/mt_raging_plague.tres" id="8_mt_raging_plague"]
+[ext_resource type="Resource" uid="uid://klllui7f44t1" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_seeping_rot/mt_seeping_rot.tres" id="9_mt_seeping_rot"]
 
 [sub_resource type="Resource" id="Resource_6dwpb"]
 script = ExtResource("5_ecy8h")
