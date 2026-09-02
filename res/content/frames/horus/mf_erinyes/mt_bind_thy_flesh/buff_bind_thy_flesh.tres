@@ -1,12 +1,13 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" format=3 uid="uid://3f87v0yu0rtu"]
 
-[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/buff_bind_thy_flesh.gd" id="1_buff_script"]
-
+[ext_resource type="Script" uid="uid://b1443okioifvd" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/buff_bind_thy_flesh.gd" id="1_buff_script"]
 [ext_resource type="PackedScene" uid="uid://dqgmi2hi0runp" path="res://content/fx_endless/character/fxe_outgoing_grapple.tscn" id="2_fxe_chain"]
+[ext_resource type="Texture2D" uid="uid://0gn5m5wn4fpm" path="res://assets/icons/actions/systems/ms_cable_winch_system/action_cable_winch_system.svg" id="2_gd7eb"]
 
 [resource]
 script = ExtResource("1_buff_script")
 to = &"movement_restriction"
+icon = ExtResource("2_gd7eb")
 fxe = ExtResource("2_fxe_chain")
 log_on_application = true
 metadata/_custom_type_script = "uid://cqrqkdgcf8mti"
