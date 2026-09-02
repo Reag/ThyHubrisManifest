@@ -107,13 +107,18 @@ func extend(effect) -> void:
 ## A status or buff records the persistent id of the GEAR behind it, not the action, so this is a
 ## gear-level approximation: a piece of gear carrying both a tech action and a non-tech one would
 ## read as tech either way. Rare enough to accept, and noted rather than hidden.
+##
+## Delegates to UnitAction.is_tech rather than testing the actions here, because "a tech action" has
+## TWO shapes in the engine and hand-rolling the check caught only one. A tech ATTACK is an
+## ActionAttackTech, which descends from ActionAttack, not from ActionSystem - so an
+## `action is ActionSystem and action.is_tech` test reads Fragment Signal, the commonest tech in the
+## game, as non-tech. Reported from play: a chained enemy hit with Fragment Signal ended its turn and
+## the reaction was never offered.
 func came_from_a_tech_action(erinyes:Unit, source_id:StringName) -> bool:
 	if source_id.is_empty(): return false
 	var source_gear:GearCore = erinyes.map.get_gear_by_id(source_id)
 	if not GearCore.is_valid(source_gear): return false
-	for action:Action in source_gear.kit.actions:
-		if action is ActionSystem and action.is_tech: return true
-	return false
+	return UnitAction.is_tech(source_gear)
 
 func activate(context:Context, activation:EventCore) -> void:
 	var erinyes:Unit = context.unit

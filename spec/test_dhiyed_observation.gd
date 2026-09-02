@@ -133,7 +133,8 @@ func test_it_does_not_sabotage_our_own_save():
 # Statuses are applied here with a source of ms_lock_on's gear, a real tech action, so that
 # "the effect of a tech action" is satisfied honestly rather than by a test-only shortcut.
 
-const TECH_KIT := &'ms_lock_on'
+const TECH_KIT := &'ms_lock_on' ## tech as an ActionSystem with is_tech
+const TECH_ATTACK_KIT := &'ms_fragment_signal' ## tech as an ActionAttackTech
 
 func _chained_victim(tile:Vector2i) -> Unit:
 	var victim := SpecFactory.create_unit(game.map, tile, Faction.AI_ENEMY)
@@ -148,8 +149,8 @@ func _chained_victim(tile:Vector2i) -> Unit:
 	return victim
 
 ## Apply a status that expires at the end of this turn, sourced from a real tech action's gear.
-func _expiring_tech_status(victim:Unit, status:StringName) -> void:
-	var tech_gear:GearCore = erinyes.get_gear(TECH_KIT)
+func _expiring_tech_status(victim:Unit, status:StringName, from_kit := TECH_KIT) -> void:
+	var tech_gear:GearCore = erinyes.get_gear(from_kit)
 	SpecFactory.apply(victim, status, Lancer.UNTIL.END_OF_THIS_TURN, tech_gear.persistent_id)
 
 func _until_of(unit:Unit, status:StringName) -> int:
@@ -166,6 +167,20 @@ func test_an_expiring_tech_effect_is_extended_to_the_next_turn():
 	SpecFactory.start_turn(game, victim)
 	SpecFactory.end_turn(game, victim)
 	assert_true(victim.has_status(&'impaired'), 'It survived the end of the turn.')
+
+func test_an_effect_from_a_tech_attack_is_extended():
+	# A tech ATTACK is an ActionAttackTech, which descends from ActionAttack - not from ActionSystem.
+	# So a source check written against ActionSystem alone reads the commonest tech in the game as
+	# non-tech. Reported from play: a chained enemy hit with Fragment Signal ended its turn and the
+	# reaction was never offered. The engine's own UnitAction.is_tech covers both shapes.
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(TECH_ATTACK_KIT)
+	var victim := await _chained_victim(Vector2i(2, 2))
+	_expiring_tech_status(victim, &'impaired', TECH_ATTACK_KIT)
+
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_true(victim.has_status(&'impaired'), 'A tech attack is a tech action.')
 
 func test_stunned_is_never_extended():
 	erinyes.core.equip_system(&'mt_bind_thy_flesh')

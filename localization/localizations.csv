@@ -40,6 +40,7 @@ frame.mf_erinyes.flavor.short,"Vengeful Vigilant"
 gear.mt_bind_thy_flesh.name,Bind Thy Flesh
 gear.mt_bind_thy_flesh.effect,"When the Erinyes creates an area pattern (such as a |LINE| or |BURST|), and a character is hit by or fails a save against the effect, the Erinyes may create a Chain on an object within the area. The targeted character cannot move away from the chain. This effect lasts until the target makes a |HULL| check as a quick action, or the object is moved or destroyed"
 gear.mt_bind_thy_flesh.trigger,
+frame.dep_chain_erinyes.name,Bound Anchor
 gear.mt_know_thy_sins.name,Know Thy Sins
 gear.mt_know_thy_sins.effect,"When a chained character starts their turn, they take |1 BURN| for each condition and status they have."
 gear.mt_know_thy_sins.trigger,
