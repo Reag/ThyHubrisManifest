@@ -34,3 +34,9 @@ gear.mt_tattered_wings.effect,"As a protocol, the Erinyes may take |1 HEAT| to h
 gear.mt_tattered_wings.trigger,
 gear.cp_dhiyed_observation.name,DHIYED Observation
 gear.cp_dhiyed_observation.effect,
+,
+gear.cp_dhiyed_observation.action_face_thy_judgement.name,Face Thy Judgement
+gear.cp_dhiyed_observation.action_face_thy_judgement.effect,
+gear.cp_dhiyed_observation.action_face_thy_judgement.trigger,
+gear.cp_dhiyed_observation.action_punishment.name,Punishment
+gear.cp_dhiyed_observation.action_punishment.effect,

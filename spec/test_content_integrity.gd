@@ -156,3 +156,57 @@ func test_draugr_traits_are_flagged_as_traits():
 		if not Kit.is_valid(kit): continue
 		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
 		assert_false(kit.is_destructable(), 'And so is not destructible.')
+
+# ==================== DHIYED Observation ====================
+# The core power is two sub-abilities on one kit, the way the Denali's Auto-Logistic CompCon carries
+# Force Multiplier and Optimizer. Still stubs: these assert the wiring and the action economy, which
+# is what the effects will be built on top of.
+
+const CORE_POWER_ACTIONS := [&'action_face_thy_judgement', &'action_punishment']
+
+func _core_power_action(action_id:StringName) -> Action:
+	var kit:Kit = ContentLibrary.get_kit(ERINYES_CORE_POWER)
+	if not Kit.is_valid(kit): return null
+	for action:Action in kit.actions:
+		if action.get_id() == action_id: return action
+	return null
+
+func test_the_core_power_carries_both_of_its_abilities():
+	var kit:Kit = ContentLibrary.get_kit(ERINYES_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % ERINYES_CORE_POWER)
+	var action_ids:Array[StringName] = []
+	for action:Action in kit.actions: action_ids.append(action.get_id())
+	assert_eq(action_ids, CORE_POWER_ACTIONS as Array[StringName], 'Face Thy Judgement, then Punishment.')
+
+func test_face_thy_judgement_is_a_reaction_that_costs_the_reaction():
+	# consumes_rxn is what limits it to 1/round: ActionReaction.get_per_round_hard_limit returns 1
+	# only for reactions that actually spend the reaction point.
+	var action := _core_power_action(&'action_face_thy_judgement')
+	if action == null: return fail_test('action_face_thy_judgement loaded.')
+	assert_true(action is ActionReaction, 'It is a reaction.')
+	if action is ActionReaction: assert_true(action.consumes_rxn, 'And it spends the reaction, so it is 1/round.')
+
+func test_punishment_is_a_free_action_that_spends_the_core_power():
+	var action := _core_power_action(&'action_punishment')
+	if action == null: return fail_test('action_punishment loaded.')
+	assert_eq(action.action_type, Lancer.ACTION.FREE, 'A free action.')
+	assert_true(action is ActionSystem, 'On the system archetype, which is what carries consumes_cp.')
+	if action is ActionSystem: assert_true(action.consumes_cp, 'And it spends the core power.')
+
+func test_the_core_power_abilities_are_named():
+	for action_id:StringName in CORE_POWER_ACTIONS:
+		var key := 'gear.%s.%s.name' % [ERINYES_CORE_POWER, action_id]
+		assert_ne(tr(key), key, '%s resolves to real text.' % key)
+
+func test_the_core_power_abilities_are_written():
+	# Stubs: the rows exist and are blank until the effect text is filled in.
+	var unwritten:PackedStringArray = []
+	for action_id:StringName in CORE_POWER_ACTIONS:
+		var key := 'gear.%s.%s.effect' % [ERINYES_CORE_POWER, action_id]
+		if tr(key) == key: unwritten.append(key)
+
+	if not unwritten.is_empty():
+		pending('Core power effect text not written yet: %s' % ', '.join(unwritten))
+		return
+
+	assert_true(true, 'Both core power abilities have effect text.')
