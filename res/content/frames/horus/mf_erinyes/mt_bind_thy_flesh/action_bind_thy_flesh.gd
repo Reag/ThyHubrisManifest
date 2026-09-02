@@ -22,8 +22,11 @@ const CHAIN_BUFF_ID := &'buff_bind_thy_flesh'
 const SAVE_EVENT := &'event_unit_save'
 const ACTIVATION_EVENT := &'event_gear_activate'
 
-## Remembers a "no" so that declining does not re-ask for every other character the blast caught.
-## Keyed by round and place because a save event cannot identify the activation it came from.
+## The last chain we made, and the last "no" we were given. Both are keyed by round and place,
+## because a save event cannot identify the activation it came from.
+const LAST_ANCHOR_KEY := 'bind_last_anchor'
+const LAST_TILE_KEY := 'bind_last_tile'
+const LAST_ROUND_KEY := 'bind_last_round'
 const DECLINED_ROUND_KEY := 'bind_declined_round'
 const DECLINED_TILE_KEY := 'bind_declined_tile'
 
@@ -64,14 +67,31 @@ func triggers_on_failed_save(unit:Unit, gear:GearCore, triggering_event:EventCor
 ## grouped by activation id, and the pattern's tiles are not reachable either. Instead the first
 ## character to fail drops the anchor at its own feet, and everyone else the same effect catches
 ## finds that anchor already standing within the blast radius and binds to it.
-func nearby_anchor_of_ours(context:Context, near_unit:Unit, radius:int) -> Unit:
-	for check_unit:Unit in context.map.get_all_units():
-		if not Frame.is_valid(check_unit.core.frame): continue
-		if check_unit.core.frame.compcon_id != ANCHOR_FRAME_ID: continue
-		if check_unit.get_owner_unit() != context.unit: continue
-		if Tile.distance(check_unit.tile(), near_unit.tile()) > radius: continue
-		return check_unit
-	return null
+## The anchor this same effect made a moment ago, if there is one.
+##
+## Deliberately remembered on the gear rather than searched for on the map: the anchor is spawned
+## through a queued event, so when the second character's save resolves it is not standing yet and
+## no search could find it. Same round plus within the blast radius is as close as a save event lets
+## us get to "the same effect".
+func recent_anchor_id(gear:GearCore, context:Context, near_unit:Unit, radius:int) -> StringName:
+	if gear.get_state(LAST_ROUND_KEY, -1) != context.map.game_core.round_count: return &''
+	var last_tile := gear.get_state_tile(LAST_TILE_KEY)
+	if last_tile == Tile.INVALID: return &''
+	# Twice the radius, not once: both characters sit inside the same pattern, so they can be 2R
+	# apart, and the anchor may have been placed at either edge of it.
+	if Tile.distance(last_tile, near_unit.tile()) > radius * 2: return &''
+
+	var anchor_id := StringName(gear.get_state(LAST_ANCHOR_KEY, ''))
+	if anchor_id.is_empty(): return &''
+	# If it has spawned and has since been destroyed, it is not available to chain to.
+	var anchor := context.map.get_unit_by_id(anchor_id)
+	if anchor != null and not Unit.is_valid(anchor): return &''
+	return anchor_id
+
+func remember_anchor(gear:GearCore, context:Context, anchor_id:StringName, tile:Vector2i) -> void:
+	gear.set_state(LAST_ANCHOR_KEY, String(anchor_id))
+	gear.set_state_tile(LAST_TILE_KEY, tile)
+	gear.set_state(LAST_ROUND_KEY, context.map.game_core.round_count)
 
 ## The blast/burst size of the effect, used to decide which anchor belongs to it.
 func area_radius(triggering:Context) -> int:
@@ -147,34 +167,38 @@ func activate(context:Context, activation:EventCore) -> void:
 	var is_save_path:bool = triggering_event.base.event_type == SAVE_EVENT
 
 	var chaining:Array[Unit] = []
-	var pattern_tiles:Array[Vector2i] = []
-	var anchor_tile := Tile.INVALID
-	var anchor:Unit = null
+	var candidate_tiles:Array[Vector2i] = []
+	var fallback_tile := Tile.INVALID
+	var reused_anchor_id:StringName = &''
 
 	if is_save_path:
 		var saving_unit:Unit = triggering.target_unit
 		chaining = [saving_unit] as Array[Unit]
 		# Everyone one effect catches shares an anchor. With no way to identify the activation, the
 		# anchor already standing within the blast radius IS the one this effect made a moment ago.
-		anchor = nearby_anchor_of_ours(context, saving_unit, area_radius(triggering))
-		anchor_tile = saving_unit.tile()
-		pattern_tiles = [anchor_tile] as Array[Vector2i]
+		var radius := area_radius(triggering)
+		reused_anchor_id = recent_anchor_id(context.gear, context, saving_unit, radius)
+		fallback_tile = saving_unit.tile()
+		# A save event carries no tiles, so the exact pattern is not available to offer. The blast
+		# radius around the character that failed is the closest honest approximation of it.
+		candidate_tiles = UnitTile.get_tiles_within(saving_unit, radius, true)
 	else:
 		var summary:DeclaredAttackSummary = triggering.resource
 		chaining = characters_to_chain(triggering)
-		anchor_tile = anchor_tile_for(summary)
-		pattern_tiles = summary.all_attacked_tiles
+		fallback_tile = anchor_tile_for(summary)
+		candidate_tiles = summary.all_attacked_tiles
 
 	if activation.abort_when(chaining.is_empty()): return
-	if activation.abort_when(anchor_tile == Tile.INVALID): return
 
-	var anchor_id:StringName = anchor.core.persistent_id if Unit.is_valid(anchor) else &''
-	if Unit.is_valid(anchor):
-		anchor_tile = anchor.tile() # bind to where it actually stands
+	var anchor_id := reused_anchor_id
+	var anchor_tile := fallback_tile
+	if not anchor_id.is_empty():
+		# Bind to where the shared anchor is, or is about to be.
+		var standing := context.map.get_unit_by_id(anchor_id)
+		anchor_tile = standing.tile() if Unit.is_valid(standing) else context.gear.get_state_tile(LAST_TILE_KEY)
 	else:
-		# "may" - asked once per effect, not once per character caught.
-		var confirmed:bool = await CommonActionUtil.confirm_use(context, chaining, pattern_tiles)
-		if not confirmed:
+		anchor_tile = await choose_anchor_tile(context, erinyes, candidate_tiles, fallback_tile)
+		if anchor_tile == Tile.INVALID: # cancelled, which is how "may" is declined
 			if is_save_path: remember_decline(context.gear, context, chaining.front())
 			activation.abort()
 			return
@@ -190,6 +214,7 @@ func activate(context:Context, activation:EventCore) -> void:
 			flags = [EventUnitSpawn.FLAG.SKIP_ANIMATION],
 		})
 		anchor_id = anchor_core.persistent_id
+		remember_anchor(context.gear, context, anchor_id, anchor_tile)
 
 	# On the first pass the anchor spawns from a queued event and is not on the map yet - hence
 	# binding by id and a leash measured from the tile it is about to occupy, not from the unit.
@@ -197,3 +222,17 @@ func activate(context:Context, activation:EventCore) -> void:
 	for chained_unit:Unit in chaining:
 		var buff_core := UnitCondition.apply_buff(activation, chained_unit, chain_buff, context.gear)
 		chain_buff.bind_to_tile(buff_core, anchor_id, anchor_tile, chained_unit)
+
+## Where to put the chain. The player picks a spot in the area rather than having it resolved to the
+## middle for them: "a Chain on an object within the area" is a choice, and auto-centring produced
+## odd placements for effects whose pattern we cannot see exactly. Picking is also the "may" - backing
+## out of the choice is how the trait is declined, so there is no separate yes/no prompt.
+##
+## Returns Tile.INVALID if the choice was cancelled.
+func choose_anchor_tile(context:Context, erinyes:Unit, candidate_tiles:Array[Vector2i], fallback_tile:Vector2i) -> Vector2i:
+	if candidate_tiles.is_empty(): return fallback_tile
+	if not erinyes.is_player_controlled(): return fallback_tile # the AI takes the middle
+
+	var plan = await choice_bus.choose_target_tiles(SpecificAction.from_context(context), candidate_tiles)
+	if plan == null or plan.target_tiles.is_empty(): return Tile.INVALID
+	return plan.target_tiles.front()

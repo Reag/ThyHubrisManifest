@@ -218,3 +218,22 @@ func test_everyone_a_grenade_catches_shares_the_one_anchor():
 	await _throw_grenade(enemy_near.tile())
 	if _chain_count() < 2: return pending('The blast only caught one character; nothing to share.')
 	assert_eq(_anchor_id_of(enemy_near), _anchor_id_of(enemy_far), 'Both chained to the same anchor.')
+
+func test_a_chained_character_is_offered_only_its_own_anchors_escape():
+	# Seen in play: a Blackbeard tethered once had three break-free actions, one from every anchor
+	# standing on the map. ActionSystemClearBuff matches the buff by id alone, and its optional
+	# "applied by this gear" filter is no help - our chains are applied by the Erinyes' trait, not
+	# by any anchor - so every anchor offered its escape to every chained character.
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	assert_eq(_anchors().size(), 1, 'The blast made an anchor.')
+
+	# A second anchor from some other effect, spawned directly so the test is about cross-talk
+	# rather than about weapon reload rules.
+	var other_core := UnitCore.create(erinyes.get_faction(), ContentLibrary.get_mech_frame(ANCHOR_FRAME_ID))
+	var other_anchor := Unit.create(other_core)
+	await game.execute_event(&'event_unit_spawn', {unit = other_anchor, target_tiles = [Vector2i(0, 4)]})
+	assert_eq(_anchors().size(), 2, 'Two anchors are standing.')
+
+	var offered:Array = UnitAction.get_situational_actions(enemy_near).filter(
+		func(specific:SpecificAction) -> bool: return specific.gear.kit.compcon_id == &'mt_chain_erinyes')
+	assert_eq(offered.size(), 1, 'Only the anchor it is actually chained to offers a way out.')
