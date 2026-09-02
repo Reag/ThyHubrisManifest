@@ -18,7 +18,6 @@ gear.mt_raging_plague.trigger,
 gear.mt_seeping_rot.name,
 gear.mt_seeping_rot.effect,
 gear.mt_seeping_rot.trigger,
-,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)
 LOCATION: Himalaya-Annapurna, Agni-Cabalia1
@@ -35,12 +34,13 @@ In 5015u, Cabalia 3 was subject to a paracausal event that resulted in the death
 The Erinyes Pattern group started appearing in SSC-associated conflicts shortly after the events of Cabalia 3. The machine's small size, maneuverability, and painful weaponry have given it a reputation among Constellar forces and their detractors as a predator of predators. The unique pattern of lacerated burn marks left on flesh and metal make its work easy to identify, and appears to cause paranoia among those who believe themselves targeted.
 
 SSC maintains an open bounty on the destruction or retrieval of any Erinyes models."
-frame.mf_erinyes.flavor.short,"Vengeful Vigilant"
-,
+frame.mf_erinyes.flavor.short,Vengeful Vigilant
 gear.mt_bind_thy_flesh.name,Bind Thy Flesh
 gear.mt_bind_thy_flesh.effect,"When the Erinyes creates an area pattern (such as a |LINE| or |BURST|), and a character is hit by or fails a save against the effect, the Erinyes may create a Chain on an object within the area. The targeted character cannot move away from the chain. This effect lasts until the target makes a |HULL| check as a quick action, or the object is moved or destroyed"
 gear.mt_bind_thy_flesh.trigger,
 frame.dep_chain_erinyes.name,Bound Anchor
+gear.mt_chain_erinyes.name,Bind Thy Flesh
+gear.mt_chain_erinyes.effect,"The targeted character cannot move away from the chain. This effect lasts until the target makes a |HULL| check as a |quick action|, or the object is moved or destroyed."
 gear.mt_know_thy_sins.name,Know Thy Sins
 gear.mt_know_thy_sins.effect,"When a chained character starts their turn, they take |1 BURN| for each condition and status they have."
 gear.mt_know_thy_sins.trigger,
@@ -50,7 +50,6 @@ gear.mt_tattered_wings.trigger,
 gear.cp_dhiyed_observation.name,DHIYED Observation
 gear.cp_dhiyed_observation.effect,
 gear.cp_dhiyed_observation.flavor,"[i]It knows me. It knows where I am and what I've done, what I will do. I will be judged. And I will fail.[/i]"
-,
 gear.cp_dhiyed_observation.action_face_thy_judgement.name,Face Thy Judgement
 gear.cp_dhiyed_observation.action_face_thy_judgement.effect,"When the effect of a tech action expires at the end of a chained character's turn within |SENSORS|, you may extend its duration to the end of that character's next turn instead. This cannot be used to extend the duration of |STUNNED|. An effect cannot be extended more than once."
 gear.cp_dhiyed_observation.action_face_thy_judgement.trigger,A Tech Action effect expires at the end of a chained character's turn in |sensors|
@@ -58,5 +57,5 @@ gear.cp_dhiyed_observation.action_punishment.name,Punishment
 gear.cp_dhiyed_observation.action_punishment.effect,"You may spend your core (no action required) for one of the following effects:
 • Before rolling an attack, spend your core to cause the attack to automatically critically hit.
 • Before forcing a target to make a save, spend your core to force the target to fail the save."
-gear.cp_dhiyed_observation.action_punishment.prompt.crit,"Spend your core power: this attack automatically critically hits."
-gear.cp_dhiyed_observation.action_punishment.prompt.save,"Spend your core power: the target automatically fails this save."
+gear.cp_dhiyed_observation.action_punishment.prompt.crit,Spend your core power: this attack automatically critically hits.
+gear.cp_dhiyed_observation.action_punishment.prompt.save,Spend your core power: the target automatically fails this save.
