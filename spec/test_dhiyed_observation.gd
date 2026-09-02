@@ -280,6 +280,29 @@ func test_a_later_application_of_the_same_status_is_extendable_again():
 	await _take_a_turn(victim)
 	assert_true(victim.has_status(&'impaired'), 'A fresh effect is extendable, type notwithstanding.')
 
+func test_spending_punishment_does_not_disable_face_thy_judgement():
+	# Both halves of the core power are actions on ONE kit, and a gear's per-round counter is keyed
+	# by usage group, which defaults to the KIT id (gear_core.gd:166-168). So Punishment and Face Thy
+	# Judgement shared one allowance, and since Face Thy Judgement is a 1/round reaction, accepting a
+	# Punishment offer left it unavailable - reason "per_round" - for the rest of the round. In play
+	# that is most rounds, which is why the reaction looked like it never fired at all.
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(BLAST_WEAPON)
+	var ally := _ally_with(TECH_ATTACK_ALLY_KIT, Vector2i(1, 0))
+	var victim := await _chained_victim(Vector2i(2, 2))
+	var bystander := _enemy(Vector2i(4, 4))
+
+	_arm(erinyes, true)
+	await SpecFactory.start_turn(game, erinyes)
+	Dice.CHEAT_ROLL_QUEUE.append_array([2, 2, 2, 2])
+	await SpecFactory.use_solo(game, erinyes, BLAST_WEAPON, [bystander.tile()])
+	assert_false(erinyes.core.has_core_power, 'Punishment was spent this round.')
+	await SpecFactory.end_turn(game, erinyes)
+
+	await _land_tech_attack(ally, victim)
+	await _take_a_turn(victim)
+	assert_true(victim.has_status(&'impaired'), 'Face Thy Judgement still had its reaction.')
+
 # --- and the same for buffs, which is most of what tech gear actually applies ---
 
 const TECH_BUFF := &'buff_bolster'

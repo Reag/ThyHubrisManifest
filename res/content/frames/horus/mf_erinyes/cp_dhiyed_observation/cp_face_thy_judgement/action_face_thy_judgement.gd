@@ -23,6 +23,13 @@
 # differently, so see extendable_effects and extend for how each is handled.
 extends ActionReaction
 
+# The .tres gives this action its OWN usage_group, and it must keep it. A gear's per-turn/per-round
+# counters are keyed by usage group, which defaults to the KIT id (gear_core.gd:166-168) - so without
+# it Punishment, this, and the Efficient refund all share one allowance. This is a 1/round reaction,
+# so spending Punishment left it unavailable ("per_round") for the rest of the round, and a player
+# who uses their core power - which is most rounds - would never see the reaction offered at all.
+# Diagnosed from a play session with X.DEBUG_REACTION armed: every gate passed except availa.
+
 const CHAIN_BUFF_ID := &'buff_bind_thy_flesh'
 const ANCHOR_KEY := 'anchor'
 ## Effects we already extended, as "<key>@<round>" where key is "<unit id>|status|<type>" or

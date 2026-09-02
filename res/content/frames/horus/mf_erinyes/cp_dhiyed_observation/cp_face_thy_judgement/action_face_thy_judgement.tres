@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_action_script")
+usage_group = &"action_face_thy_judgement"
 triggers_on = Array[StringName]([&"end_turn"])
 trigger_timing = 0
 consumes_rxn = true
