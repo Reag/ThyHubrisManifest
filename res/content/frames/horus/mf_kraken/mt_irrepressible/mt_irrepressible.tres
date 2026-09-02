@@ -1,8 +1,26 @@
 [gd_resource type="Resource" script_class="Kit" format=3]
 
-[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="1_kit"]
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_action"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
+[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="3_passive"]
+[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="4_buff"]
+[ext_resource type="Script" uid="uid://dy4kg537rc55e" path="res://engine/character/gear_passive/passive_buff_applicator.gd" id="6_applicator"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_irrepressible/action_irrepressible.tres" id="7_action_irrepressible"]
+
+[sub_resource type="Resource" id="Resource_permit_while_grappled"]
+script = ExtResource("4_buff")
+to = &"action_permitted_while_grappling"
+hide_from_player = true
+metadata/_custom_type_script = "uid://cqrqkdgcf8mti"
+
+[sub_resource type="Resource" id="Resource_irrepressible_permits"]
+script = ExtResource("6_applicator")
+applied_buffs = Array[ExtResource("4_buff")]([SubResource("Resource_permit_while_grappled")])
+metadata/_custom_type_script = "uid://dy4kg537rc55e"
 
 [resource]
-script = ExtResource("1_kit")
+script = ExtResource("2_kit")
+actions = Array[ExtResource("1_action")]([ExtResource("7_action_irrepressible")])
+passives = Array[ExtResource("3_passive")]([SubResource("Resource_irrepressible_permits")])
 is_trait = true
 metadata/_custom_type_script = "uid://ckrv6mvs5q65e"

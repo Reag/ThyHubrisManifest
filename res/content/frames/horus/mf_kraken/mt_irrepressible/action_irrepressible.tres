@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_irrepressible/action_irrepressible.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+usage_group = &"action_irrepressible"
+triggers_on = Array[StringName]([&"unit_action"])
+consumes_rxn = false
+emit_text_popcorn_on_use = true
