@@ -31,8 +31,9 @@ func test_draugr_frame_and_traits_are_registered():
 	for kit_id:StringName in [&'mt_raging_plague', &'mt_seeping_rot', &'mt_spreading_stain']:
 		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
 
-func test_draugr_license_is_registered():
-	assert_true(is_instance_valid(ContentLibrary.get_license_tree(&'li_draugr')), 'li_draugr is in the licenses index.')
+# li_draugr is parked at D:\DEV\lancer-tactics-claude\parked\li_draugr.tres so the Draugr does not
+# ship in the prototype. Its registration test goes back in with the license. The frame and trait
+# tests below stay - those resources are still here, just unreachable without a license.
 
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw

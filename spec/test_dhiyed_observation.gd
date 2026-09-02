@@ -124,3 +124,80 @@ func test_it_does_not_sabotage_our_own_save():
 	await SpecFactory.use(game, thrower, GRENADE_KIT, GRENADE_ACTION, [erinyes.tile()])
 
 	assert_true(erinyes.core.has_core_power, 'We did not spend our core power against ourselves.')
+
+# ========================= Face Thy Judgement =========================
+# Reacts to END_TURN at PRE, where the statuses that are about to expire are still inspectable and
+# carry their own `until`. Extending is a one-line mutation to END_OF_NEXT_TURN, which is exactly how
+# new_turn_for_statuses walks durations back the other way.
+#
+# Statuses are applied here with a source of ms_lock_on's gear, a real tech action, so that
+# "the effect of a tech action" is satisfied honestly rather than by a test-only shortcut.
+
+const TECH_KIT := &'ms_lock_on'
+
+func _chained_victim(tile:Vector2i) -> Unit:
+	var victim := SpecFactory.create_unit(game.map, tile, Faction.AI_ENEMY)
+	var anchor_core := UnitCore.create(erinyes.get_faction(), ContentLibrary.get_mech_frame(&'dep_chain_erinyes'))
+	var anchor := Unit.create(anchor_core)
+	UnitAction.set_deployable_owner(anchor, erinyes, erinyes.get_gear(&'mt_bind_thy_flesh'))
+	await game.execute_event(&'event_unit_spawn', {unit = anchor, target_tiles = [Vector2i(1, 1)]})
+
+	var chain_buff:Buff = ContentLibrary.get_buff(&'buff_bind_thy_flesh')
+	var buff_core := UnitCondition.apply_buff(SpecFactory.dummy_event(), victim, chain_buff, erinyes.get_gear(&'mt_bind_thy_flesh'))
+	chain_buff.bind(buff_core, anchor, victim)
+	return victim
+
+## Apply a status that expires at the end of this turn, sourced from a real tech action's gear.
+func _expiring_tech_status(victim:Unit, status:StringName) -> void:
+	var tech_gear:GearCore = erinyes.get_gear(TECH_KIT)
+	SpecFactory.apply(victim, status, Lancer.UNTIL.END_OF_THIS_TURN, tech_gear.persistent_id)
+
+func _until_of(unit:Unit, status:StringName) -> int:
+	for condition:StatusCondition in unit.state.statuses:
+		if condition.type == status: return condition.until
+	return -1
+
+func test_an_expiring_tech_effect_is_extended_to_the_next_turn():
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(TECH_KIT)
+	var victim := await _chained_victim(Vector2i(2, 2))
+	_expiring_tech_status(victim, &'impaired')
+
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_true(victim.has_status(&'impaired'), 'It survived the end of the turn.')
+
+func test_stunned_is_never_extended():
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(TECH_KIT)
+	var victim := await _chained_victim(Vector2i(2, 2))
+	_expiring_tech_status(victim, &'stunned')
+
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_false(victim.has_status(&'stunned'), 'Stunned expired as normal - the ability excludes it.')
+
+func test_an_unchained_character_keeps_its_normal_durations():
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(TECH_KIT)
+	var bystander := SpecFactory.create_unit(game.map, Vector2i(2, 2), Faction.AI_ENEMY)
+	_expiring_tech_status(bystander, &'impaired')
+
+	SpecFactory.start_turn(game, bystander)
+	SpecFactory.end_turn(game, bystander)
+	assert_false(bystander.has_status(&'impaired'), 'Nothing to extend on someone we have not chained.')
+
+func test_an_effect_cannot_be_extended_twice():
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(TECH_KIT)
+	var victim := await _chained_victim(Vector2i(2, 2))
+	_expiring_tech_status(victim, &'impaired')
+
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_true(victim.has_status(&'impaired'), 'Extended once.')
+
+	# Second turn: start converts END_OF_NEXT_TURN back to END_OF_THIS_TURN, end should clear it.
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_false(victim.has_status(&'impaired'), 'And not a second time.')
