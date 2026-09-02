@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="Frame" format=3]
+
+[ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="1_frame"]
+[ext_resource type="Script" uid="uid://bxpc46igtsmvw" path="res://engine/character/unit/statblock.gd" id="2_statblock"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="3_kit"]
+[ext_resource type="Texture2D" uid="uid://che1iapn1u0c1" path="res://assets/frames/shared/blank.png" id="4_blank"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/anchor/mt_chain_erinyes.tres" id="5_mt_chain_erinyes"]
+
+[sub_resource type="Resource" id="Resource_chain_erinyes_stat"]
+script = ExtResource("2_statblock")
+size = 1
+is_size_half = true
+health = 10
+evasion = 5
+metadata/_custom_type_script = "uid://bxpc46igtsmvw"
+
+[resource]
+script = ExtResource("1_frame")
+sprites = Array[Texture2D]([ExtResource("4_blank")])
+traits = Array[ExtResource("3_kit")]([ExtResource("5_mt_chain_erinyes")])
+stat = SubResource("Resource_chain_erinyes_stat")
+entity_type = 1
+is_obstruction = false
+metadata/_custom_type_script = "uid://daycu0mqh1rbq"
