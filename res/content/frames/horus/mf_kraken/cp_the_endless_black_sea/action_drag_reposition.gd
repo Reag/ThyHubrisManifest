@@ -33,15 +33,25 @@ func is_held_by(unit:Unit, potential_target:Unit) -> bool:
 		if grapple.unit == potential_target: return true
 	return false
 
+## Strip out anyone immune to the knockback this throw would deal - generate_pull_events' sibling
+## concern, but here it is pathfinder.generate_events doing the moving rather than
+## generate_pull_events, so the same immunity check has to be added explicitly. The movement type
+## mirrors the one activate_for_target actually moves the target with.
 func can_target_unit(potential_target:Unit, specific:SpecificAction) -> bool:
 	if not super.can_target_unit(potential_target, specific): return false
-	return is_held_by(specific.unit, potential_target)
+	if not is_held_by(specific.unit, potential_target): return false
+	var movement_type := MovementType.create_for_involuntary(potential_target)
+	return not UnitCondition.is_immune_to_knockback_from(potential_target, specific, movement_type)
 
-# No is_available_to_activate override: holding nobody is expressed through can_target_unit (zero
-# valid targets), the same way Pull stays "available" while pinned even with nothing in SENSORS
-# range. An extra grapple-count gate here would double-book that check and, worse, contradicts
-# test_a_pinned_kraken_can_drag, which asserts all three Drag options are available from pinning
-# alone - that test predates this file and was not part of this task's brief to change.
+## Holding nobody closes this option, the same way Pull stays gated on the Kraken's own state
+## rather than on there being a legal target. Unlike Grapple's and Pull's map scans,
+## get_outgoing_grapples is a cheap dictionary lookup, so there is no cost reason to leave it to
+## can_target_unit alone - and vanilla gates the same case (action_drag_cables_demolisher_reel.gd
+## and action_mag_gauntlet_goliath.gd both refuse to activate with nothing attached). Without this,
+## a FREE action sits permanently lit and opens a dead-end targeting mode with nothing highlighted.
+func is_available_to_activate(unit:Unit, gear:GearCore) -> bool:
+	if not super(unit, gear): return false
+	return not UnitCondition.get_outgoing_grapples(unit).is_empty()
 
 func activate_for_target(context:Context, activation:EventCore, target_unit:Unit) -> void:
 	var kraken:Unit = context.unit

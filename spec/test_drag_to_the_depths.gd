@@ -15,6 +15,7 @@ extends GutTest
 
 const CORE_POWER_ID := &'cp_the_endless_black_sea'
 const DRAG_MODES := [&'action_drag_grapple', &'action_drag_pull', &'action_drag_reposition']
+const MY_DOMAIN_ID := &'mt_my_domain'
 
 var game:Gamemaster
 var kraken:Unit
@@ -32,6 +33,14 @@ func _refill_movement() -> void:
 
 func _pin() -> void:
 	SpecFactory.apply(kraken, Lancer.STATUS.IMMOBILIZED)
+
+## Grapple through My Domain's gear, the way the burst trigger does - its attachment passive is what
+## lets a grapple hold at range, which Reposition then relies on. Hoisted up here next to the other
+## shared setup helpers since the gate test below needs it too, not just Reposition's own tests.
+func _hold(prey:Unit) -> GearCore:
+	var domain := kraken.core.equip_system(MY_DOMAIN_ID)
+	Katamari.attach_units(SpecFactory.dummy_event(), kraken, prey, domain.persistent_id)
+	return domain
 
 func _action(action_id:StringName) -> Action:
 	return ContentLibrary.get_kit(CORE_POWER_ID).get_action(action_id)
@@ -52,6 +61,11 @@ func test_a_mobile_kraken_cannot_drag():
 func test_a_pinned_kraken_can_drag():
 	_pin()
 	assert_true(UnitCondition.is_immobilized(kraken), 'It is pinned.')
+	# Reposition's own gate additionally requires something held (see its is_available_to_activate),
+	# so pinning alone is not enough for it - give the Kraken a prisoner first to keep this test's
+	# original meaning (all three modes available) intact.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	_hold(prey)
 	for action_id:StringName in DRAG_MODES:
 		assert_true(_available(action_id), '%s is available while pinned.' % action_id)
 
@@ -145,6 +159,22 @@ func test_grapple_actually_grabs_and_pays_the_movement():
 	assert_eq(kraken.core.current.speed, 0, 'And paid with its base movement.')
 	assert_eq(kraken.state.actions, actions_before, 'The grapple itself was free.')
 
+func test_grapple_missing_still_pays_the_movement():
+	# choose_and_use's deferred spend runs before the roll resolves - that is the whole reason the
+	# spend is deferred at all - so a missed grapple still costs the whole base movement. Intended,
+	# but nothing pinned it before this test.
+	_pin()
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	Dice.CHEAT_ROLL_QUEUE.append(1) # a 1 fails any attack roll worth the name
+
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_grapple')
+
+	var held:Array[StringName] = []
+	for grapple:SpecificAction in UnitCondition.get_outgoing_grapples(kraken):
+		held.append(grapple.unit.core.persistent_id)
+	assert_false(held.has(prey.core.persistent_id), 'The grapple did not land.')
+	assert_eq(kraken.core.current.speed, 0, 'But the movement was spent anyway.')
+
 func test_grapple_does_not_offer_a_character_it_already_holds():
 	# Free, from routing rather than reimplementing: action_grapple.can_target_unit strips anyone in
 	# the katamari. Worth pinning anyway - it is the kind of thing a future rewrite would lose, and
@@ -157,8 +187,7 @@ func test_grapple_does_not_offer_a_character_it_already_holds():
 	if not SpecificAction.is_valid(grapple): return fail_test('It found a grapple to route to.')
 	assert_true(grapple.action.can_target_unit(prey, grapple), 'A loose character is a target.')
 
-	var domain := kraken.core.equip_system(&'mt_my_domain')
-	Katamari.attach_units(SpecFactory.dummy_event(), kraken, prey, domain.persistent_id)
+	_hold(prey)
 	assert_false(grapple.action.can_target_unit(prey, grapple),
 		'One it is already holding is not.')
 
@@ -208,6 +237,22 @@ func test_pull_will_take_an_ally():
 	assert_true(action.can_target_unit(friend, SpecificAction.create(kraken, gear, action)),
 		'And the ally is a legal target.')
 
+func test_pull_will_not_target_a_knockback_immune_character():
+	# generate_pull_events performs no immunity check of its own (unlike generate_knockback_events),
+	# and event_unit_move.gd exempts the primary mover, so nothing downstream would catch this -
+	# can_target_unit has to filter it directly. buff_fortress_knockback is vanilla's plain,
+	# unconditional TO.KNOCKBACK_IMMUNITY buff, applied directly here rather than through its aura so
+	# the test does not also have to stand up the Drake's deployed cover.
+	var action := _action(&'action_drag_pull')
+	if not Action.is_valid(action): return fail_test('action_drag_pull is on the kit.')
+	var immune := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	assert_true(action.can_target_unit(immune, SpecificAction.create(kraken, gear, action)),
+		'A target is legal before it has the immunity.')
+
+	UnitCondition.apply_buff_id(SpecFactory.dummy_event(), immune, &'buff_fortress_knockback')
+	assert_false(action.can_target_unit(immune, SpecificAction.create(kraken, gear, action)),
+		'A knockback-immune character is not a legal target.')
+
 # ============================== Reposition ==============================
 # The Puppet System (content/gear/horus/systems/ms_h0r_os_system_upgrade_i/action_puppet_system.gd)
 # is the recipe: build a pathfinder for the target on an involuntary movement type, ask the ACTING
@@ -216,15 +261,6 @@ func test_pull_will_take_an_ally():
 # MovementType.create_for_involuntary already sets ignore_rxns, ignore_engagement, ignore_difficult
 # and jump_downhill, so the throw provokes nothing and can drop the target off a ledge. That is the
 # agreed reading of "3 spaces in any direction" and is inherited rather than reimplemented.
-
-const MY_DOMAIN_ID := &'mt_my_domain'
-
-## Grapple through My Domain's gear, the way the burst trigger does - its attachment passive is what
-## lets a grapple hold at range, which Reposition then relies on.
-func _hold(prey:Unit) -> GearCore:
-	var domain := kraken.core.equip_system(MY_DOMAIN_ID)
-	Katamari.attach_units(SpecFactory.dummy_event(), kraken, prey, domain.persistent_id)
-	return domain
 
 func test_reposition_only_offers_characters_the_kraken_is_holding():
 	var action := _action(&'action_drag_reposition')
@@ -261,9 +297,39 @@ func test_reposition_throws_them_and_pays_the_movement():
 	SpecFactory.current_responder.chosen_move_tile = Vector2i(4, 0)
 	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey])
 
-	assert_ne(prey.tile(), Vector2i(1, 0), 'It was moved.')
-	assert_lte(Tile.distance(prey.tile(), Vector2i(1, 0)), 3, 'By no more than three spaces.')
+	assert_eq(prey.tile(), Vector2i(4, 0), 'It landed exactly where the Kraken chose, three spaces out.')
 	assert_eq(kraken.core.current.speed, 0, 'And the movement was paid.')
+	# The immobilized thrower must not go along for the ride - the loudest possible failure of this
+	# action would be the Kraken dragging itself while throwing its prisoner.
+	assert_eq(kraken.tile(), Vector2i(0, 0), 'The Kraken itself did not move.')
+
+func test_reposition_will_not_target_a_held_knockback_immune_character():
+	# Same filter as Pull, and for the same reason: pathfinder.generate_events is what actually moves
+	# the target here, and nothing else along that path checks immunity.
+	var action := _action(&'action_drag_reposition')
+	if not Action.is_valid(action): return fail_test('action_drag_reposition is on the kit.')
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	_hold(prey)
+	assert_true(action.can_target_unit(prey, SpecificAction.create(kraken, gear, action)),
+		'A held target is legal before it has the immunity.')
+
+	UnitCondition.apply_buff_id(SpecFactory.dummy_event(), prey, &'buff_fortress_knockback')
+	assert_false(action.can_target_unit(prey, SpecificAction.create(kraken, gear, action)),
+		'A knockback-immune character it holds is not a legal target either.')
+
+func test_reposition_cannot_target_its_own_captor():
+	# The header's specific worry: OUTGOING grapples only, not the whole katamari - the katamari also
+	# contains whoever is holding US. This is exactly what would break if get_outgoing_grapples were
+	# ever refactored to Katamari.create(unit).all_units, since that set includes both directions.
+	var captor := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var captor_domain := captor.core.equip_system(MY_DOMAIN_ID)
+	Katamari.attach_units(SpecFactory.dummy_event(), captor, kraken, captor_domain.persistent_id)
+	assert_false(UnitCondition.get_incoming_grapples(kraken).is_empty(), 'The captor is holding the Kraken.')
+
+	var action := _action(&'action_drag_reposition')
+	if not Action.is_valid(action): return fail_test('action_drag_reposition is on the kit.')
+	assert_false(action.can_target_unit(captor, SpecificAction.create(kraken, gear, action)),
+		'The Kraken cannot throw whoever is holding it.')
 
 func test_the_grapple_survives_the_throw():
 	# The open question from the design doc. My Domain's ignores_adjacency_requirement is proven to
@@ -275,6 +341,8 @@ func test_the_grapple_survives_the_throw():
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	_hold(prey)
 
+	# See test_reposition_throws_them_and_pays_the_movement above: the responder needs to be told
+	# where to send the throw, or it defaults to staying put.
 	SpecFactory.current_responder.chosen_move_tile = Vector2i(4, 0)
 	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey])
 

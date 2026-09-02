@@ -22,12 +22,23 @@ extends "res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the
 
 const PULL_DISTANCE:int = 2
 
+## Strip out anyone immune to the knockback this pull would deal - generate_pull_events performs no
+## such check of its own (unlike generate_knockback_events), and event_unit_move.gd exempts the
+## primary mover, so nothing downstream catches it. The movement type mirrors the one
+## activate_for_target actually moves the target with, so the check matches the movement.
+func can_target_unit(potential_target:Unit, specific:SpecificAction) -> bool:
+	if not super.can_target_unit(potential_target, specific): return false
+	var movement_type := MovementType.create_for_involuntary(potential_target)
+	movement_type.must_move_max_possible = true
+	return not UnitCondition.is_immune_to_knockback_from(potential_target, specific, movement_type)
+
 func activate_for_target(context:Context, activation:EventCore, target_unit:Unit) -> void:
 	var kraken:Unit = context.unit
 	var specific := SpecificAction.from_context(context)
 	if activation.abort_without_units([kraken, target_unit]): return
 
-	var resisted:bool = await UnitHasecheck.make_save(activation, target_unit, specific, Lancer.HASE.HULL)
+	var resisted:bool = await UnitHasecheck.make_save(
+		activation, target_unit, specific, Lancer.HASE.HULL, [EventService.SAVE_FLAG.KNOCKBACK])
 	if activation.abort_without_units([kraken, target_unit]): return
 	if resisted: return
 
@@ -38,7 +49,7 @@ func activate_for_target(context:Context, activation:EventCore, target_unit:Unit
 		kraken.occupied_tiles(),
 		specific,
 		movement_type,
-		true, # force them to land if they were flying and we are not
+		true, # always force landing on arrival, unconditionally - matches Coercive Force's template
 		PULL_DISTANCE,
 	)
 	if activation.abort_without_unit(kraken): return
