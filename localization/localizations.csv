@@ -59,3 +59,23 @@ gear.cp_dhiyed_observation.action_punishment.effect,"You may spend your core (no
 • Before forcing a target to make a save, spend your core to force the target to fail the save."
 gear.cp_dhiyed_observation.action_punishment.prompt.crit,Spend your core power: this attack automatically critically hits.
 gear.cp_dhiyed_observation.action_punishment.prompt.save,Spend your core power: the target automatically fails this save.
+,
+frame.mf_kraken.name,Kraken
+frame.mf_kraken.flavor,
+frame.mf_kraken.flavor.short,
+gear.mt_undulating_form.name,Undulating Form
+gear.mt_undulating_form.effect,
+gear.mt_undulating_form.trigger,
+gear.mt_my_domain.name,My Domain
+gear.mt_my_domain.effect,
+gear.mt_my_domain.trigger,
+gear.mt_irrepressible.name,Irrepressible
+gear.mt_irrepressible.effect,
+gear.mt_irrepressible.trigger,
+gear.cp_the_endless_black_sea.name,The Endless Black Sea
+gear.cp_the_endless_black_sea.effect,
+gear.cp_the_endless_black_sea.flavor,
+gear.cp_the_endless_black_sea.action_drag_to_the_depths.name,Drag To The Depths
+gear.cp_the_endless_black_sea.action_drag_to_the_depths.effect,
+gear.cp_the_endless_black_sea.action_the_all_consuming_tide.name,The All-Consuming Tide
+gear.cp_the_endless_black_sea.action_the_all_consuming_tide.effect,
