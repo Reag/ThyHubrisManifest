@@ -57,3 +57,5 @@ gear.cp_dhiyed_observation.action_punishment.name,Punishment
 gear.cp_dhiyed_observation.action_punishment.effect,"You may spend your core (no action required) for one of the following effects:
 • Before rolling an attack, spend your core to cause the attack to automatically critically hit.
 • Before forcing a target to make a save, spend your core to force the target to fail the save."
+gear.cp_dhiyed_observation.action_punishment.prompt.crit,"Spend your core power: this attack automatically critically hits."
+gear.cp_dhiyed_observation.action_punishment.prompt.save,"Spend your core power: the target automatically fails this save."

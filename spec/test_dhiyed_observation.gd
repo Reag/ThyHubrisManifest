@@ -249,3 +249,30 @@ func test_a_buff_cannot_be_extended_twice():
 	SpecFactory.start_turn(game, victim)
 	SpecFactory.end_turn(game, victim)
 	assert_false(_has_buff(victim, TECH_BUFF), 'And not a second time.')
+
+# --- the prompt the player actually reads ---
+# dice.gd renders the choice buttons from the roll values themselves, so they read "20" and "1" and
+# no content change can alter that. The meaning has to live in the title and description instead.
+
+func test_the_punishment_prompts_are_written():
+	for which:String in ['crit', 'save']:
+		var key := 'gear.cp_dhiyed_observation.action_punishment.prompt.%s' % which
+		assert_ne(tr(key), key, '%s resolves to real text.' % key)
+
+func test_the_prompt_describes_the_effect_being_offered():
+	# The wrong half of the ability would be a confusing thing to read while deciding.
+	var enemy := _enemy(Vector2i(4, 4))
+	erinyes.core.equip_system(BLAST_WEAPON)
+	_arm(erinyes, true)
+	var buff:Buff = ContentLibrary.get_buff(&'buff_punishment')
+	var buff_core:BuffCore = null
+	for candidate:BuffCore in erinyes.state.buffs:
+		if candidate.base.compcon_id == &'buff_punishment': buff_core = candidate
+	assert_true(BuffCore.is_valid(buff_core), 'The Erinyes carries the Punishment buff.')
+	if not BuffCore.is_valid(buff_core): return
+
+	var attack_context := Context.create({unit = erinyes, map = game.map, resource = DeclaredAttackSummary.new()})
+	assert_true(buff.prompt_key(buff_core, attack_context).ends_with('.crit'), 'Attacks offer the crit line.')
+
+	var save_context := Context.create({unit = erinyes, target_unit = enemy, map = game.map, category = Lancer.HASE.AGI})
+	assert_true(buff.prompt_key(buff_core, save_context).ends_with('.save'), 'Forced saves offer the save line.')

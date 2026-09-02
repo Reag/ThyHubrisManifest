@@ -69,9 +69,18 @@ func is_buff_context_valid_for_passive(core:BuffCore, context:Context) -> bool:
 func check_if_passive_applies(core:BuffCore, context:Context) -> bool:
 	return offered_roll(core, context) != NOT_OUR_BUSINESS
 
+## The prompt the player is shown. dice.gd renders the CHOICES from the roll values themselves, so
+## the button reads "20" or "1" and there is nothing content-side that can change that - the meaning
+## has to live in the title (the action's name) and this description. Hence a line per effect saying
+## what accepting does, rather than the ability's full two-bullet text, half of which never applies
+## to the roll being offered.
+func prompt_key(core:BuffCore, context:Context) -> String:
+	var which := 'crit' if offered_roll(core, context) == AUTO_CRIT_ROLL else 'save'
+	return 'gear.%s.%s.prompt.%s' % [CORE_POWER_ID, PUNISHMENT_ACTION, which]
+
 func get_values(core:BuffCore, context:Context) -> Context:
 	return Context.create({
 		array = [offered_roll(core, context)],
-		string = 'gear.%s.%s.effect' % [CORE_POWER_ID, PUNISHMENT_ACTION],
+		string = prompt_key(core, context),
 		object = get_punishment(core, context.map),
 	})
