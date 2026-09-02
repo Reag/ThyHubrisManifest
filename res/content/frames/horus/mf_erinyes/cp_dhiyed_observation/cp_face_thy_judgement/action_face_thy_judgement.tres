@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/cp_dhiyed_observation/cp_face_thy_judgement/action_face_thy_judgement.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+usage_group = &"action_face_thy_judgement"
+triggers_on = Array[StringName]([&"end_turn"])
+trigger_timing = 0
+consumes_rxn = true

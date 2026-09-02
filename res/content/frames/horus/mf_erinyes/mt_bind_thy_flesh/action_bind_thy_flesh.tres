@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/action_bind_thy_flesh.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+triggers_on = Array[StringName]([&"attack_declared", &"forced_save"])
+consumes_rxn = false
+emit_text_popcorn_on_use = true
