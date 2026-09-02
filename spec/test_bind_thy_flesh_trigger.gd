@@ -187,3 +187,34 @@ func test_two_characters_chained_to_one_anchor_can_both_break_free_in_the_same_t
 	assert_false(UnitCondition.has_buff(enemy_near, BUFF_ID), 'The first character broke free.')
 	await _clear_chain(enemy_far)
 	assert_false(UnitCondition.has_buff(enemy_far, BUFF_ID), 'And so did the second, in the same turn.')
+
+# ======================== the save half of the condition ========================
+# "...and a character is hit by OR FAILS A SAVE against the effect". Grenades and other area systems
+# never make an attack roll - a frag grenade is an ActionSystemGrenade dealing damage through
+# queue_damage_events_with_save_for_half - so attack_declared never fires and only the forced_save
+# path catches them. Found in manual play: a thrown grenade chained nobody while a LINE attack did.
+
+const GRENADE_KIT := &'ms_pattern_b_hex_charges'
+const GRENADE_ACTION := &'action_frag_grenade'
+
+## Throw a grenade at a tile with every save forced to fail (1s) rather than every attack forced to hit.
+func _throw_grenade(at_tile:Vector2i) -> void:
+	erinyes.core.equip_system(GRENADE_KIT)
+	Dice.CHEAT_ROLL_QUEUE.append_array([1, 1, 1, 1, 1, 1])
+	await SpecFactory.use(game, erinyes, GRENADE_KIT, GRENADE_ACTION, [at_tile])
+
+func test_a_grenade_chains_the_characters_that_fail_its_save():
+	assert_eq(_chain_count(), 0, 'Nobody is chained to begin with.')
+	await _throw_grenade(enemy_near.tile())
+	assert_gt(_chain_count(), 0, 'Failing the save against a blast chains you.')
+
+func test_a_grenade_makes_only_one_anchor_for_everyone_it_catches():
+	# One save event fires per character, so without grouping by activation each failed save would
+	# drop its own shackle.
+	await _throw_grenade(enemy_near.tile())
+	assert_eq(_anchors().size(), 1, 'One anchor for the whole grenade.')
+
+func test_everyone_a_grenade_catches_shares_the_one_anchor():
+	await _throw_grenade(enemy_near.tile())
+	if _chain_count() < 2: return pending('The blast only caught one character; nothing to share.')
+	assert_eq(_anchor_id_of(enemy_near), _anchor_id_of(enemy_far), 'Both chained to the same anchor.')

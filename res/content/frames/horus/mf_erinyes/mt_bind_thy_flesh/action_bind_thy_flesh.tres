@@ -4,6 +4,6 @@
 
 [resource]
 script = ExtResource("1_action_script")
-triggers_on = Array[StringName]([&"attack_declared"])
+triggers_on = Array[StringName]([&"attack_declared", &"forced_save"])
 consumes_rxn = false
 emit_text_popcorn_on_use = true
