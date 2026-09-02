@@ -201,3 +201,51 @@ func test_an_effect_cannot_be_extended_twice():
 	SpecFactory.start_turn(game, victim)
 	SpecFactory.end_turn(game, victim)
 	assert_false(victim.has_status(&'impaired'), 'And not a second time.')
+
+# --- and the same for buffs, which is most of what tech gear actually applies ---
+
+const TECH_BUFF := &'buff_bolster'
+const NON_TECH_KIT := &'mw_assault_rifle'
+
+func _apply_buff_from(victim:Unit, buff_id:StringName, source_kit:StringName) -> void:
+	SpecFactory.apply_buff(victim, buff_id, erinyes.get_gear(source_kit))
+
+func _has_buff(unit:Unit, buff_id:StringName) -> bool:
+	return UnitCondition.has_buff(unit, buff_id)
+
+func test_an_expiring_tech_buff_is_extended():
+	# The Erinyes' own Viral Logic Suite applies buffs rather than statuses, so a version of this
+	# ability that only looked at statuses would never fire on its own tech.
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(TECH_KIT)
+	var victim := await _chained_victim(Vector2i(2, 2))
+	_apply_buff_from(victim, TECH_BUFF, TECH_KIT)
+
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_true(_has_buff(victim, TECH_BUFF), 'The tech buff survived the end of the turn.')
+
+func test_a_non_tech_buff_is_left_to_expire():
+	# Control for the test above: same buff, same timing, source gear that has no tech action.
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(NON_TECH_KIT)
+	var victim := await _chained_victim(Vector2i(2, 2))
+	_apply_buff_from(victim, TECH_BUFF, NON_TECH_KIT)
+
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_false(_has_buff(victim, TECH_BUFF), 'Nothing to extend - it did not come from tech.')
+
+func test_a_buff_cannot_be_extended_twice():
+	erinyes.core.equip_system(&'mt_bind_thy_flesh')
+	erinyes.core.equip_system(TECH_KIT)
+	var victim := await _chained_victim(Vector2i(2, 2))
+	_apply_buff_from(victim, TECH_BUFF, TECH_KIT)
+
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_true(_has_buff(victim, TECH_BUFF), 'Extended once.')
+
+	SpecFactory.start_turn(game, victim)
+	SpecFactory.end_turn(game, victim)
+	assert_false(_has_buff(victim, TECH_BUFF), 'And not a second time.')

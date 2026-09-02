@@ -17,16 +17,15 @@
 # knows, so a reaction there cannot tell an effect that expired from one somebody deliberately
 # cleared. That gap is why the ability's wording was moved to "expires at the end of ... turn".
 #
-# Extending is a one-line mutation of the status, which is precisely how the engine itself handles
-# durations: new_turn_for_statuses walks a unit's statuses at turn start and rewrites
-# END_OF_NEXT_TURN to END_OF_THIS_TURN. Setting it back to END_OF_NEXT_TURN here means it survives
-# this turn's clear, becomes END_OF_THIS_TURN at the start of the character's next turn, and expires
-# at the end of it - which is the duration the ability asks for.
+# "The effect of a tech action" covers BOTH statuses and buffs. Most of what tech gear does lands as
+# a buff rather than a status - the Erinyes' own Viral Logic Suite included - and by the same reading
+# a beneficial tech buff on a chained ally is extendable too. The two are tracked and expired
+# differently, so see extendable_effects and extend for how each is handled.
 extends ActionReaction
 
 const CHAIN_BUFF_ID := &'buff_bind_thy_flesh'
 const ANCHOR_KEY := 'anchor'
-## Effects we have already extended, as "<unit id>|<status>" - "cannot be extended more than once".
+## Effects we already extended, as "<unit id>|status|<type>" or "<unit id>|buff|<instance id>".
 const EXTENDED_KEY := 'ftj_extended'
 
 func get_required_triggering_context() -> Array[Context.PROP]:
@@ -37,7 +36,7 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	if not Unit.is_valid(ending_unit) or ending_unit == unit: return false
 	if not is_chained_to_us(ending_unit, unit): return false
 	if not is_in_sensors(unit, ending_unit): return false
-	return not extendable_statuses(unit, gear, ending_unit).is_empty()
+	return not extendable_effects(unit, gear, ending_unit).is_empty()
 
 ## Chained to a shackle of ours that is still standing - the same test Know Thy Sins makes.
 func is_chained_to_us(chained_unit:Unit, erinyes:Unit) -> bool:
@@ -52,27 +51,65 @@ func is_chained_to_us(chained_unit:Unit, erinyes:Unit) -> bool:
 func is_in_sensors(erinyes:Unit, other:Unit) -> bool:
 	return UnitRelation.distance_between(erinyes, other) <= erinyes.get_sensor_range()
 
-func extension_key(unit:Unit, status:StatusCondition) -> String:
-	return '%s|%s' % [unit.core.persistent_id, status.type]
+func extension_key(unit:Unit, effect) -> String:
+	if effect is StatusCondition: return '%s|status|%s' % [unit.core.persistent_id, effect.type]
+	return '%s|buff|%s' % [unit.core.persistent_id, effect.persistent_id]
+
+func effect_name(effect) -> String:
+	if effect is StatusCondition: return X.tr(StatusType.name(effect.type))
+	return effect.name_text()
 
 ## Everything on this unit that is about to expire and that we are allowed to extend.
-func extendable_statuses(erinyes:Unit, gear:GearCore, ending_unit:Unit) -> Array[StatusCondition]:
-	var extendable:Array[StatusCondition] = []
+##
+## Entries are StatusCondition OR BuffCore. The engine tracks the two separately and expires them by
+## different rules, but "the effect of a tech action" covers both - most of what tech gear actually
+## does lands as a buff, the Erinyes' own Viral Logic Suite included, and a beneficial tech buff on a
+## chained ally is extendable by the same reading.
+func extendable_effects(erinyes:Unit, gear:GearCore, ending_unit:Unit) -> Array:
+	var extendable:Array = []
 	var already_extended := gear.get_state_string_array(EXTENDED_KEY)
+
 	for status:StatusCondition in ending_unit.state.statuses:
 		if status.until != Lancer.UNTIL.END_OF_THIS_TURN: continue # not expiring now
 		if status.type == Lancer.STATUS.STUNNED: continue # explicitly excluded by the ability
 		if already_extended.has(extension_key(ending_unit, status)): continue
-		if not came_from_a_tech_action(erinyes, status): continue
+		if not came_from_a_tech_action(erinyes, status.source): continue
 		extendable.append(status)
+
+	for buff:BuffCore in ending_unit.state.buffs:
+		if not is_expiring_now(buff): continue
+		if buff.base.applies_statuses.has(Lancer.STATUS.STUNNED): continue # would extend STUNNED by proxy
+		if already_extended.has(extension_key(ending_unit, buff)): continue
+		if not came_from_a_tech_action(erinyes, buff.from_gear): continue
+		extendable.append(buff)
+
 	return extendable
 
-## A status records the persistent id of the GEAR that applied it, not the action, so this is a
+## Mirrors end_turn_for_statuses: a buff's duration is the shared resource's `until` combined with
+## the per-instance turn_count, not a value of its own.
+func is_expiring_now(buff:BuffCore) -> bool:
+	match buff.base.until:
+		Lancer.UNTIL.END_OF_THIS_TURN: return buff.turn_count >= 0
+		Lancer.UNTIL.END_OF_NEXT_TURN: return buff.turn_count >= 1
+	return false
+
+## Buy the effect exactly one more turn.
+##
+## A status carries its own `until`, so it is set forward to END_OF_NEXT_TURN. A buff's `until` lives
+## on the shared resource and must not be touched - every other copy of that buff in the game reads
+## it - so the per-instance turn_count is walked back one instead. Either way end_turn_for_statuses
+## then lets it through this turn, new_turn_for_statuses ticks it on, and it expires at the end of the
+## character's next turn.
+func extend(effect) -> void:
+	if effect is StatusCondition: effect.until = Lancer.UNTIL.END_OF_NEXT_TURN
+	else: effect.turn_count -= 1
+
+## A status or buff records the persistent id of the GEAR behind it, not the action, so this is a
 ## gear-level approximation: a piece of gear carrying both a tech action and a non-tech one would
 ## read as tech either way. Rare enough to accept, and noted rather than hidden.
-func came_from_a_tech_action(erinyes:Unit, status:StatusCondition) -> bool:
-	if status.source.is_empty(): return false
-	var source_gear:GearCore = erinyes.map.get_gear_by_id(status.source)
+func came_from_a_tech_action(erinyes:Unit, source_id:StringName) -> bool:
+	if source_id.is_empty(): return false
+	var source_gear:GearCore = erinyes.map.get_gear_by_id(source_id)
 	if not GearCore.is_valid(source_gear): return false
 	for action:Action in source_gear.kit.actions:
 		if action is ActionSystem and action.is_tech: return true
@@ -82,26 +119,26 @@ func activate(context:Context, activation:EventCore) -> void:
 	var erinyes:Unit = context.unit
 	var gear:GearCore = context.gear
 	var ending_unit:Unit = context.event.context.unit
-	var extendable := extendable_statuses(erinyes, gear, ending_unit)
+	var extendable := extendable_effects(erinyes, gear, ending_unit)
 	if activation.abort_when(extendable.is_empty()): return
 
-	var chosen := await choose_effect(context, ending_unit, extendable)
+	var chosen = await choose_effect(context, ending_unit, extendable)
 	if activation.abort_when(chosen == null): return
 
 	spend_actions(activation)
 
-	chosen.until = Lancer.UNTIL.END_OF_NEXT_TURN
+	extend(chosen)
 	gear.append_to_array_state(EXTENDED_KEY, extension_key(ending_unit, chosen))
 
 ## The ability extends "the effect", singular, and is a 1/round reaction - so when several tech
 ## effects expire at once the player picks which one. Cancelling is how "you may" is declined.
-func choose_effect(context:Context, ending_unit:Unit, extendable:Array[StatusCondition]) -> StatusCondition:
+func choose_effect(context:Context, ending_unit:Unit, extendable:Array):
 	if extendable.size() == 1:
 		var confirmed:bool = await CommonActionUtil.confirm_use(context, [ending_unit], [])
 		return extendable.front() if confirmed else null
 
 	var names:Array[String] = []
-	for status:StatusCondition in extendable: names.append(X.tr(StatusType.name(status.type)))
+	for effect in extendable: names.append(effect_name(effect))
 	var specific := SpecificAction.from_context(context)
 	var chosen_index:int = await choice_bus.choose_from_multiple_choice(
 		names,
