@@ -46,9 +46,11 @@ func can_target_unit(potential_target:Unit, specific:SpecificAction) -> bool:
 ## Holding nobody closes this option, the same way Pull stays gated on the Kraken's own state
 ## rather than on there being a legal target. Unlike Grapple's and Pull's map scans,
 ## get_outgoing_grapples is a cheap dictionary lookup, so there is no cost reason to leave it to
-## can_target_unit alone - and vanilla gates the same case (action_drag_cables_demolisher_reel.gd
-## and action_mag_gauntlet_goliath.gd both refuse to activate with nothing attached). Without this,
-## a FREE action sits permanently lit and opens a dead-end targeting mode with nothing highlighted.
+## can_target_unit alone - and vanilla gates the same case: action_drag_cables_demolisher_reel.gd
+## refuses to activate when its attached unit is gone. (The Goliath's mag gauntlet gates on
+## attachments too but the OTHER way round, refusing while it already holds someone - a different
+## rule, not a second precedent for this one.) Without this gate a FREE action sits permanently lit
+## and opens a dead-end targeting mode with nothing highlighted.
 func is_available_to_activate(unit:Unit, gear:GearCore) -> bool:
 	if not super(unit, gear): return false
 	return not UnitCondition.get_outgoing_grapples(unit).is_empty()
