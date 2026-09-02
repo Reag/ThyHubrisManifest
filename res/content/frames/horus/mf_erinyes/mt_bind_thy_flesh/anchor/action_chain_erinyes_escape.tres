@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ActionSystemClearBuff" format=3]
 
 [ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="1_buff"]
-[ext_resource type="Script" path="res://engine/character/gear_action/archtypes/action_system_clear_buff.gd" id="2_clear_buff"]
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/anchor/action_chain_erinyes_escape.gd" id="2_clear_buff"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/buff_bind_thy_flesh.tres" id="3_buff_bind_thy_flesh"]
 
 [resource]

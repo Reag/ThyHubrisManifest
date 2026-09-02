@@ -137,3 +137,53 @@ func test_the_anchor_is_visible():
 	if not Frame.is_valid(frame): return fail_test('%s loaded.' % ANCHOR_FRAME_ID)
 	assert_false(frame.sprites.is_empty(), 'The anchor has a sprite.')
 	assert_ne(frame.get_default_sprite(), Frame.SPRITE_DEPLOYABLE_DEFAULT, 'And it is not the missing-frame placeholder.')
+
+# ============================ anchor cleanup ============================
+# An anchor nobody is chained to is just litter on the battlefield.
+
+## Break a chain the way the game does - the chained character spends its quick action on the HULL
+## check, forced to pass. Clearing the buff through SpecFactory.dummy_event() instead would not do:
+## on_clear queues the anchor's death onto the event it is given, and a dummy event never runs it.
+func _clear_chain(unit:Unit) -> void:
+	for specific:SpecificAction in UnitAction.get_situational_actions(unit):
+		if specific.gear.kit.compcon_id != &'mt_chain_erinyes': continue
+		Dice.CHEAT_ROLL_QUEUE.append(20) # pass the HULL check
+		await SpecFactory.use_specific(game, specific)
+		return
+	fail_test('%s was offered an escape action.' % unit.core.get_mech_name())
+
+func test_the_anchor_survives_while_anyone_is_still_bound():
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	assert_eq(_anchors().size(), 1, 'An anchor was created.')
+
+	await _clear_chain(enemy_near)
+	assert_eq(_anchors().size(), 1, 'It stays while the second character is still chained.')
+
+func test_the_anchor_goes_when_the_last_chain_does():
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	if _anchors().is_empty(): return fail_test('An anchor was created.')
+
+	await _clear_chain(enemy_near)
+	await _clear_chain(enemy_far)
+	assert_eq(_anchors().size(), 0, 'The anchor left with the last chain.')
+
+func test_the_anchor_goes_when_the_last_chained_character_dies():
+	# The other way a chain ends. Buffs are not necessarily cleared through clear_buff when their
+	# holder leaves the map, so this is the case most likely to leave litter behind.
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	if _anchors().is_empty(): return fail_test('An anchor was created.')
+
+	await game.execute_event(&'event_unit_die', {unit = enemy_near})
+	await game.execute_event(&'event_unit_die', {unit = enemy_far})
+	assert_eq(_anchors().size(), 0, 'No anchor left once everyone it held is gone.')
+
+func test_two_characters_chained_to_one_anchor_can_both_break_free_in_the_same_turn():
+	# The escape lives on the shared anchor gear, and Action's per-turn limit is recorded against
+	# the GEAR rather than the unit. At the defaults a QUICK action is 1/turn, so the first
+	# character to break free consumed the allowance for everyone chained to that anchor and the
+	# rest were stuck until the next round. Regression guard for the lifted limit.
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	await _clear_chain(enemy_near)
+	assert_false(UnitCondition.has_buff(enemy_near, BUFF_ID), 'The first character broke free.')
+	await _clear_chain(enemy_far)
+	assert_false(UnitCondition.has_buff(enemy_far, BUFF_ID), 'And so did the second, in the same turn.')

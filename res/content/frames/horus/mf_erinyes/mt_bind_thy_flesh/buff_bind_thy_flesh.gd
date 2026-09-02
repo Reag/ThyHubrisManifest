@@ -39,6 +39,30 @@ func bind_to_tile(core:BuffCore, anchor_id:StringName, anchor_tile:Vector2i, cha
 func get_anchor(core:BuffCore, map:MapState) -> Unit:
 	return map.get_unit_by_id(StringName(core.get_state(ANCHOR_KEY, '')))
 
+## When the last chain to an anchor goes, the anchor has nothing left to hold and goes with it -
+## otherwise a shackle sits on the battlefield as scenery for the rest of the mission.
+##
+## on_clear fires BEFORE the buff is erased from the unit (unit_condition.gd:933), so the buff being
+## cleared right now is still in the list and has to be excluded by identity.
+func on_clear(event:EventCore, core:BuffCore, unit:Unit) -> void:
+	var map:MapState = event.context.map if is_instance_valid(event) and event.context else X.map()
+	if not is_instance_valid(map): return
+
+	var anchor := get_anchor(core, map)
+	if not Unit.is_valid(anchor): return # already destroyed, which is one of the ways this ends
+	if is_still_binding_anyone(anchor, map, core): return
+
+	event.queue_event(&'event_unit_die', {unit = anchor})
+
+func is_still_binding_anyone(anchor:Unit, map:MapState, ignoring:BuffCore) -> bool:
+	var anchor_id := String(anchor.core.persistent_id)
+	for check_unit:Unit in map.get_all_units():
+		for buff:BuffCore in check_unit.state.buffs:
+			if buff == ignoring: continue
+			if buff.base.compcon_id != compcon_id: continue
+			if buff.get_state(ANCHOR_KEY, '') == anchor_id: return true
+	return false
+
 # ====== PASSIVE BUFFS ======
 func is_buff_context_valid_for_passive(core:BuffCore, context:Context) -> bool:
 	# No anchor means the chain object was destroyed, which the book says ends the effect. Reporting
