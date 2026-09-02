@@ -161,3 +161,49 @@ func test_grapple_does_not_offer_a_character_it_already_holds():
 	Katamari.attach_units(SpecFactory.dummy_event(), kraken, prey, domain.persistent_id)
 	assert_false(grapple.action.can_target_unit(prey, grapple),
 		'One it is already holding is not.')
+
+# ============================== Pull ==============================
+# The Goliath's Coercive Force is the template for the pull itself; the difference is one target
+# rather than a burst, and a HULL save in front of it. "Resists" is read as no movement at all.
+#
+# The spec map is 5x5 (SpecFactory.create_map_state default), so every tile used here is inside it.
+
+func test_pull_reaches_as_far_as_sensors():
+	# The range is the SENSORS stat, not a literal - target_range_is_sensors on the resource. A
+	# hardcoded number would silently stop tracking the statblock.
+	var action := _action(&'action_drag_pull')
+	if not Action.is_valid(action): return fail_test('action_drag_pull is on the kit.')
+	var specific := SpecificAction.create(kraken, gear, action)
+	assert_eq(action.get_target_range(specific), kraken.get_sensor_range(),
+		'Pull reaches to SENSORS.')
+
+func test_a_failed_save_drags_them_two_spaces_closer():
+	_pin()
+	var prey := SpecFactory.create_unit(game.map, Vector2i(4, 0), Faction.AI_ENEMY)
+	Dice.CHEAT_ROLL_QUEUE.append(1) # a 1 fails any save worth the name
+
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_pull', [prey])
+
+	assert_eq(prey.tile(), Vector2i(2, 0), 'It was dragged two spaces towards the Kraken.')
+	assert_eq(kraken.core.current.speed, 0, 'And the movement was paid.')
+
+func test_a_passed_save_resists_the_pull_entirely():
+	# "(HULL save resists)" - resists means nothing happens, not a shorter pull.
+	_pin()
+	var prey := SpecFactory.create_unit(game.map, Vector2i(4, 0), Faction.AI_ENEMY)
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_pull', [prey])
+
+	assert_eq(prey.tile(), Vector2i(4, 0), 'It held its ground.')
+
+func test_pull_will_take_an_ally():
+	# The rules text says "a character", and the user confirmed allies are valid: yanking a wounded
+	# teammate clear is a real play, and the save means they can decline. This diverges from My
+	# Domain's hostiles-only rule on purpose - see the design doc.
+	var action := _action(&'action_drag_pull')
+	if not Action.is_valid(action): return fail_test('action_drag_pull is on the kit.')
+	var friend := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.PLAYER)
+	assert_true(UnitRelation.are_allies(kraken, friend), 'They are on the same side.')
+	assert_true(action.can_target_unit(friend, SpecificAction.create(kraken, gear, action)),
+		'And the ally is a legal target.')
