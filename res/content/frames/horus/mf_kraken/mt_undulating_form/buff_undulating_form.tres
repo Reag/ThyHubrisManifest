@@ -1,0 +1,8 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_undulating_form/buff_undulating_form.gd" id="1_buff_script"]
+
+[resource]
+script = ExtResource("1_buff_script")
+to = &"can_share_space"
+hide_from_player = true
