@@ -136,7 +136,11 @@ func test_the_anchor_is_visible():
 	var frame:Frame = ContentLibrary.get_mech_frame(ANCHOR_FRAME_ID)
 	if not Frame.is_valid(frame): return fail_test('%s loaded.' % ANCHOR_FRAME_ID)
 	assert_false(frame.sprites.is_empty(), 'The anchor has a sprite.')
-	assert_ne(frame.get_default_sprite(), Frame.SPRITE_DEPLOYABLE_DEFAULT, 'And it is not the missing-frame placeholder.')
+	if frame.sprites.is_empty(): return
+	# Frame.SPRITE_DEPLOYABLE_DEFAULT and get_default_sprite() both went away in modkit 1.3.3, so
+	# this names the sprite we chose instead of comparing against the engine's fallback.
+	assert_true(frame.sprites.front().resource_path.contains('celestial_shackle'),
+		'And it is the shackle, not the blank it started with.')
 
 # ============================ anchor cleanup ============================
 # An anchor nobody is chained to is just litter on the battlefield.
