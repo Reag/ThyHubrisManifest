@@ -6,3 +6,4 @@
 script = ExtResource("1_action_script")
 action_type = 3
 consumes_cp = true
+hide_if_disabled = true

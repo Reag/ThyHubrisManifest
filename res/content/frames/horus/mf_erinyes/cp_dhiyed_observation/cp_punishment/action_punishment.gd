@@ -1,17 +1,15 @@
-# Punishment - the upgraded half of DHIYED Observation. STUB.
+# Punishment - the spendable half of DHIYED Observation.
 #
-# A free action that spends the core power (consumes_cp on the .tres).
+# "no action required": this is never clicked. It is spent by the engine when the player accepts the
+# offer that buff_punishment makes during a d20 roll (dice.gd:200 calls spend_actions_gain_heat on
+# it), and consumes_cp on the .tres is what makes accepting cost the core power.
 #
-# TODO: the effect, and the Efficient tag - which has no equivalent anywhere in this engine, so what
-# it should do mechanically is still an open question.
-#
-# Reports itself unavailable while it is a stub: it still appears in the action bar, greyed out, so
-# the name and icon can be eyeballed in game, but it cannot be activated. Spending a core power on an
-# action that does nothing would be a nasty thing to hand a player mid-verification.
+# So it deliberately reports itself unavailable and hides when disabled - it exists to be spent, not
+# to be pressed, and a button that did nothing would be misleading. The effect lives in the buff.
 extends ActionSystem
 
 func is_available_to_activate(unit:Unit, gear:GearCore) -> bool:
-	return false # TODO: remove once implemented
+	return false
 
 func activate(context:Context, activation:EventCore) -> void:
-	pass # TODO: implement Punishment
+	pass # never activated directly; see the note above

@@ -51,8 +51,8 @@ gear.cp_dhiyed_observation.effect,
 gear.cp_dhiyed_observation.flavor,"[i]It knows me. It knows where I am and what I've done, what I will do. I will be judged. And I will fail.[/i]"
 ,
 gear.cp_dhiyed_observation.action_face_thy_judgement.name,Face Thy Judgement
-gear.cp_dhiyed_observation.action_face_thy_judgement.effect,"When the effect of a tech action would naturally end on a chained character within |SENSORS|, you may extend its duration to the end of the target's next turn instead. This cannot be used to extend the duration of |STUNNED|. An effect cannot be extended more than once."
-gear.cp_dhiyed_observation.action_face_thy_judgement.trigger,Effects of a Tech Action end on a chained character in |sensors|
+gear.cp_dhiyed_observation.action_face_thy_judgement.effect,"When the effect of a tech action expires at the end of a chained character's turn within |SENSORS|, you may extend its duration to the end of that character's next turn instead. This cannot be used to extend the duration of |STUNNED|. An effect cannot be extended more than once."
+gear.cp_dhiyed_observation.action_face_thy_judgement.trigger,A Tech Action effect expires at the end of a chained character's turn in |sensors|
 gear.cp_dhiyed_observation.action_punishment.name,Punishment
 gear.cp_dhiyed_observation.action_punishment.effect,"You may spend your core (no action required) for one of the following effects:
 • Before rolling an attack, spend your core to cause the attack to automatically critically hit. This does not allow you to roll damage twice.
