@@ -45,6 +45,14 @@ func activate(context:Context, activation:EventCore) -> void:
 
 	var movement_type := MovementType.create_for_involuntary(prey)
 	movement_type.must_move_max_possible = true
+
+	# Same gate action_drag_pull.gd applies before its own generate_pull_events call, and for the same
+	# reason: that helper performs no immunity check of its own (unlike generate_knockback_events), and
+	# event_unit_move.gd exempts the primary mover, so nothing downstream would catch this either. Both
+	# pulls share the mechanism; a knockback-immune character should be immune to both.
+	if activation.abort_when(UnitCondition.is_immune_to_knockback_from(
+		prey, SpecificAction.from_context(context), movement_type)): return
+
 	var pull_events := await CommonActionUtil.generate_pull_events(
 		prey, kraken.occupied_tiles(), SpecificAction.from_context(context),
 		movement_type, true, PULL_DISTANCE,

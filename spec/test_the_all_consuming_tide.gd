@@ -249,8 +249,6 @@ func test_a_prisoner_is_freed_when_the_kraken_dies():
 # board and so is a per-target judgement. The spec responder answers yes by default; set
 # chosen_yesnos to false to decline.
 
-const UNDERTOW_ACTION := &'action_tide_undertow'
-
 func _start_turn_for(unit:Unit) -> void:
 	await game.execute_event(&'event_turn_start', {unit = unit})
 
@@ -290,8 +288,32 @@ func test_a_hostile_outside_sensors_is_never_dragged():
 	await _start_turn_for(prey)
 	assert_eq(prey.tile(), Vector2i(3, 0), 'Out of the Tide, out of reach.')
 
+func test_a_character_immune_to_knockback_is_not_dragged():
+	# Drag To The Depths' Pull (action_drag_pull.gd) refuses the same characters, because
+	# generate_pull_events performs no immunity check of its own and event_unit_move.gd exempts the
+	# primary mover - nothing downstream would catch this otherwise. Both pulls on this core power
+	# share that mechanism, so a character immune to one is immune to the other.
+	# buff_fortress_knockback is vanilla's plain, unconditional KNOCKBACK_IMMUNITY buff - see
+	# test_drag_to_the_depths.gd's identical fixture.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	SpecFactory.apply_buff(prey, &'buff_fortress_knockback')
+	await _start_turn_for(prey)
+	assert_eq(prey.tile(), Vector2i(3, 0), 'Immune to the knockback, immune to the drag.')
+
 func test_nothing_is_dragged_before_the_tide_is_raised():
 	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
 	assert_false(_tide_is_up(), 'The Tide is down.')
 	await _start_turn_for(prey)
 	assert_eq(prey.tile(), Vector2i(3, 0), 'So nothing pulls.')
+
+func test_the_undertow_still_drags_while_the_kraken_is_itself_grappled():
+	# consumes_rxn = false is why: a reaction that never spends the reaction point never reaches
+	# can_take_reactions (action_reaction.gd:49), so it keeps working even while the Kraken is the one
+	# held - which, under its own Tide, it usually is. Same GRAPPLED-on-the-Kraken setup as
+	# test_irrepressible.gd.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	SpecFactory.apply(kraken, Lancer.STATUS.GRAPPLED)
+	await _start_turn_for(prey)
+	assert_eq(prey.tile(), Vector2i(2, 0), 'Held or not, the undertow still pulls.')
