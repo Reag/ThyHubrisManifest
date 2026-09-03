@@ -254,13 +254,20 @@ func test_pull_will_not_target_a_knockback_immune_character():
 		'A knockback-immune character is not a legal target.')
 
 # ============================== Reposition ==============================
-# The Puppet System (content/gear/horus/systems/ms_h0r_os_system_upgrade_i/action_puppet_system.gd)
-# is the recipe: build a pathfinder for the target on an involuntary movement type, ask the ACTING
-# unit's player where it goes, then queue the generated move events.
+# AN AIMED THROW. The Kraken picks a prisoner and a point to hurl it at; the character travels toward
+# that point in a straight line, up to three spaces, and stops against the first thing that will not
+# let it through. Aiming is allowed at anything - open ground, a wall, a bystander, the Kraken's own
+# space - because hitting something is the whole appeal.
+#
+# This file previously read "3 spaces in any direction" as "any reachable tile within 3": the player
+# named a DESTINATION and the prisoner walked around obstacles to reach it. That reading could not
+# hit anything, ever, because only tiles the prisoner could already stand on were offered. The trade
+# is deliberate and the user made it: a prisoner can no longer be posted neatly around a corner, and
+# in exchange a throw is a throw.
 #
 # MovementType.create_for_involuntary already sets ignore_rxns, ignore_engagement, ignore_difficult
-# and jump_downhill, so the throw provokes nothing and can drop the target off a ledge. That is the
-# agreed reading of "3 spaces in any direction" and is inherited rather than reimplemented.
+# and jump_downhill, so the throw provokes nothing and can drop the target off a ledge. That is
+# inherited from vanilla forced movement rather than reimplemented.
 
 func test_reposition_only_offers_characters_the_kraken_is_holding():
 	var action := _action(&'action_drag_reposition')
@@ -290,18 +297,80 @@ func test_reposition_throws_them_and_pays_the_movement():
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	_hold(prey)
 
-	# The destination is the Kraken's PLAYER's choice (ask_for_movement_alt), so - as with every
-	# other player-chosen-tile action in this codebase (see test_ms_ferrous_lash.gd) - the spec has
-	# to tell the ChoiceBusResponder where to send it, or it defaults to the reachable tile that
-	# costs nothing: staying put.
-	SpecFactory.current_responder.chosen_move_tile = Vector2i(4, 0)
-	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey])
+	# The aim point is the Kraken's PLAYER's choice, so the spec names it the way the player would -
+	# the prisoner, then the tile to throw it at. Given clear ground the throw covers its full three
+	# spaces and lands on the aim point exactly.
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey, Vector2i(4, 0)])
 
 	assert_eq(prey.tile(), Vector2i(4, 0), 'It landed exactly where the Kraken chose, three spaces out.')
 	assert_eq(kraken.core.current.speed, 0, 'And the movement was paid.')
 	# The immobilized thrower must not go along for the ride - the loudest possible failure of this
 	# action would be the Kraken dragging itself while throwing its prisoner.
 	assert_eq(kraken.tile(), Vector2i(0, 0), 'The Kraken itself did not move.')
+
+func test_reposition_can_aim_at_a_space_that_is_already_occupied():
+	# The whole point of aiming. A destination-picker can only ever offer somewhere the prisoner could
+	# stand, which is exactly the set of places where nothing is in the way - so it can never be used
+	# to throw anybody AT anything. The Kraken's own footprint is the case that matters most: it is
+	# what turns a throw into a collision, and a collision into a seize.
+	_pin()
+	var prey := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	var bystander := SpecFactory.create_unit(game.map, Vector2i(4, 0), Faction.AI_ENEMY)
+	_hold(prey)
+
+	var action := _action(&'action_drag_reposition')
+	if not Action.is_valid(action): return fail_test('action_drag_reposition is on the kit.')
+	var specific := SpecificAction.create(kraken, gear, action)
+	var picked_prisoner:Array[TargetingPick] = [TargetingPick.create_selection(prey.tile())]
+	var aimable:Array[Vector2i] = UnitTargeting.get_tiles_targetable(specific, picked_prisoner)
+
+	assert_true(aimable.has(kraken.tile()), 'The Kraken can be aimed at.')
+	assert_true(aimable.has(bystander.tile()), 'So can a bystander two spaces the other way.')
+	assert_true(aimable.has(Vector2i(2, 2)), 'And so can open ground.')
+	assert_false(aimable.has(prey.tile()), 'Only the prisoner\'s own space is no aim at all.')
+
+func test_reposition_stops_the_throw_against_whatever_is_in_the_way():
+	# "3 spaces" is a maximum reached by travelling, not a teleport to the aim point. A body in the
+	# line is where the throw ends, and the prisoner is left against it rather than beyond it or on
+	# top of it.
+	_pin()
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var bystander := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	_hold(prey)
+
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey, Vector2i(4, 0)])
+
+	assert_eq(prey.tile(), Vector2i(2, 0), 'It got as far as the bystander and no further.')
+	assert_eq(bystander.tile(), Vector2i(3, 0), 'Who was not shoved along by it.')
+
+func test_reposition_can_slam_a_prisoner_into_the_kraken_itself():
+	# The throw the whole rewrite exists for. Aimed at its own captor, a prisoner is hauled back down
+	# the line and stops dead against it - which is a collision, and a collision against the Kraken is
+	# what the Tide's seize listens for (see test_the_all_consuming_tide.gd). A destination-picker could
+	# never even offer this shot.
+	_pin()
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	_hold(prey)
+
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey, Vector2i(0, 0)])
+
+	assert_eq(prey.tile(), Vector2i(1, 0), 'It travelled until the Kraken stopped it.')
+	# Travelled and was stopped, not routed and parked. Two spaces of movement and then a Kraken - a
+	# prisoner that reached the Kraken's space and was tidied back out again would land on the same
+	# tile having covered more ground, which is a different thing entirely.
+	assert_eq(prey.state.spaces_moved_this_turn, 2, 'Two spaces of it, and then no more.')
+	assert_eq(kraken.tile(), Vector2i(0, 0), 'And the Kraken held its ground under the impact.')
+
+func test_reposition_throws_along_the_line_it_was_aimed_down():
+	# Aimed, not routed. The old reading let the prisoner walk around a corner to reach a chosen
+	# destination; this one sends it in a straight line and lets the line decide where it ends up.
+	_pin()
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 1), Faction.AI_ENEMY)
+	_hold(prey)
+
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey, Vector2i(4, 4)])
+
+	assert_eq(prey.tile(), Vector2i(4, 4), 'Thrown three spaces down the diagonal it was pointed at.')
 
 func test_reposition_will_not_target_a_held_knockback_immune_character():
 	# Same filter as Pull, and for the same reason: pathfinder.generate_events is what actually moves
@@ -341,10 +410,7 @@ func test_the_grapple_survives_the_throw():
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	_hold(prey)
 
-	# See test_reposition_throws_them_and_pays_the_movement above: the responder needs to be told
-	# where to send the throw, or it defaults to staying put.
-	SpecFactory.current_responder.chosen_move_tile = Vector2i(4, 0)
-	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey])
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey, Vector2i(4, 0)])
 
 	var held:Array[StringName] = []
 	for grapple:SpecificAction in UnitCondition.get_outgoing_grapples(kraken):

@@ -300,43 +300,43 @@ func test_a_hostile_outside_sensors_is_never_dragged():
 	await _start_turn_for(prey)
 	assert_eq(prey.tile(), Vector2i(3, 0), 'Out of the Tide, out of reach.')
 
-func test_a_hostile_already_against_the_kraken_is_left_alone():
-	# A pull toward something you are already touching has nowhere to put you, so the Tide does not ask
-	# about it. Under the Tide that is the common case, not a corner one - every character the Kraken
-	# is holding at close range would otherwise be offered up for the same pointless question at the
-	# start of every one of its turns, and answering yes would move nothing.
+func test_a_hostile_already_against_the_kraken_is_dragged_into_it():
+	# The best question the Tide asks, not a wasted one. A character with its back to the Kraken has
+	# nowhere left to be dragged except INTO the Kraken, and being driven into the Kraken is a
+	# collision - which is the opening the seize exists to take. Under the Tide this is the common
+	# case, not a corner one, so skipping it would keep the two halves of the core power from ever
+	# meeting.
 	#
-	# The responder answers yes to everything by default, so a regression that asked anyway would still
-	# leave the tile assertion green - the pull would simply find no path. Counting the questions is
-	# what separates "asked and moved nothing" from "never asked", and not asking is the point.
+	# Earlier this file asserted the opposite: that the Tide leaves such a character alone and does not
+	# even ask. That reading treated the last space as worthless because nobody ends up standing
+	# anywhere new. It is worth everything - the Tide gets its hands on them.
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	await _raise_the_tide()
+	Dice.CHEAT_ROLL_QUEUE.append(20)
 
-	# Counted across the turn start alone: raising the Tide asks a question of its own.
-	var questions_before:int = SpecFactory.current_responder.choices_made
 	await _start_turn_for(prey)
-	assert_eq(prey.tile(), Vector2i(1, 0), 'There is nowhere closer to drag it.')
-	assert_eq(SpecFactory.current_responder.choices_made, questions_before,
-		'And nobody was asked about it.')
+	assert_eq(prey.tile(), Vector2i(1, 0), 'It cannot be moved into the Kraken, only slammed against it.')
+	assert_true(_is_held(prey), 'And the Tide takes hold of what it drags into itself.')
 
-func test_a_hostile_horizontally_adjacent_but_several_floors_up_is_left_alone():
-	# The pull-viability gate has to measure the same way the pull it guards measures: horizontally
-	# only, per CommonActionUtil.generate_pull_events (common_action_util.gd:159), which works from
-	# plain Vector2i footprints and never looks at height. The sensor check right below it in
-	# hostiles_caught is 3D on purpose - a rooftop is still within sensors - but that same 3D distance
-	# must not leak into the pull-viability gate, or a hostile standing right beside the Kraken on the
-	# map, just several floors up, reads as "far enough to bother pulling" when horizontally there is
-	# nowhere closer to put it. Same shape as the already-adjacent case above, reached from height
-	# instead of from flat range.
+func test_a_hostile_beside_the_kraken_but_several_floors_up_is_dragged_down_into_it():
+	# Height is no shelter. A mech on a rooftop right beside the Kraken is inside the Tide - the sensor
+	# check that scopes the undertow measures in three dimensions on purpose - and the drag hauls it
+	# against the Kraken exactly as it would at ground level, reaction and all.
+	#
+	# Same shape as the case above, reached from height instead of from flat range, and kept because it
+	# is the one arrangement where a distance measured one way and a pull performed another way used to
+	# disagree. Read through the reaction rather than through the hold: a grapple five floors up is a
+	# contest the Kraken can lose on its merits, and what is being pinned here is that the drag reached
+	# the Kraken at all.
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	SpecFactory.set_tiles_elevation(game.map, 5, [Vector2i(1, 0)])
 	await _raise_the_tide()
+	Dice.CHEAT_ROLL_QUEUE.append(20)
 
-	var questions_before:int = SpecFactory.current_responder.choices_made
+	var reactions_before:int = kraken.core.current.reactions
 	await _start_turn_for(prey)
-	assert_eq(prey.tile(), Vector2i(1, 0), 'Still beside the Kraken - nowhere closer to drag it.')
-	assert_eq(SpecFactory.current_responder.choices_made, questions_before,
-		'And nobody was asked about it.')
+	assert_eq(kraken.core.current.reactions, reactions_before - 1,
+		'The Tide reaches up, drags it into itself, and grabs for it.')
 
 func test_a_character_immune_to_knockback_is_not_dragged():
 	# Drag To The Depths' Pull (action_drag_pull.gd) refuses the same characters, because
@@ -445,6 +445,98 @@ func test_nothing_is_seized_before_the_tide_is_raised():
 	Dice.CHEAT_ROLL_QUEUE.append(20)
 	await _collide_into(prey, KRAKEN_TILE)
 	assert_false(_is_held(prey), 'So nothing is seized.')
+
+# ================= the seize, from movement that actually happened =================
+# Every test above hands the seize a collision that the spec announced. That is enough to pin what the
+# seize DOES and nothing at all about whether anything on this frame ever produces a collision to hand
+# it - and for a while nothing did: the Kraken's own pulls stopped politely one space short of whatever
+# was in the way, so the clause was unreachable in play while reading green here. These drive real
+# characters into the Kraken with real forced movement and let the collision arrive on its own.
+#
+# The seize is the only reaction on the board that answers a collision - every vanilla one refuses any
+# collision its own gear did not cause - so it is also the instrument these read the collision with.
+# What is being pinned is the collision; the grapple is just how it becomes visible.
+
+func test_a_forced_move_that_runs_into_something_is_a_collision():
+	# The contract everything below rests on, stated once on its own: when forced movement drives a
+	# character into something it cannot enter, the stop is a COLLISION - a thing the board can answer -
+	# and not merely a shorter journey. This one owes nothing to the Kraken's own gear; it is a plain
+	# shove of the sort anything on the map might deal out.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+
+	var shove := MovementType.create_for_involuntary(prey)
+	shove.straight_line = true
+	shove.must_move_max_possible = true
+	await game.execute_event(&'event_unit_move', {
+		unit = prey,
+		array = Pathfinder.straight_path_to(KRAKEN_TILE, prey.tile(), 1, game.map.shape),
+		resource = shove,
+	})
+
+	assert_eq(prey.tile(), Vector2i(1, 0), 'It could not enter the space, so it stopped against it.')
+	assert_true(_is_held(prey), 'And stopping against the Kraken is a collision the Tide can answer.')
+
+func test_the_undertow_drags_a_character_in_and_the_tide_seizes_it():
+	# The two halves of the core power, meeting. The undertow hauls a hostile a space closer every turn;
+	# when the only space closer is the Kraken's own, the drag becomes a collision and the seize takes
+	# it. Nothing here announces a collision - the turn start does all of it.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+
+	await _start_turn_for(prey) # dragged from two out to one out; nothing to hit yet
+	assert_eq(prey.tile(), Vector2i(1, 0), 'First turn it is dragged to the Kraken.')
+	assert_false(_is_held(prey), 'Open ground is not a collision.')
+
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await _start_turn_for(prey) # now the only way closer is through the Kraken
+	assert_true(_is_held(prey), 'The next drag runs it into the Kraken, and the Tide takes it.')
+
+func test_a_character_pulled_into_the_kraken_is_seized():
+	# Drag To The Depths' Pull is the frame's other forced movement, and it answers to the same rule:
+	# two spaces of travel that run out of room end against the Kraken, and that is a collision. The
+	# HULL save is failed here so there is a pull to speak of at all.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	SpecFactory.apply(kraken, Lancer.STATUS.IMMOBILIZED) # Drag's own gate: only while pinned
+	kraken.core.current.speed = kraken.core.get_speed_max()
+	await _raise_the_tide()
+	Dice.CHEAT_ROLL_QUEUE.append(1) # a 1 fails any save worth the name
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_pull', [prey])
+
+	assert_eq(prey.tile(), Vector2i(1, 0), 'Dragged as far as the Kraken and stopped against it.')
+	assert_true(_is_held(prey), 'And the Tide took hold of it on impact.')
+
+func test_the_tide_takes_nothing_new_from_a_prisoner_it_throws_at_itself():
+	# The one forced movement on this frame the seize can never answer, and it is a rule rather than an
+	# oversight: Reposition throws only characters the Kraken is ALREADY holding, and the seize only
+	# answers collisions against the Kraken. So the throw slams a prisoner home, and the Tide finds it
+	# has nothing to take that it does not already have.
+	#
+	# Irrepressible is equipped so the Kraken genuinely has a reaction to spend - holding somebody makes
+	# it GRAPPLED, which would otherwise take its reactions away and let this pass for the wrong reason.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	kraken.core.equip_system(IRREPRESSIBLE_ID)
+	SpecFactory.apply_passive_buffs(kraken) # before the Tide: this repairs the Kraken, and would undo it
+	_hold(prey)
+	await _raise_the_tide()
+	SpecFactory.apply(kraken, Lancer.STATUS.IMMOBILIZED) # Drag's own gate: only while pinned
+	kraken.core.current.speed = kraken.core.get_speed_max()
+
+	var reactions_before:int = kraken.core.current.reactions
+	assert_eq(reactions_before, 1, 'It has a reaction to spend.')
+	await SpecFactory.use(game, kraken, CORE_POWER_ID, &'action_drag_reposition', [prey, KRAKEN_TILE])
+
+	assert_eq(prey.tile(), Vector2i(1, 0), 'Thrown at the Kraken, it stops hard against it.')
+	# Stopped, not delivered: two spaces of travel and then a Kraken. A prisoner that was routed into
+	# the Kraken's space and tidied back out again would sit on the same tile having covered more.
+	assert_eq(prey.state.spaces_moved_this_turn, 2, 'Two spaces of it, and then no more.')
+	assert_true(_is_held(prey), 'It never got loose, so there was nothing to re-take.')
+	assert_eq(kraken.core.current.reactions, reactions_before,
+		'And the Kraken kept its reaction rather than grabbing at what it already had.')
 
 # ============================== the reach cap ==============================
 # "Hostile characters within your SENSORS treat movement away from you as difficult terrain."
