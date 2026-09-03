@@ -15,8 +15,11 @@ func get_required_triggering_context() -> Array[Context.PROP]:
 	return [Context.PROP.unit]
 
 func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> bool:
-	if not PoisonedSoil.is_armed(gear): return false
-	return triggering_event.context.unit == unit
+	if not PoisonedSoil.is_armed(gear, triggering_event.context.map.game_core.round_count): return false
+	if triggering_event.context.unit != unit: return false
+	# Only the Nuckelavee's own movement fouls ground - a knockback or pull crossing an armed boost
+	# must not track (or, downstream, prompt to lay a trail across ground it was thrown over).
+	return PoisonedSoil.is_voluntary_movement(triggering_event)
 
 func activate(context:Context, _activation:EventCore) -> void:
 	var gear:GearCore = context.gear

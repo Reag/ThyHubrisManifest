@@ -20,8 +20,11 @@ func get_required_triggering_context() -> Array[Context.PROP]:
 	return [Context.PROP.unit]
 
 func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> bool:
-	if not PoisonedSoil.is_armed(gear): return false
+	if not PoisonedSoil.is_armed(gear, triggering_event.context.map.game_core.round_count): return false
 	if triggering_event.context.unit != unit: return false
+	# Only the Nuckelavee's own movement offers a trail - a knockback or pull must not prompt the
+	# player mid-enemy-turn over ground it was thrown across.
+	if not PoisonedSoil.is_voluntary_movement(triggering_event): return false
 	# An armed boost the frame never moved off is not a decision worth a prompt. The seeded start
 	# tile alone means no step was ever taken.
 	return PoisonedSoil.read_pending(gear).size() > 1

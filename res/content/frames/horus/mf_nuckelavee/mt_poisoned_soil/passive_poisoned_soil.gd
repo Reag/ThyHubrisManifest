@@ -16,13 +16,14 @@
 # Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-03-poisoned-soil-design.md
 extends PassiveTerrainZone
 
-const TRAIT_ID := &'mt_poisoned_soil'
-
 ## The terrain currently on the map.
 const TRAIL_KEY := 'poisoned_soil_trail'
 ## Tiles crossed since the last BOOST, not yet committed. Becomes TRAIL_KEY if the player accepts.
 const PENDING_KEY := 'poisoned_soil_pending'
 const ARMED_KEY := 'poisoned_soil_armed'
+## The round the boost that set ARMED_KEY happened in. An arm is only live for the rest of that same
+## round - see is_armed below.
+const ARMED_ROUND_KEY := 'poisoned_soil_armed_round'
 
 # ============================== the terrain zone ==============================
 
@@ -54,11 +55,40 @@ static func read_pending(gear:GearCore) -> Array[Vector2i]:
 static func write_pending(gear:GearCore, tiles:Array[Vector2i]) -> void:
 	gear.set_state(PENDING_KEY, _flat_from_tiles(tiles))
 
-static func is_armed(gear:GearCore) -> bool:
-	return bool(gear.get_state(ARMED_KEY, false))
+## `round` is whatever action_poisoned_soil_track / _lay are reacting to right now
+## (triggering_event.context.map.game_core.round_count). An arm stamped in an earlier round is
+## stale and reads as unarmed: nothing else clears ARMED_KEY at a turn or round boundary (GearCore.
+## state.clear() only runs on a repair), so without this an armed-but-never-moved boost - the frame
+## ends its turn, gets IMMOBILIZED, or its first step is silently blocked
+## (event_unit_move.gd:209/:212) - would stay armed forever and foul ground on some future turn's
+## first two-step move with no boost behind it.
+static func is_armed(gear:GearCore, round:int) -> bool:
+	if not bool(gear.get_state(ARMED_KEY, false)): return false
+	return gear.get_state(ARMED_ROUND_KEY, -1) == round
 
-static func set_armed(gear:GearCore, armed:bool) -> void:
+## `round` is required when arming (stamps the round the arm is live for) and ignored when
+## disarming, since a stale stamp on a disarmed gear can never make is_armed return true again.
+static func set_armed(gear:GearCore, armed:bool, round:int = -1) -> void:
 	gear.set_state(ARMED_KEY, armed)
+	if armed: gear.set_state(ARMED_ROUND_KEY, round)
+
+## "the spaces it moves through" is the Nuckelavee's OWN movement - the designer's ruling is that
+## being knocked back or pulled after boosting does not foul the ground it gets thrown across, and
+## must not prompt the player mid-enemy-turn either. A move/step event's triggering context carries
+## the MovementType behind it as context.resource (see event_unit_move.gd's get_optional_context
+## and execute_reaction_events_for_entire_katamari, which is what actually populates it for STEP and
+## ENTIRE_MOVEMENT reactions).
+##
+## Defaults to TRUE when no MovementType is attached at all, deliberately the opposite of
+## MovementType.is_contextual_move_voluntary. Every real call site that queues event_unit_move sets
+## an explicit MovementType (pathfinder.gd:908 for ordinary moves and boosts, common_action_util.gd
+## for knockback/pulls/mounting) - so a missing one here means "we could not tell", not "known
+## involuntary". Defaulting to false would silently disable the trait on any such gap; defaulting to
+## true costs at most a false trail on a case that, as far as this codebase shows, cannot happen.
+static func is_voluntary_movement(triggering_event:EventCore) -> bool:
+	var movement_type = triggering_event.context.resource
+	if not MovementType.is_valid(movement_type): return true
+	return movement_type.voluntary
 
 static func _flat_from_tiles(tiles:Array[Vector2i]) -> Array[int]:
 	var flat:Array[int] = []

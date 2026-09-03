@@ -23,4 +23,6 @@ func triggers_on_event(unit:Unit, _gear:GearCore, triggering_event:EventCore) ->
 func activate(context:Context, _activation:EventCore) -> void:
 	var gear:GearCore = context.gear
 	PoisonedSoil.write_pending(gear, [context.unit.tile()] as Array[Vector2i])
-	PoisonedSoil.set_armed(gear, true)
+	# Stamped with the round so a boost that never gets followed by a move cannot arm the trail into
+	# some later turn - see PoisonedSoil.is_armed.
+	PoisonedSoil.set_armed(gear, true, context.map.game_core.round_count)
