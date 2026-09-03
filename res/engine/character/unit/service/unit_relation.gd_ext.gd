@@ -103,30 +103,54 @@ static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerabilit
 	# A held character's turn is spent in the black sea: it may reach its captor, and anything else
 	# that is itself intangible, and nothing at all besides. Symmetric, so its own allies cannot
 	# reach in either.
+	#
+	# Each guard records whether it cleared the pairing, rather than leaving that fact to be
+	# re-derived later from Unit.is_valid(..._captor). That local is only a correct proxy for
+	# "already vetted" as long as it is read after the guard that computed it, and only for as long as
+	# neither guard below is reordered or joined by a third - a coupling worth naming rather than
+	# leaving to be discovered by whoever edits this next.
+	var bridged_by_the_black_sea := false
 	var origins_captor := cut_off_during_own_turn(origin_unit)
-	if Unit.is_valid(origins_captor) and not is_reachable_from_the_black_sea(target_unit, origins_captor):
-		return false
+	if Unit.is_valid(origins_captor):
+		if not is_reachable_from_the_black_sea(target_unit, origins_captor): return false
+		bridged_by_the_black_sea = true
 	var targets_captor := cut_off_during_own_turn(target_unit)
-	if Unit.is_valid(targets_captor) and not is_reachable_from_the_black_sea(origin_unit, targets_captor):
-		return false
+	if Unit.is_valid(targets_captor):
+		if not is_reachable_from_the_black_sea(origin_unit, targets_captor): return false
+		bridged_by_the_black_sea = true
 
 	if not super.can_affect(origin_unit, target_unit, ignore_invulnerability):
 		# The tangibility mismatch is the ONLY refusal the Tide overturns. Exile, invulnerability and
 		# shard separation still stand, so this re-checks that everything else would have allowed it.
 		if not tangibility_is_the_only_objection(origin_unit, target_unit, ignore_invulnerability):
 			return false
-		# A pairing the guards above already cleared - bound for its own captor, or genuinely
-		# INTANGIBLE itself - needs the same tangibility bridge the Kraken gets. The guards only rule
-		# out FORBIDDEN pairings; they do not by themselves cross the tangibility line when neither
-		# side is the Kraken, which is exactly the case for a held character reaching real INTANGIBLE
-		# company.
-		if not (counts_as_every_tangibility(origin_unit) or counts_as_every_tangibility(target_unit) or Unit.is_valid(origins_captor) or Unit.is_valid(targets_captor)):
+		# A pairing the guards above already cleared still needs the same tangibility bridge the
+		# Kraken gets for itself below - the guards only rule out FORBIDDEN pairings, they do not by
+		# themselves cross the tangibility line. Reaching one's own captor needs no separate bridge:
+		# cut_off_during_own_turn (above) only ever names a Kraken with the Tide buff up, so
+		# counts_as_every_tangibility(target_unit) already covers that pairing on its own. The
+		# black-sea bridge is load-bearing only for the other cleared case - a cut-off prisoner
+		# reaching company that is genuinely INTANGIBLE rather than the Kraken.
+		var tangibility_line_is_bridged := (
+			counts_as_every_tangibility(origin_unit) or counts_as_every_tangibility(target_unit)
+			or bridged_by_the_black_sea
+		)
+		if not tangibility_line_is_bridged:
 			return false
 	return true
 
 ## What a cut-off character may still touch: the Kraken holding it, and anything genuinely INTANGIBLE.
+##
+## Missing information must never change the answer away from vanilla's - but which way that cashes
+## out depends on which way a "yes" moves the outcome. tangibility_is_the_only_objection below
+## LICENSES WIDENING: answering yes about a unit it knows nothing about would grant reach vanilla
+## never granted, so it answers no. This helper is consulted only to DENY: answering no about a unit
+## it knows nothing about would take away reach the guards above were about to allow, so it answers
+## yes instead. That leaves the guard clause in can_affect unable to fire on missing information, and
+## vanilla's own invalid-unit answer (unit_relation.gd:394, "return TRUE if we don't have enough
+## information") is what actually decides the pairing.
 static func is_reachable_from_the_black_sea(other_unit:Unit, captor:Unit) -> bool:
-	if not Unit.is_valid(other_unit): return false
+	if not Unit.is_valid(other_unit): return true
 	if other_unit == captor: return true
 	return other_unit.has_status(Lancer.STATUS.INTANGIBLE)
 

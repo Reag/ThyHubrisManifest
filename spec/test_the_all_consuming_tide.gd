@@ -236,4 +236,7 @@ func test_a_prisoner_is_freed_when_the_kraken_dies():
 	assert_false(UnitRelation.can_affect(prey, friend), 'Cut off while held.')
 
 	await game.execute_event(&'event_unit_die', {unit = kraken})
+	# Vanilla answers TRUE for an invalid unit too, so without this the assert below would pass just
+	# as happily if the death event had taken the prisoner down with its captor.
+	assert_true(Unit.is_valid(prey), 'The prisoner outlives its captor.')
 	assert_true(UnitRelation.can_affect(prey, friend), 'And free once the Kraken is gone.')
