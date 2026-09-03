@@ -77,3 +77,36 @@ func test_the_trail_is_the_only_thing_that_made_it_difficult():
 	_refresh_terrain()
 	await SpecFactory.start_turn(game, nuckelavee)
 	assert_eq(await _cost_to(nuckelavee, NEIGHBOUR), 1, 'With the trail gone the ground is clean again.')
+
+# ============================== arming on BOOST ==============================
+
+func test_boosting_arms_the_trail_and_seeds_it_with_the_current_tile():
+	# The start tile counts: the designer's call is that a 5-space boost fouls 6 tiles, because the
+	# space the frame heaves itself out of is fouled too.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_true(PoisonedSoil.is_armed(trait_gear), 'The boost armed the trail.')
+	assert_eq(PoisonedSoil.read_pending(trait_gear), [START], 'Seeded with the tile it boosted from.')
+
+func test_boosting_twice_reseeds_rather_than_banking_two_trails():
+	# Speed is a pool, so a player can boost twice before moving. One trail per boost: the second
+	# arm clears the buffer and starts again from where the frame is standing now.
+	#
+	# A normal BOOST is once-per-turn (UnitAction.can_boost gates on state.has_normal_boost, and
+	# action_boost.gd clears it on use) - that is a real Lancer rule, not a test-fixture gap. The
+	# second boost this test needs has to come from Overcharge instead, exactly as a player would
+	# get it; test_ms_boost.gd's own test_uses_overcharge_if_out_of_regular_actions sets the state
+	# the same way.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
+	nuckelavee.state.overcharge_actions = 1
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_eq(PoisonedSoil.read_pending(trait_gear), [NEIGHBOUR], 'Re-seeded from the new position.')
+
+func test_another_units_boost_does_not_arm_our_trail():
+	var other := SpecFactory.create_unit(game.map, Vector2i(4, 4))
+	SpecFactory.apply_passive_buffs(other)
+	await SpecFactory.start_turn(game, other)
+	await SpecFactory.use_solo(game, other, &'ms_boost')
+	assert_false(PoisonedSoil.is_armed(trait_gear), 'Somebody else boosting is not our trigger.')
