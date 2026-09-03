@@ -61,8 +61,10 @@ gear.cp_dhiyed_observation.action_punishment.prompt.crit,Spend your core power: 
 gear.cp_dhiyed_observation.action_punishment.prompt.save,Spend your core power: the target automatically fails this save.
 ,
 frame.mf_kraken.name,Kraken
-frame.mf_kraken.flavor,
-frame.mf_kraken.flavor.short,
+frame.mf_kraken.flavor,"The Church of the Deeptide, or just The Deeptide, is a decentralized, clandestine group of sympathetic Aun who argue for the liberation of Aun'Yaa, the lunar prison home of the Apollonian people. For most, the name is a tongue-in-cheek title to reflect the group's contrarian stance against the Ascendancy. Apollonians, however, view it differently. Their ancestral mythos of angels and demons has long spawned sects and myths, and one such story, the Rite of Deeprise, tells of a demon raised up to the firmament, from which it touched realspace.
+Due to its seclusion in Aunic space, the Kraken remains poorly understood. Supposedly created on the surface on Aun'Yaa, rumors claim that a powerful Mind not yet cultivated by the Ascendancy assembled a simple machine from spare parts. This Apollonian, in lieu of realspace computers, reached into the firmament for an alternative. As the half-machine took form, black tendrils of liquid shadow stretched and pulled at steel like sinew on bone. When manquellers were sent, they bore witness to an ink-dark creation of man and metal: Ofanim'Ist, the Kraken. For days it scoured the moon's surface of Aunic forces, sending survivors home defeated and blind.
+It is unclear how the Kraken's story ended. Some say it was banished by Os, a proud triumph and proof of the danger unchecked Apollonians pose. Others claim it retreated to the firmament, waiting to pull unsuspecting souls into the Deep. In either case, the Kraken, and the secrets it held, vanished without a trace from the prison moon."
+frame.mf_kraken.flavor.short,Grabbing Gargantuan 
 gear.mt_undulating_form.name,Undulating Form
 gear.mt_undulating_form.effect,"The Kraken may move through other characters, and may end its movement overlapping them, so long as at least one space it occupies is free."
 gear.mt_undulating_form.trigger,
