@@ -326,16 +326,15 @@ func test_the_undertow_still_drags_while_the_kraken_is_itself_grappled():
 # with - so the trigger tests the Kraken's own footprint. Collisions here are forced-movement stops,
 # per the trigger's own comment, which is what "collides with you" means.
 
-const SEIZE_ACTION := &'action_tide_seize'
-
 ## DEVIATION FROM THE BRIEF: event_unit_collide.gd declares `event` (the move event that caused the
 ## collision) as required context (get_required_context, content/events/event_unit_collide.gd) and
 ## the engine enforces that before the event ever runs (event_block.gd:118, "invalid context! |
-## missing props: event") - so without it the event aborts before reactions are even considered, and
-## every seize test would trivially "pass" by never having anything to react to. The brief's version
-## of this helper omitted `event`. The real call site (event_unit_move.gd's execute_collision_event)
-## passes the enclosing move event; SpecFactory.dummy_event() is this file's existing stand-in for
-## "an EventCore the check only needs to be non-null" (see _hold above), so it is used here too.
+## missing props: event") - so without it the event aborts before reactions are even considered: the
+## two positive seize tests fail outright, and the two negative ones pass vacuously, both for lack of
+## anything to react to. The brief's version of this helper omitted `event`. The real call site
+## (event_unit_move.gd's execute_collision_event) passes the enclosing move event; SpecFactory.dummy_event()
+## is this file's existing stand-in for "an EventCore the check only needs to be non-null" (see _hold
+## above), so it is used here too.
 func _collide_into(mover:Unit, tile:Vector2i) -> void:
 	await game.execute_event(&'event_unit_collide', {
 		unit = mover, target_tiles = [tile] as Array[Vector2i], event = SpecFactory.dummy_event(),
@@ -366,8 +365,14 @@ func test_the_seize_spends_the_krakens_reaction():
 func test_a_collision_elsewhere_is_not_the_krakens_business():
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	await _raise_the_tide()
+	var reactions_before:int = kraken.core.current.reactions
 	await _collide_into(prey, Vector2i(4, 4))
 	assert_false(_is_held(prey), 'Collisions across the map are nothing to do with it.')
+	# No CHEAT_ROLL_QUEUE here, so a regression that fired the reaction anyway would resolve a real
+	# contested roll and could still leave _is_held false by chance. This does not: the seize spends
+	# the reaction whether or not the grapple lands, so an unspent reaction proves it never fired.
+	assert_eq(kraken.core.current.reactions, reactions_before,
+		'And it did not even reach for its reaction.')
 
 func test_nothing_is_seized_before_the_tide_is_raised():
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
