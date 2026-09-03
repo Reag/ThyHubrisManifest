@@ -63,3 +63,82 @@ func test_the_tide_dies_with_the_kraken():
 	assert_true(_tide_is_up(), 'Up while it lives.')
 	await game.execute_event(&'event_unit_die', {unit = kraken})
 	assert_false(_tide_is_up(), 'And gone with it.')
+
+# ============================== the Kraken counts as both ==============================
+# Phrased as the RULE throughout. A future modkit may let the Kraken genuinely hold both tangibility
+# states; these assertions must pass unchanged when it does.
+
+## A unit that is really INTANGIBLE, by the vanilla status. Nothing in this feature ever applies that
+## status itself - see the design doc - but the world contains units that have it, and the Tide is
+## about being able to reach them.
+func _spawn_intangible(tile:Vector2i, faction:Faction.SIDE = Faction.AI_ENEMY) -> Unit:
+	var ghost := SpecFactory.create_unit(game.map, tile, faction)
+	SpecFactory.apply(ghost, Lancer.STATUS.INTANGIBLE)
+	return ghost
+
+func test_the_kraken_can_reach_an_intangible_character():
+	var ghost := _spawn_intangible(Vector2i(2, 0))
+	assert_false(UnitRelation.can_affect(kraken, ghost), 'It cannot, before the Tide.')
+	await _raise_the_tide()
+	assert_true(UnitRelation.can_affect(kraken, ghost), 'The Tide lets it reach the intangible.')
+
+func test_an_intangible_character_can_reach_the_kraken():
+	# can_affect is asked from both sides and they are separate calls. Widening only the Kraken's view
+	# would leave it able to strike something that cannot strike back.
+	var ghost := _spawn_intangible(Vector2i(2, 0))
+	await _raise_the_tide()
+	assert_true(UnitRelation.can_affect(ghost, kraken), 'And the intangible can reach back.')
+
+func test_the_kraken_still_reaches_tangible_characters():
+	# "BOTH tangible and intangible" - the point is that nothing is given up.
+	var solid := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	assert_true(UnitRelation.can_affect(kraken, solid), 'Still reaches the solid world.')
+	assert_true(UnitRelation.can_affect(solid, kraken), 'And is still reachable from it.')
+
+# ============================== the controls ==============================
+# can_affect backs AI targeting, reactions, auras and per-tile unit filtering, so a mistake here
+# misbehaves for every unit on the map. These two tests are the blast-radius guard and are not
+# optional.
+
+func test_the_tide_changes_nothing_between_two_unrelated_characters():
+	var solid := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	var ghost := _spawn_intangible(Vector2i(3, 0))
+	await _raise_the_tide()
+	assert_false(UnitRelation.can_affect(solid, ghost),
+		'A bystander still cannot touch an intangible one.')
+	assert_false(UnitRelation.can_affect(ghost, solid),
+		'And it still cannot touch back.')
+
+func test_without_the_tide_the_kraken_is_an_ordinary_character():
+	var ghost := _spawn_intangible(Vector2i(2, 0))
+	var solid := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	assert_false(_tide_is_up(), 'The Tide is down.')
+	assert_false(UnitRelation.can_affect(kraken, ghost), 'No reach into the intangible.')
+	assert_true(UnitRelation.can_affect(kraken, solid), 'And ordinary reach otherwise.')
+
+# The Tide overturns the tangibility line and nothing else. These three pin that every other
+# can_affect refusal still stands, so a future vanilla change cannot silently widen the Kraken's
+# reach through this override.
+
+func test_the_tide_does_not_reach_the_exiled():
+	# Exile refuses regardless of tangibility - the Tide does not touch it.
+	var exile := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	SpecFactory.apply(exile, Lancer.STATUS.EXILED)
+	await _raise_the_tide()
+	assert_false(UnitRelation.can_affect(kraken, exile), 'The Tide does not reach the exiled.')
+
+func test_the_tide_does_not_reach_the_invulnerable():
+	# Same guard, for invulnerability.
+	var invulnerable := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	SpecFactory.apply(invulnerable, Lancer.STATUS.INVULNERABLE)
+	await _raise_the_tide()
+	assert_false(UnitRelation.can_affect(kraken, invulnerable),
+		'The Tide does not reach the invulnerable.')
+
+func test_the_tide_does_not_cross_a_shard_boundary():
+	# Same guard, for shard separation - sharing no shard still refuses, Tide or not.
+	var other := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	other.state.in_global_shard = false
+	await _raise_the_tide()
+	assert_false(UnitRelation.can_affect(kraken, other), 'The Tide does not cross a shard boundary.')

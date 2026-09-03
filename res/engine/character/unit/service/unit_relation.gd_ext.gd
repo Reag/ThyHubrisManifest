@@ -50,3 +50,58 @@ static func _append_valid(units:Array[Unit], unit:Unit) -> void:
 	if not Unit.is_valid(unit): return
 	if units.has(unit): return
 	units.append(unit)
+
+# ============================================================================================
+# TANGIBILITY. Everything below this line is a WORKAROUND for a limitation of modkit 1.3.3 and is
+# meant to be deleted, not maintained.
+#
+# The faithful reading is that the Kraken genuinely holds both tangibility states, and that a
+# character it has grappled genuinely gains INTANGIBLE for its turn. Neither can be expressed today,
+# because applying or clearing the status runs UnitCondition.handle_intangibilty_changing
+# (unit_condition.gd:256-288, reached from the apply path at :142 and the clear path at :206) which
+# calls Katamari.dettach_everything UNCONDITIONALLY. A Kraken flipping status per turn would drop
+# every prisoner every turn, and a prisoner given the status would be released by the act of
+# receiving it. So nothing here touches the status; can_affect is widened instead.
+#
+# TO REMOVE THIS, once an engine can express dual tangibility:
+#   - delete counts_as_every_tangibility and its branch in can_affect (that is the whole workaround)
+#   - keep cut_off_during_own_turn: it is a real game rule, not a workaround, and would simply be
+#     reimplemented by applying INTANGIBLE to held characters
+#   - spec/test_the_all_consuming_tide.gd asserts the RULES rather than this mechanism, so it must
+#     keep passing unchanged. If it does not, the replacement is not equivalent.
+# ============================================================================================
+
+const TIDE_BUFF_ID := &'buff_the_all_consuming_tide'
+
+## The Tide's mark. Read through the buff rather than the frame so the rule follows the ability, not
+## the chassis: a Kraken that has not raised the Tide is an ordinary character.
+static func counts_as_every_tangibility(unit:Unit) -> bool:
+	if not Unit.is_valid(unit): return false
+	return UnitCondition.has_buff(unit, TIDE_BUFF_ID)
+
+## Vanilla refuses any interaction across the tangibility line (unit_relation.gd:397). The Tide
+## exempts the Kraken from that line in both directions - it is asked as can_affect(a, b) and
+## can_affect(b, a) at different call sites, and answering only one would let the Kraken strike
+## something that could not strike back.
+##
+## Everything else is left to super, so no other pair of units on the map is affected.
+static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerability := false) -> bool:
+	if not super.can_affect(origin_unit, target_unit, ignore_invulnerability):
+		# The tangibility mismatch is the ONLY refusal the Tide overturns. Exile, invulnerability and
+		# shard separation still stand, so this re-checks that everything else would have allowed it.
+		if not tangibility_is_the_only_objection(origin_unit, target_unit, ignore_invulnerability):
+			return false
+		if not (counts_as_every_tangibility(origin_unit) or counts_as_every_tangibility(target_unit)):
+			return false
+	return true
+
+## Would can_affect have said yes but for the tangibility line? Mirrors unit_relation.gd:393-403 with
+## that one comparison removed.
+static func tangibility_is_the_only_objection(origin_unit:Unit, target_unit:Unit, ignore_invulnerability:bool) -> bool:
+	if not Unit.is_valid(origin_unit) or not Unit.is_valid(target_unit): return false
+	if origin_unit.has_status(Lancer.STATUS.EXILED): return false
+	if target_unit.has_status(Lancer.STATUS.EXILED): return false
+	if not ignore_invulnerability and target_unit.has_status(Lancer.STATUS.INVULNERABLE): return false
+	if origin_unit.state.in_global_shard != target_unit.state.in_global_shard:
+		return origin_unit.state.in_effect_shards.any(target_unit.state.in_effect_shards.has)
+	return true
