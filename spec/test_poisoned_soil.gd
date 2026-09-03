@@ -112,17 +112,17 @@ func test_another_units_boost_does_not_arm_our_trail():
 	assert_false(PoisonedSoil.is_armed(trait_gear), 'Somebody else boosting is not our trigger.')
 
 # ============================== tracking the path ==============================
-
-func test_moving_while_armed_records_every_tile_stepped_onto():
-	# Task 4 note: this move is a complete ENTIRE_MOVEMENT on its own, so by the time it returns the
-	# lay reaction has already fired (default responder accepts) and committed pending into trail,
-	# clearing pending back to []. read_trail is therefore the only place left to observe this.
-	await SpecFactory.start_turn(game, nuckelavee)
-	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
-	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
-	assert_eq(PoisonedSoil.read_trail(trait_gear),
-		[START, Vector2i(1, 0), Vector2i(2, 0)],
-		'Start tile plus both tiles it stepped onto, in order.')
+#
+# Task 4 note: there used to be a test_moving_while_armed_records_every_tile_stepped_onto here,
+# asserting read_pending held every stepped-on tile in order after a boosted move. It is gone, not
+# just moved: once action_poisoned_soil_lay.gd exists, ANY completed move while armed pushes
+# pending's size past the seeded 1 (a single real step already does it), which opens the lay gate
+# and commits+clears pending within that SAME event_unit_move - before the test's await ever
+# returns. There is no size of move, boost, or number of SpecFactory calls that leaves a
+# multi-tile pending observable afterwards; the state is structurally never there to inspect. The
+# equivalent coverage - every tile stepped onto lands in order - is what
+# test_accepting_turns_the_whole_path_into_difficult_terrain's read_trail assertion already proves
+# (same boost, same move, same expected array), so keeping both was two tests for one behaviour.
 
 func test_moving_without_boosting_records_nothing():
 	await SpecFactory.start_turn(game, nuckelavee)
@@ -208,11 +208,16 @@ func test_a_new_trail_replaces_the_old_one_rather_than_adding_to_it():
 	assert_eq(await _cost_to(hostile, Vector2i(4, 4)), 1, 'The abandoned tile is clean ground again.')
 
 func test_a_second_movement_after_the_trail_is_laid_lays_nothing_more():
+	# The second move has to cross MORE THAN ONE tile. A single-step second move only ever leaves
+	# pending at size 1 - the lay gate (read_pending(gear).size() > 1) never opens regardless of
+	# whether the reaction actually disarmed, so a single-step second move can't tell "disarmed" from
+	# "never re-armed". Two steps is what makes this test able to fail if action_poisoned_soil_lay.gd's
+	# set_armed(gear, false) were ever deleted - verified by mutation, see task-4-report.md.
 	SpecFactory.current_responder.chosen_yesnos = true
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
-	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
 	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR],
 		'One trail per boost; the second move added nothing.')
 
