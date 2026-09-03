@@ -403,10 +403,28 @@ func _allowed_tiles_for(mover:Unit) -> Array[Vector2i]:
 	var values := buff.base.get_values(buff, context)
 	return Tile.from_bitwise_array(values.object, game.map.size)
 
+## The same collection pathfinder.gd:340-350 loops over for every character's restriction buffs
+## against `mover` - used to prove the buff is actually wired to Buff.TO.MOVEMENT_RESTRICTION and not
+## merely present on the Kraken. _allowed_tiles_for above calls the buff's methods directly and would
+## stay green even if `to = &"movement_restriction"` were deleted from the .tres; this does not.
+func _restriction_buffs_for(mover:Unit) -> Array[BuffCore]:
+	var restriction_context := Context.create({unit = mover, resource = MovementType.create(mover, true, true)})
+	var restriction_buffs:Array[BuffCore] = []
+	for check_unit:Unit in game.map.get_all_characters():
+		restriction_buffs.append_array(
+			UnitCondition.get_buffs_to(check_unit, Buff.TO.MOVEMENT_RESTRICTION, restriction_context))
+	return restriction_buffs
+
 func test_a_hostile_cannot_retreat_further_than_half_its_remaining_speed():
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	prey.core.current.speed = 4
 	await _raise_the_tide()
+
+	# The wiring check: this is the query the pathfinder itself runs before it ever asks get_values
+	# for tiles. Without it, deleting `to = &"movement_restriction"` from the .tres would leave the
+	# assertions below meaningless - they call the buff's methods directly, not through the pathfinder.
+	assert_false(_restriction_buffs_for(prey).is_empty(),
+		"The pathfinder's own restriction query finds the Tide once it is up.")
 
 	var allowed := _allowed_tiles_for(prey)
 	assert_true(allowed.has(Vector2i(3, 0)), 'Two spaces further out is still allowed.')
@@ -423,6 +441,17 @@ func test_the_cap_is_measured_against_movement_still_left():
 	assert_true(allowed.has(Vector2i(2, 0)), 'One space further out is allowed.')
 	assert_false(allowed.has(Vector2i(3, 0)), 'Two is not, on half the budget.')
 
+func test_an_odd_budget_rounds_down():
+	# Difficult terrain costs double, so an odd budget does not buy a full extra space of retreat:
+	# speed 3 covers exactly one space, not two. Rounding up (Util.half) would over-grant here.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	prey.core.current.speed = 3
+	await _raise_the_tide()
+
+	var allowed := _allowed_tiles_for(prey)
+	assert_true(allowed.has(Vector2i(2, 0)), 'One space further out is allowed.')
+	assert_false(allowed.has(Vector2i(3, 0)), 'Two is not, on an odd budget.')
+
 func test_closing_with_the_kraken_is_never_capped():
 	# The whole point of choosing this approximation: it is directional. Coming closer stays free.
 	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
@@ -431,6 +460,18 @@ func test_closing_with_the_kraken_is_never_capped():
 
 	var allowed := _allowed_tiles_for(prey)
 	assert_true(allowed.has(Vector2i(1, 0)), 'It may close all the way in.')
+
+func test_circling_the_kraken_at_the_same_range_is_never_capped():
+	# The other half of the directional claim: the cap only fires on tiles further from the Kraken
+	# than the mover started, so a tile at the SAME range - off to the side rather than toward or away
+	# - is free too. A plain radius leash would pass this trivially, but so would a bug that banned
+	# every tile off the direct retreat line; this pins that circling specifically stays open.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	prey.core.current.speed = 4
+	await _raise_the_tide()
+
+	var allowed := _allowed_tiles_for(prey)
+	assert_true(allowed.has(Vector2i(0, 3)), 'Circling at the same range from the Kraken stays free.')
 
 func test_allies_are_not_capped():
 	var friend := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.PLAYER)
@@ -441,16 +482,12 @@ func test_allies_are_not_capped():
 func test_nothing_is_capped_before_the_tide_is_raised():
 	# _allowed_tiles_for cannot run here - it indexes UnitCondition.get_buffs(kraken, TIDE_BUFF_ID)[0],
 	# which does not exist before the Tide is raised. So rather than restate "no buff, no restriction"
-	# a second time, this asks the same question the pathfinder itself asks: pathfinder.gd:340-350
-	# loops every character's MOVEMENT_RESTRICTION buffs against whoever is moving. Same prey
-	# placement and speed as the positive tests above, so the Tide is the only variable.
+	# a second time, this asks the same question the pathfinder itself asks via _restriction_buffs_for:
+	# pathfinder.gd:340-350 loops every character's MOVEMENT_RESTRICTION buffs against whoever is
+	# moving. Same prey placement and speed as the positive tests above, so the Tide is the only
+	# variable, and the same helper the wiring assertion above uses, so the two are symmetrical.
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	prey.core.current.speed = 4
 	assert_false(_tide_is_up(), 'The Tide is down.')
 
-	var restriction_context := Context.create({unit = prey, resource = MovementType.create(prey, true, true)})
-	var restriction_buffs:Array[BuffCore] = []
-	for check_unit:Unit in game.map.get_all_characters():
-		restriction_buffs.append_array(
-			UnitCondition.get_buffs_to(check_unit, Buff.TO.MOVEMENT_RESTRICTION, restriction_context))
-	assert_true(restriction_buffs.is_empty(), 'Nothing restricts its retreat before the Tide is up.')
+	assert_true(_restriction_buffs_for(prey).is_empty(), 'Nothing restricts its retreat before the Tide is up.')
