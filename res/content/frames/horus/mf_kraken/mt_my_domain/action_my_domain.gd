@@ -42,11 +42,36 @@
 # the grip comes off. Releasing is unaffected: action_grapple_release and action_grapple_break both
 # iterate get_outgoing/incoming_grapples, which yield one entry per grappling gear, so every record
 # of one hold is dropped together.
+#
+# TWO CONSEQUENCES OF HOLDING IT TWICE. Neither is bookkeeping either, and both are easy to undo by
+# accident.
+#
+# THE FIRST IS WHAT TO RE-CHECK AFTER A MODKIT UPDATE. Every prisoner also stays recorded under
+# mw_grapple, permanently, and that record survives only because of how the sweep is written:
+# check_attachments_are_adjacent declares requires_adjacency once per OTHER UNIT
+# (unit_condition.gd:613) and then computes it across ALL of the holder's attachment sources
+# (:614-622), so the one mt_my_domain source waives adjacency for the mw_grapple record too. Tighten
+# that loop to per-source and the trait does not degrade, it stops working COMPLETELY: the detach at
+# :625 is Katamari.dettach_units with no source, and with no source it "detaches everything"
+# (katamari.gd:235) - this trait's own record included.
+#
+# THE SECOND IS WHY THE GRIP IS NOT THE WHOLE EXPOSURE. By that same all-sources computation, a
+# Kraken holding even one My Domain prisoner has ALL of its attachments exempt from the adjacency
+# sweep for as long as it holds them - not just for the moment the grip is up. The exemption lifts on
+# its own when the last prisoner goes, because validate_attachments erases a source whose list has
+# emptied (katamari.gd:304-305). So the grip is the smaller half of the widening, and anyone
+# "fixing" it in the belief that it is the only one will have tightened nothing.
 extends ActionReaction
 
 const TETHER_BUFF_ID := &'buff_my_domain_tether'
 const GRAPPLE_KIT := &'mw_grapple'
 const GRAPPLE_ACTION := &'action_grapple'
+
+## The one domain buff that has to be told how far this burst reached. Named as a type rather than
+## asked for a bind method: buff_my_domain_tether declares a bind of its own that takes a Unit, so a
+## third domain buff following that convention would be handed a distance where it wanted a target.
+const ReachBuff := preload(
+	'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_my_domain/buff_my_domain_reach.gd')
 
 ## What is true of the Kraken only while the domain is closing: its Grapple carries out to whoever
 ## the burst caught, and nothing it takes slips out of its hands for standing too far off. Applied
@@ -157,7 +182,7 @@ func take_hold(activation:EventCore, context:Context, kraken:Unit, caught:Array[
 		await grapple(activation, context, kraken, target)
 
 		# choose_and_use's bool does NOT report a hit, whatever its comment says: it returns
-		# SpecificAction.is_valid(chosen) (common_action_util.gd:737), and with a single option and a
+		# SpecificAction.is_valid(chosen) (common_action_util.gd:736), and with a single option and a
 		# player driving, that option is picked automatically - so it reads true for a clean miss and
 		# for a cancelled activation alike. Ask the board who is actually held instead.
 		if not currently_held(kraken).has(target): continue
@@ -238,11 +263,16 @@ func open_the_domain(activation:EventCore, context:Context, kraken:Unit, reach:i
 		var buff:Buff = ContentLibrary.get_buff(buff_id)
 		if not is_instance_valid(buff): continue
 		var buff_core := UnitCondition.apply_buff(activation, kraken, buff, context.gear)
-		if buff.has_method(&'bind'): buff.bind(buff_core, reach)
+		if buff is ReachBuff: buff.bind(buff_core, reach)
 
 ## Deliberately not guarded on Unit.is_valid, which is false for a dead unit: a Kraken that died
 ## mid-activation still has to have these taken off it, in case anything brings it back.
 ## clear_buff_id is a no-op when the buff is not there, so the paranoid call costs nothing.
+##
+## THIS is the mechanism that ends the domain - not the UNTIL on either resource. Both carry
+## END_OF_THIS_TURN purely as a backstop, so that a future edit which loses this call costs the
+## Kraken a turn of unearned reach rather than the rest of the scene. Neither buff should ever
+## survive to be cleared that way, and one that does is a bug in this bracket.
 func close_the_domain(activation:EventCore, kraken:Unit) -> void:
 	if not is_instance_valid(kraken) or kraken.state == null: return
 	for buff_id:StringName in DOMAIN_BUFF_IDS:

@@ -4,6 +4,6 @@
 
 [resource]
 script = ExtResource("1_buff")
-until = 0
+until = 2
 to = &"attach_at_distance"
 hide_from_player = true

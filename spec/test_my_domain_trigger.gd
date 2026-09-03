@@ -19,8 +19,6 @@
 # lands and a 1 does not.
 extends GutTest
 
-const ModChoiceResponder := preload('res://testkit/mod_choice_responder.gd')
-
 const TRAIT_ID := &'mt_my_domain'
 const TETHER_BUFF_ID := &'buff_my_domain_tether'
 const GRAPPLE_KIT := &'mw_grapple'
@@ -166,6 +164,24 @@ func test_the_tether_follows_the_grapple_that_landed():
 		if UnitCondition.has_buff(enemy, TETHER_BUFF_ID): tethered += 1
 	assert_eq(tethered, 1, 'One landed grapple, one tether.')
 	assert_eq(_held().size(), 1, 'And one character held.')
+
+# ============================== the hold ==============================
+
+func test_the_domain_keeps_what_it_caught():
+	# "Characters grappled this way count as though they are |adjacent|" - so a hold made across a
+	# burst has to survive the engine's own adjacency check, which drops any attachment between
+	# characters standing more than a space apart and runs on every movement anywhere on the map.
+	# Nothing else here forces that check, so without it the trait can look entirely correct in a
+	# spec and hold nobody by the time the next character takes a step.
+	await _use_burst()
+	assert_eq(_held().size(), 2, 'Both were taken.')
+	assert_gt(UnitRelation.distance_between(kraken, near_enemy), 1,
+		'And they stand further off than a hold ordinarily survives.')
+
+	UnitTile.update_tracking_and_statuses(game.map)
+
+	assert_eq(_held().size(), 2, 'The domain still holds them after an adjacency check.')
+	assert_true(UnitCondition.has_buff(near_enemy, TETHER_BUFF_ID), 'Tether and all.')
 
 # ============================== the reach ==============================
 
