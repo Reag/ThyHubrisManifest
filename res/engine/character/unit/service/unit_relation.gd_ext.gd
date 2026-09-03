@@ -64,7 +64,8 @@ static func _append_valid(units:Array[Unit], unit:Unit) -> void:
 # receiving it. So nothing here touches the status; can_affect is widened instead.
 #
 # TO REMOVE THIS, once an engine can express dual tangibility:
-#   - delete counts_as_every_tangibility and its branch in can_affect (that is the whole workaround)
+#   - delete counts_as_every_tangibility, tangibility_is_the_only_objection, and can_affect's widened
+#     branch (that is the whole workaround)
 #   - keep cut_off_during_own_turn: it is a real game rule, not a workaround, and would simply be
 #     reimplemented by applying INTANGIBLE to held characters
 #   - spec/test_the_all_consuming_tide.gd asserts the RULES rather than this mechanism, so it must
@@ -96,7 +97,12 @@ static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerabilit
 	return true
 
 ## Would can_affect have said yes but for the tangibility line? Mirrors unit_relation.gd:393-403 with
-## that one comparison removed.
+## that one comparison removed - except at line 394, where vanilla returns true for an invalid unit
+## ("return TRUE if we don't have enough information") and this deliberately returns false instead:
+## a predicate whose whole job is to license widening tangibility must not say yes on missing
+## information. The divergence is currently unreachable - the sole call site below is gated behind
+## `not super.can_affect(...)`, and vanilla already short-circuits to true for invalid units before
+## this helper is ever consulted - so the inversion is defensive, not load-bearing.
 static func tangibility_is_the_only_objection(origin_unit:Unit, target_unit:Unit, ignore_invulnerability:bool) -> bool:
 	if not Unit.is_valid(origin_unit) or not Unit.is_valid(target_unit): return false
 	if origin_unit.has_status(Lancer.STATUS.EXILED): return false
