@@ -87,31 +87,78 @@ func test_boosting_arms_the_trail_and_seeds_it_with_the_current_tile():
 	# space the frame heaves itself out of is fouled too.
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
-	assert_true(PoisonedSoil.is_armed(trait_gear), 'The boost armed the trail.')
+	assert_true(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count), 'The boost armed the trail.')
 	assert_eq(PoisonedSoil.read_pending(trait_gear), [START], 'Seeded with the tile it boosted from.')
 
 func test_boosting_twice_reseeds_rather_than_banking_two_trails():
-	# Speed is a pool, so a player can boost twice before moving. One trail per boost: the second
-	# arm clears the buffer and starts again from where the frame is standing now.
+	# Speed is a pool, so a player can boost twice before moving at all - action_boost.gd only adds
+	# to current.speed and never moves anything (see action_poisoned_soil_arm.gd's header). One
+	# trail per boost: the second arm has to REPLACE the pending buffer, not append to it, or a
+	# reseed at the same tile it already seeded leaves a duplicate entry sitting in front of the
+	# eventual trail.
 	#
 	# A normal BOOST is once-per-turn (UnitAction.can_boost gates on state.has_normal_boost, and
 	# action_boost.gd clears it on use) - that is a real Lancer rule, not a test-fixture gap. The
 	# second boost this test needs has to come from Overcharge instead, exactly as a player would
 	# get it; test_ms_boost.gd's own test_uses_overcharge_if_out_of_regular_actions sets the state
 	# the same way.
+	#
+	# Crucially, nothing moves between the two boosts. The previous version of this test put a
+	# SpecFactory.move here - which crossed one tile, pushed pending past size 1, and opened the lay
+	# gate right there, committing and clearing pending before the second boost ever ran. Mutating
+	# arm to APPEND instead of replace still passed against that version, because by the time the
+	# second arm ran, pending had already been reset to empty by the first move's lay - appending to
+	# an empty buffer looks identical to replacing it. Boosting twice with no move between is the
+	# only way to put a second arm's REPLACE where an APPEND would visibly differ.
+	SpecFactory.current_responder.chosen_yesnos = true
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
-	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
 	nuckelavee.state.overcharge_actions = 1
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
-	assert_eq(PoisonedSoil.read_pending(trait_gear), [NEIGHBOUR], 'Re-seeded from the new position.')
+	assert_eq(PoisonedSoil.read_pending(trait_gear), [START],
+		'Re-seeded from the second boost - still just the one entry, not two.')
+
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR, Vector2i(2, 0)],
+		'One trail for the whole move - no leftover duplicate from the first boost.')
 
 func test_another_units_boost_does_not_arm_our_trail():
 	var other := SpecFactory.create_unit(game.map, Vector2i(4, 4))
 	SpecFactory.apply_passive_buffs(other)
 	await SpecFactory.start_turn(game, other)
 	await SpecFactory.use_solo(game, other, &'ms_boost')
-	assert_false(PoisonedSoil.is_armed(trait_gear), 'Somebody else boosting is not our trigger.')
+	assert_false(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count), 'Somebody else boosting is not our trigger.')
+
+# ============================== an arm does not survive the turn that made it ==============================
+
+func test_an_armed_boost_does_not_carry_into_a_later_round_it_never_moved_in():
+	# Real bug from the final review: set_armed(gear, true) happens only in the arm reaction, and
+	# set_armed(gear, false) only in lay - and lay refuses to fire unless pending has more than the
+	# seeded tile. Nothing else clears gear state at a turn or round boundary (GearCore.state.clear()
+	# only runs on a repair). So a Nuckelavee that boosts and then never moves - ends its turn, gets
+	# IMMOBILIZED, or has its very first step silently blocked (event_unit_move.gd breaks out of its
+	# step loop with no event on both `not is_next_step_possible` at :209 and
+	# `not is_next_step_affordable` at :212) - stays armed forever. On some LATER turn, the first
+	# two-step move would then track those tiles and open the lay gate with no boost behind it at
+	# all, contradicting both the rules text and the design doc's ordering rules.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_true(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count),
+		'Armed by the boost - sanity check before the turn ends.')
+	await SpecFactory.end_turn(game, nuckelavee)
+
+	# A round boundary, the same way test_dhiyed_observation.gd's _next_round does it: move only the
+	# value the staleness check actually reads, rather than paying for the full event_round_new
+	# banner/music/combat-end sweep.
+	game.map.game_core.round_count += 1
+	await SpecFactory.start_turn(game, nuckelavee)
+
+	var choices_before:int = SpecFactory.current_responder.choices_made
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [], 'No boost this round - nothing should be laid.')
+	assert_eq(SpecFactory.current_responder.choices_made, choices_before,
+		'And the lay prompt should never have appeared at all.')
 
 # ============================== tracking the path ==============================
 #
@@ -162,7 +209,7 @@ func test_accepting_turns_the_whole_path_into_difficult_terrain():
 
 	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, Vector2i(1, 0), Vector2i(2, 0)],
 		'The crossed tiles became the trail.')
-	assert_false(PoisonedSoil.is_armed(trait_gear), 'And the trail disarmed.')
+	assert_false(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count), 'And the trail disarmed.')
 
 	# The rule, through the pathfinder, from a fresh mover standing next to the trail.
 	var hostile := SpecFactory.create_unit(game.map, Vector2i(1, 1), Faction.AI_ENEMY)
@@ -184,13 +231,13 @@ func test_declining_leaves_the_previous_trail_standing():
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	# Guard against going vacuous again: if the boost ever stopped arming the trail, the assertions
 	# below would pass for the wrong reason (nothing to decline) exactly as this test once did.
-	assert_true(PoisonedSoil.is_armed(trait_gear), 'The boost armed the trail before the decline.')
+	assert_true(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count), 'The boost armed the trail before the decline.')
 
 	SpecFactory.current_responder.chosen_yesnos = false
 	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
 
 	assert_eq(PoisonedSoil.read_trail(trait_gear), [Vector2i(4, 4)], 'The old trail is untouched.')
-	assert_false(PoisonedSoil.is_armed(trait_gear), 'And declining still disarms.')
+	assert_false(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count), 'And declining still disarms.')
 
 func test_a_new_trail_replaces_the_old_one_rather_than_adding_to_it():
 	# "This terrain lasts until you create terrain this way again" - the whole lifetime rule.
@@ -251,6 +298,46 @@ func test_another_units_steps_do_not_pollute_our_pending_buffer():
 
 	assert_eq(PoisonedSoil.read_pending(trait_gear), [START],
 		"Someone else's steps never reached our pending buffer.")
+
+# ============================== involuntary movement never fouls ground ==============================
+#
+# Author's ruling from the final review: only the mech's OWN movement fouls ground. Neither track nor
+# lay used to check voluntariness at all, so a Nuckelavee knocked back or pulled after boosting would
+# foul the ground it got thrown across, and prompt the player mid-enemy-turn to boot.
+
+func test_forced_movement_while_armed_lays_no_trail_and_never_prompts():
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_true(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count), 'Armed by the boost.')
+
+	var choices_before:int = SpecFactory.current_responder.choices_made
+	await game.execute_event(&'event_unit_move', {
+		unit = nuckelavee,
+		array = [Pathfinder.Step.create(NEIGHBOUR, 1), Pathfinder.Step.create(Vector2i(2, 0), 1)],
+		resource = MovementType.create_for_involuntary(nuckelavee),
+	})
+
+	assert_eq(PoisonedSoil.read_pending(trait_gear), [START], 'Forced movement tracked nothing new.')
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [], 'And laid nothing.')
+	assert_eq(SpecFactory.current_responder.choices_made, choices_before,
+		'The lay prompt must not appear for movement the Nuckelavee did not choose.')
+
+func test_ordinary_voluntary_movement_still_lays_a_trail():
+	# The paired case, so the fix above cannot pass by disabling the trait outright: the exact same
+	# armed state and the exact same path, but driven through an explicit voluntary MovementType
+	# instead of create_for_involuntary, still has to foul the ground.
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await game.execute_event(&'event_unit_move', {
+		unit = nuckelavee,
+		array = [Pathfinder.Step.create(NEIGHBOUR, 1), Pathfinder.Step.create(Vector2i(2, 0), 1)],
+		resource = MovementType.create(nuckelavee, true),
+	})
+
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR, Vector2i(2, 0)],
+		'Voluntary movement still tracks and lays the whole path.')
 
 # ============================== deliberate, and it looks like a bug ==============================
 
