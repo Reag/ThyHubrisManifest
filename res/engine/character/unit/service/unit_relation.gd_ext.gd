@@ -66,8 +66,8 @@ static func _append_valid(units:Array[Unit], unit:Unit) -> void:
 # TO REMOVE THIS, once an engine can express dual tangibility:
 #   - delete counts_as_every_tangibility, tangibility_is_the_only_objection, and can_affect's widened
 #     branch (that is the whole workaround)
-#   - keep cut_off_during_own_turn: it is a real game rule, not a workaround, and would simply be
-#     reimplemented by applying INTANGIBLE to held characters
+#   - keep cut_off_during_own_turn and is_reachable_from_the_black_sea: they are a real game rule,
+#     not a workaround, and would simply be reimplemented by applying INTANGIBLE to held characters
 #   - spec/test_the_all_consuming_tide.gd asserts the RULES rather than this mechanism, so it must
 #     keep passing unchanged. If it does not, the replacement is not equivalent.
 # ============================================================================================
@@ -80,6 +80,19 @@ static func counts_as_every_tangibility(unit:Unit) -> bool:
 	if not Unit.is_valid(unit): return false
 	return UnitCondition.has_buff(unit, TIDE_BUFF_ID)
 
+## The Kraken currently holding this character, if the character is taking its turn and that Kraken
+## has the Tide up. Null otherwise.
+##
+## Ordered for cost, not for reading. can_affect runs inside AI targeting loops and per-tile
+## filtering, and exactly one unit on the map has is_taking_turn set (unit_battle_state.gd:35), so
+## testing that plain bool first discards almost every call before any grapple lookup runs.
+static func cut_off_during_own_turn(unit:Unit) -> Unit:
+	if not Unit.is_valid(unit): return null
+	if not unit.state.is_taking_turn: return null
+	for grapple:SpecificAction in UnitCondition.get_incoming_grapples(unit):
+		if counts_as_every_tangibility(grapple.unit): return grapple.unit
+	return null
+
 ## Vanilla refuses any interaction across the tangibility line (unit_relation.gd:397). The Tide
 ## exempts the Kraken from that line in both directions - it is asked as can_affect(a, b) and
 ## can_affect(b, a) at different call sites, and answering only one would let the Kraken strike
@@ -87,14 +100,35 @@ static func counts_as_every_tangibility(unit:Unit) -> bool:
 ##
 ## Everything else is left to super, so no other pair of units on the map is affected.
 static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerability := false) -> bool:
+	# A held character's turn is spent in the black sea: it may reach its captor, and anything else
+	# that is itself intangible, and nothing at all besides. Symmetric, so its own allies cannot
+	# reach in either.
+	var origins_captor := cut_off_during_own_turn(origin_unit)
+	if Unit.is_valid(origins_captor) and not is_reachable_from_the_black_sea(target_unit, origins_captor):
+		return false
+	var targets_captor := cut_off_during_own_turn(target_unit)
+	if Unit.is_valid(targets_captor) and not is_reachable_from_the_black_sea(origin_unit, targets_captor):
+		return false
+
 	if not super.can_affect(origin_unit, target_unit, ignore_invulnerability):
 		# The tangibility mismatch is the ONLY refusal the Tide overturns. Exile, invulnerability and
 		# shard separation still stand, so this re-checks that everything else would have allowed it.
 		if not tangibility_is_the_only_objection(origin_unit, target_unit, ignore_invulnerability):
 			return false
-		if not (counts_as_every_tangibility(origin_unit) or counts_as_every_tangibility(target_unit)):
+		# A pairing the guards above already cleared - bound for its own captor, or genuinely
+		# INTANGIBLE itself - needs the same tangibility bridge the Kraken gets. The guards only rule
+		# out FORBIDDEN pairings; they do not by themselves cross the tangibility line when neither
+		# side is the Kraken, which is exactly the case for a held character reaching real INTANGIBLE
+		# company.
+		if not (counts_as_every_tangibility(origin_unit) or counts_as_every_tangibility(target_unit) or Unit.is_valid(origins_captor) or Unit.is_valid(targets_captor)):
 			return false
 	return true
+
+## What a cut-off character may still touch: the Kraken holding it, and anything genuinely INTANGIBLE.
+static func is_reachable_from_the_black_sea(other_unit:Unit, captor:Unit) -> bool:
+	if not Unit.is_valid(other_unit): return false
+	if other_unit == captor: return true
+	return other_unit.has_status(Lancer.STATUS.INTANGIBLE)
 
 ## Would can_affect have said yes but for the tangibility line? Mirrors unit_relation.gd:393-403 with
 ## that one comparison removed - except at line 394, where vanilla returns true for an invalid unit

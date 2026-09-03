@@ -142,3 +142,98 @@ func test_the_tide_does_not_cross_a_shard_boundary():
 	other.state.in_global_shard = false
 	await _raise_the_tide()
 	assert_false(UnitRelation.can_affect(kraken, other), 'The Tide does not cross a shard boundary.')
+
+# ============================== held characters are cut off ==============================
+# The rule: while it is their turn, a character the Kraken has grappled may only interact with the
+# Kraken, or with anything that is itself INTANGIBLE. Symmetric - their own allies cannot reach them
+# either. This is a real game rule rather than a workaround: a faithful implementation would apply
+# INTANGIBLE to the prisoner and get the same result.
+
+const MY_DOMAIN_ID := &'mt_my_domain'
+
+## Grapple through My Domain's gear, whose attachment holds at range.
+func _hold(prey:Unit) -> void:
+	var domain := kraken.core.equip_system(MY_DOMAIN_ID)
+	Katamari.attach_units(SpecFactory.dummy_event(), kraken, prey, domain.persistent_id)
+
+## The engine marks exactly one unit as taking its turn (unit_battle_state.gd:35).
+func _its_turn(unit:Unit) -> void:
+	unit.state.is_taking_turn = true
+
+func test_a_held_character_cannot_reach_its_own_ally_on_its_turn():
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var friend := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	_hold(prey)
+	_its_turn(prey)
+	assert_false(UnitRelation.can_affect(prey, friend), 'It cannot reach its ally.')
+
+func test_a_held_characters_ally_cannot_reach_it_on_its_turn():
+	# Symmetric, by design decision - it cuts both ways and that is the intent.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var friend := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	_hold(prey)
+	_its_turn(prey)
+	assert_false(UnitRelation.can_affect(friend, prey), 'And the ally cannot reach it.')
+
+func test_a_held_character_can_still_reach_the_kraken_on_its_turn():
+	# The exemption that makes this a rule rather than a paralysis.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	_hold(prey)
+	_its_turn(prey)
+	assert_true(UnitRelation.can_affect(prey, kraken), 'It can still fight the Kraken.')
+	assert_true(UnitRelation.can_affect(kraken, prey), 'And the Kraken can still work on it.')
+
+func test_a_held_character_can_reach_an_intangible_bystander_on_its_turn():
+	# It is intangible in the fiction, so intangible company is reachable. Included deliberately:
+	# a faithful implementation would permit this naturally, so matching it now keeps the eventual
+	# swap behaviour-identical.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var ghost := _spawn_intangible(Vector2i(3, 0))
+	await _raise_the_tide()
+	_hold(prey)
+	_its_turn(prey)
+	assert_true(UnitRelation.can_affect(prey, ghost), 'It can reach the intangible.')
+	assert_true(UnitRelation.can_affect(ghost, prey), 'And be reached by it.')
+
+func test_a_held_character_is_reachable_normally_when_it_is_not_its_turn():
+	# is_taking_turn is load-bearing: outside its own turn the prisoner is an ordinary target, which
+	# is what lets the Kraken's allies finish it off.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var friend := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	_hold(prey)
+	assert_false(prey.state.is_taking_turn, 'It is not its turn.')
+	assert_true(UnitRelation.can_affect(friend, prey), 'So it is an ordinary target.')
+
+func test_an_unheld_character_is_untouched_by_this_rule():
+	# The control: being on the map while the Tide is up is not enough.
+	var loose := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var friend := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	_its_turn(loose)
+	assert_true(UnitRelation.can_affect(loose, friend), 'A character nobody holds acts freely.')
+
+func test_a_character_held_without_the_tide_is_untouched_by_this_rule():
+	# The other control: the grapple alone does not do this, the Tide does.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var friend := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	_hold(prey)
+	_its_turn(prey)
+	assert_false(_tide_is_up(), 'The Tide is down.')
+	assert_true(UnitRelation.can_affect(prey, friend), 'An ordinary grapple cuts nobody off.')
+
+func test_a_prisoner_is_freed_when_the_kraken_dies():
+	# The silent-and-permanent failure the design doc names: a character cut off from the whole map
+	# for the rest of the mission because the thing holding it stopped existing.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var friend := SpecFactory.create_unit(game.map, Vector2i(2, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	_hold(prey)
+	_its_turn(prey)
+	assert_false(UnitRelation.can_affect(prey, friend), 'Cut off while held.')
+
+	await game.execute_event(&'event_unit_die', {unit = kraken})
+	assert_true(UnitRelation.can_affect(prey, friend), 'And free once the Kraken is gone.')
