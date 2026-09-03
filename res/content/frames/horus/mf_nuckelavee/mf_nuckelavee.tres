@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://djuk56crywqss" path="res://engine/character/unit_core/mount_type.gd" id="3_mount_type"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="4_kit"]
 [ext_resource type="Resource" uid="uid://ct04xdxr561wg" path="res://content/mounts/mount_main_aux.tres" id="5_mount_main_aux"]
-[ext_resource type="Texture2D" uid="uid://dd4onwhcw10b2" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_nuckelavee/mr_nuckelavee.png" id="6_akuqq"]
+[ext_resource type="Texture2D" uid="uid://dd4onwhcw10b2" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_nuckelavee/mf_nuckelavee.png" id="6_akuqq"]
 [ext_resource type="Resource" uid="uid://bsktp4ushq6g1" path="res://content/mounts/mount_flex.tres" id="6_mount_flex"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/mt_poisoned_soil.tres" id="7_mt_poisoned_soil"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_caustic_earth/mt_caustic_earth.tres" id="8_mt_caustic_earth"]
