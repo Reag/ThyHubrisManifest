@@ -268,10 +268,24 @@ func test_bulwark_mods_carries_the_nuckelavee_over_its_own_trail_free():
 	# MovementType.ignores_difficult_terrain() consumes exactly that flag. The first thing the
 	# license unlocks is the tool for the frame's own terrain, the same shape as the Kraken's
 	# IMMOBILIZED gate. Asserted so nobody "fixes" the test above by exempting the owner.
-	nuckelavee.core.equip_system(&'ms_bulwark_mods')
-	SpecFactory.apply_passive_buffs(nuckelavee)
+	#
+	# Both halves are proven against the SAME written trail, in this one test, on purpose: run it
+	# alone with --gut-test= and it still has to demonstrate the terrain is real before the Bulwark
+	# Mods half means anything. Without this, a completely dead terrain zone - get_voxels_to_apply_
+	# terrain broken, _refresh_terrain a no-op, the passive unwired - would let the tile cost 1 for
+	# everyone and this test would pass for the wrong reason.
 	PoisonedSoil.write_trail(trait_gear, [NEIGHBOUR])
 	_refresh_terrain()
+
+	# Without the system: a bare mover crossing the identical trail still pays double.
+	var bare := SpecFactory.create_unit(game.map, Vector2i(1, 1), Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(bare)
+	await SpecFactory.start_turn(game, bare)
+	assert_eq(await _cost_to(bare, NEIGHBOUR), 2, 'The trail is real terrain for a mover without Bulwark Mods.')
+
+	# With the system: the Nuckelavee crosses the same tile free.
+	nuckelavee.core.equip_system(&'ms_bulwark_mods')
+	SpecFactory.apply_passive_buffs(nuckelavee)
 	await SpecFactory.start_turn(game, nuckelavee)
 	assert_eq(await _cost_to(nuckelavee, NEIGHBOUR), 1, 'Bulwark Mods walks over it.')
 
