@@ -110,3 +110,28 @@ func test_another_units_boost_does_not_arm_our_trail():
 	await SpecFactory.start_turn(game, other)
 	await SpecFactory.use_solo(game, other, &'ms_boost')
 	assert_false(PoisonedSoil.is_armed(trait_gear), 'Somebody else boosting is not our trigger.')
+
+# ============================== tracking the path ==============================
+
+func test_moving_while_armed_records_every_tile_stepped_onto():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	assert_eq(PoisonedSoil.read_pending(trait_gear),
+		[START, Vector2i(1, 0), Vector2i(2, 0)],
+		'Start tile plus both tiles it stepped onto, in order.')
+
+func test_moving_without_boosting_records_nothing():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	assert_eq(PoisonedSoil.read_pending(trait_gear), [], 'No boost, no trail.')
+
+func test_a_tile_is_never_recorded_twice():
+	# Boost, walk out and back over the same ground. Duplicate voxels would be merged by
+	# add_dynamic_terrain_and_zones_from_unit anyway, but a buffer that grows on every re-crossing
+	# is a slow leak into the save file.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
+	await SpecFactory.move(game, nuckelavee, START)
+	assert_eq(PoisonedSoil.read_pending(trait_gear), [START, NEIGHBOUR], 'Each tile once.')
