@@ -124,3 +124,5 @@ gear.mt_poisoned_soil.action_poisoned_soil_track.name,Poisoned Soil
 gear.mt_poisoned_soil.action_poisoned_soil_track.effect,"Continue tracking each space you move through this turn."
 gear.mt_poisoned_soil.action_poisoned_soil_lay.name,Poisoned Soil
 gear.mt_poisoned_soil.action_poisoned_soil_lay.effect,"Turn the spaces you moved through into |difficult terrain|, replacing any terrain you created this way before."
+gear.mt_poisoned_soil.action_poisoned_soil_disarm.name,Poisoned Soil
+gear.mt_poisoned_soil.action_poisoned_soil_disarm.effect,"Stop tracking at the end of your turn, even if you never moved."
