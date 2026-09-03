@@ -317,3 +317,61 @@ func test_the_undertow_still_drags_while_the_kraken_is_itself_grappled():
 	SpecFactory.apply(kraken, Lancer.STATUS.GRAPPLED)
 	await _start_turn_for(prey)
 	assert_eq(prey.tile(), Vector2i(2, 0), 'Held or not, the undertow still pulls.')
+
+# ============================== the seize ==============================
+# "If a character collides with you, you may expend your OVERWATCH to attempt to Grapple the
+# character as a reaction."
+#
+# event_unit_collide carries the moving unit and the TILE collided with - never the unit collided
+# with - so the trigger tests the Kraken's own footprint. Collisions here are forced-movement stops,
+# per the trigger's own comment, which is what "collides with you" means.
+
+const SEIZE_ACTION := &'action_tide_seize'
+
+## DEVIATION FROM THE BRIEF: event_unit_collide.gd declares `event` (the move event that caused the
+## collision) as required context (get_required_context, content/events/event_unit_collide.gd) and
+## the engine enforces that before the event ever runs (event_block.gd:118, "invalid context! |
+## missing props: event") - so without it the event aborts before reactions are even considered, and
+## every seize test would trivially "pass" by never having anything to react to. The brief's version
+## of this helper omitted `event`. The real call site (event_unit_move.gd's execute_collision_event)
+## passes the enclosing move event; SpecFactory.dummy_event() is this file's existing stand-in for
+## "an EventCore the check only needs to be non-null" (see _hold above), so it is used here too.
+func _collide_into(mover:Unit, tile:Vector2i) -> void:
+	await game.execute_event(&'event_unit_collide', {
+		unit = mover, target_tiles = [tile] as Array[Vector2i], event = SpecFactory.dummy_event(),
+	})
+
+func _is_held(prey:Unit) -> bool:
+	for grapple:SpecificAction in UnitCondition.get_outgoing_grapples(kraken):
+		if grapple.unit == prey: return true
+	return false
+
+func test_colliding_with_the_kraken_lets_it_seize():
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await _collide_into(prey, KRAKEN_TILE)
+	assert_true(_is_held(prey), 'The Tide caught it.')
+
+func test_the_seize_spends_the_krakens_reaction():
+	# "expend your OVERWATCH" - in an engine where Overwatch is itself a reaction, that is the
+	# reaction point.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	var reactions_before:int = kraken.core.current.reactions
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await _collide_into(prey, KRAKEN_TILE)
+	assert_eq(kraken.core.current.reactions, reactions_before - 1, 'It cost the reaction.')
+
+func test_a_collision_elsewhere_is_not_the_krakens_business():
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	await _collide_into(prey, Vector2i(4, 4))
+	assert_false(_is_held(prey), 'Collisions across the map are nothing to do with it.')
+
+func test_nothing_is_seized_before_the_tide_is_raised():
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	assert_false(_tide_is_up(), 'The Tide is down.')
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await _collide_into(prey, KRAKEN_TILE)
+	assert_false(_is_held(prey), 'So nothing is seized.')

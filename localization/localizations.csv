@@ -90,3 +90,6 @@ gear.cp_the_endless_black_sea.action_tide_undertow.name,Undertow
 gear.cp_the_endless_black_sea.action_tide_undertow.effect,"While |The All-Consuming Tide| is active, characters of your choice within your |SENSORS| are pulled 1 space toward you at the beginning of their turn."
 gear.cp_the_endless_black_sea.action_tide_undertow.trigger,"A hostile character within your |SENSORS| begins its turn"
 gear.cp_the_endless_black_sea.action_tide_undertow.prompt,"Drag {name} deeper?"
+gear.cp_the_endless_black_sea.action_tide_seize.name,Seize
+gear.cp_the_endless_black_sea.action_tide_seize.effect,"While |The All-Consuming Tide| is active, if a character collides with you, you may expend your |OVERWATCH| to attempt to |Grapple| it as a |reaction|."
+gear.cp_the_endless_black_sea.action_tide_seize.trigger,"A character collides with you"
