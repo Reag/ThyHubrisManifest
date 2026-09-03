@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_disarm.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+triggers_on = Array[StringName]([&"end_turn"])
+consumes_rxn = false
+usage_group = &"action_poisoned_soil_disarm"
+suppress_logging = true

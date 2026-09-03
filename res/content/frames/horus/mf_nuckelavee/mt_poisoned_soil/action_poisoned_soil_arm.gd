@@ -1,4 +1,4 @@
-# Poisoned Soil, part 1 of 3: the boost arms the trail.
+# Poisoned Soil, part 1 of 4: the boost arms the trail.
 #
 # action_boost.gd does NOT move anything - it is `current.speed += get_boost_speed(unit)` and
 # nothing else, with the movement following as a separate action out of a pooled budget. So there

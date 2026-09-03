@@ -1,4 +1,4 @@
-# Poisoned Soil, part 3 of 3: offer the trail, and commit it.
+# Poisoned Soil, part 3 of 4: offer the trail, and commit it.
 #
 #   "...may turn the spaces it moves through into difficult terrain. This terrain lasts until you
 #    create terrain this way again."

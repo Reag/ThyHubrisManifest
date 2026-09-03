@@ -1,4 +1,4 @@
-# Poisoned Soil, part 2 of 3: remember each tile actually stepped onto.
+# Poisoned Soil, part 2 of 4: remember each tile actually stepped onto.
 #
 # STEP rather than reading the path off ENTIRE_MOVEMENT, and this is a correctness choice, not a
 # stylistic one. event_unit_move breaks out of its step loop SILENTLY on two of the three ways a

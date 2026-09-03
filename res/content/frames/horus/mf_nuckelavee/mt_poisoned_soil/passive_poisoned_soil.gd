@@ -55,22 +55,29 @@ static func read_pending(gear:GearCore) -> Array[Vector2i]:
 static func write_pending(gear:GearCore, tiles:Array[Vector2i]) -> void:
 	gear.set_state(PENDING_KEY, _flat_from_tiles(tiles))
 
-## `round` is whatever action_poisoned_soil_track / _lay are reacting to right now
-## (triggering_event.context.map.game_core.round_count). An arm stamped in an earlier round is
-## stale and reads as unarmed: nothing else clears ARMED_KEY at a turn or round boundary (GearCore.
-## state.clear() only runs on a repair), so without this an armed-but-never-moved boost - the frame
-## ends its turn, gets IMMOBILIZED, or its first step is silently blocked
-## (event_unit_move.gd:209/:212) - would stay armed forever and foul ground on some future turn's
-## first two-step move with no boost behind it.
-static func is_armed(gear:GearCore, round:int) -> bool:
+## `for_round` is whatever action_poisoned_soil_track / _lay are reacting to right now
+## (triggering_event.context.map.game_core.round_count). Named for_round, not round, so it does not
+## shadow GDScript's built-in round().
+##
+## An arm stamped in an earlier round is stale and reads as unarmed - but this is belt and braces,
+## not the primary defense. The primary defense is action_poisoned_soil_disarm.gd, which clears
+## ARMED_KEY unconditionally at the end of the arming unit's own turn: a round is the wrong grain for
+## a turn-scoped effect, because content/frames/horus/mf_goblin/cp_instinct_rig/
+## action_symbiosis_shared_turn.gd can grant a second, LINKED turn within the SAME round (a Nuckelavee
+## fused to a Goblin), and the round stamp alone would still read "armed" across that boundary. The
+## round stamp still matters for anything that disarms outside the normal turn cycle (e.g. death
+## mid-turn skipping END_TURN entirely), and as a second line of defense generally - nothing else
+## clears ARMED_KEY at a turn or round boundary otherwise (GearCore.state.clear() only runs on a
+## repair).
+static func is_armed(gear:GearCore, for_round:int) -> bool:
 	if not bool(gear.get_state(ARMED_KEY, false)): return false
-	return gear.get_state(ARMED_ROUND_KEY, -1) == round
+	return gear.get_state(ARMED_ROUND_KEY, -1) == for_round
 
-## `round` is required when arming (stamps the round the arm is live for) and ignored when
+## `for_round` is required when arming (stamps the round the arm is live for) and ignored when
 ## disarming, since a stale stamp on a disarmed gear can never make is_armed return true again.
-static func set_armed(gear:GearCore, armed:bool, round:int = -1) -> void:
+static func set_armed(gear:GearCore, armed:bool, for_round:int = -1) -> void:
 	gear.set_state(ARMED_KEY, armed)
-	if armed: gear.set_state(ARMED_ROUND_KEY, round)
+	if armed: gear.set_state(ARMED_ROUND_KEY, for_round)
 
 ## "the spaces it moves through" is the Nuckelavee's OWN movement - the designer's ruling is that
 ## being knocked back or pulled after boosting does not foul the ground it gets thrown across, and
