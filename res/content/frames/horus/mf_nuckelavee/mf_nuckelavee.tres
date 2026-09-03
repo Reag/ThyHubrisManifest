@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="Frame" format=3]
+
+[ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="1_frame"]
+[ext_resource type="Script" uid="uid://bxpc46igtsmvw" path="res://engine/character/unit/statblock.gd" id="2_statblock"]
+[ext_resource type="Script" uid="uid://djuk56crywqss" path="res://engine/character/unit_core/mount_type.gd" id="3_mount_type"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="4_kit"]
+[ext_resource type="Resource" uid="uid://ct04xdxr561wg" path="res://content/mounts/mount_main_aux.tres" id="5_mount_main_aux"]
+[ext_resource type="Resource" uid="uid://bsktp4ushq6g1" path="res://content/mounts/mount_flex.tres" id="6_mount_flex"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/mt_poisoned_soil.tres" id="7_mt_poisoned_soil"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_caustic_earth/mt_caustic_earth.tres" id="8_mt_caustic_earth"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_earthstep/mt_earthstep.tres" id="9_mt_earthstep"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/cp_truth_in_filth.tres" id="10_cp_truth_in_filth"]
+
+[sub_resource type="Resource" id="Resource_nuckelavee_stat"]
+script = ExtResource("2_statblock")
+size = 1
+structure = 4
+stress = 4
+health = 8
+evasion = 11
+edef = 7
+speed = 5
+heat = 6
+save_target = 10
+sensor_range = 5
+repairs = 5
+systems_points = 6
+reactions = 1
+activations = 1
+metadata/_custom_type_script = "uid://bxpc46igtsmvw"
+
+[resource]
+script = ExtResource("1_frame")
+traits = Array[ExtResource("4_kit")]([ExtResource("7_mt_poisoned_soil"), ExtResource("8_mt_caustic_earth"), ExtResource("9_mt_earthstep"), ExtResource("10_cp_truth_in_filth")])
+mount_types = Array[ExtResource("3_mount_type")]([ExtResource("5_mount_main_aux"), ExtResource("6_mount_flex")])
+stat = SubResource("Resource_nuckelavee_stat")
+role_primary = 1
+role_secondary = 3
+metadata/_custom_type_script = "uid://daycu0mqh1rbq"

@@ -24,6 +24,7 @@ extends GutTest
 const VARIANTS := {
 	&'li_erinyes': {&'clones': &'li_dusk_wing', &'grants': &'mf_erinyes'},
 	&'li_kraken': {&'clones': &'li_saladin', &'grants': &'mf_kraken'},
+	&'li_nuckelavee': {&'clones': &'li_nelson', &'grants': &'mf_nuckelavee'},
 }
 
 func test_every_variant_grants_exactly_its_base_licenses_gear():

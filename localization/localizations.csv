@@ -94,3 +94,23 @@ gear.cp_the_endless_black_sea.action_tide_undertow.prompt,"Pull {name} 1 space t
 gear.cp_the_endless_black_sea.action_tide_seize.name,Seize
 gear.cp_the_endless_black_sea.action_tide_seize.effect,"While |The All-Consuming Tide| is active, if a character collides with you, you may expend your |OVERWATCH| to attempt to |Grapple| it as a |reaction|."
 gear.cp_the_endless_black_sea.action_tide_seize.trigger,"A character collides with you"
+,
+frame.mf_nuckelavee.name,Nuckelavee
+frame.mf_nuckelavee.flavor,
+frame.mf_nuckelavee.flavor.short,
+gear.mt_poisoned_soil.name,Poisoned Soil
+gear.mt_poisoned_soil.effect,
+gear.mt_poisoned_soil.trigger,
+gear.mt_caustic_earth.name,Caustic Earth
+gear.mt_caustic_earth.effect,
+gear.mt_caustic_earth.trigger,
+gear.mt_earthstep.name,Earthstep
+gear.mt_earthstep.effect,
+gear.mt_earthstep.trigger,
+gear.cp_truth_in_filth.name,Truth in Filth
+gear.cp_truth_in_filth.effect,
+gear.cp_truth_in_filth.flavor,
+gear.cp_truth_in_filth.action_acid_spill.name,Acid Spill
+gear.cp_truth_in_filth.action_acid_spill.effect,
+gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.name,The Desperate Clawing Hands Of The Dead
+gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.effect,
