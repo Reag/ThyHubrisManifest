@@ -1,10 +1,11 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" format=3 uid="uid://dkobagq40t8h4"]
 
-[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_grapple.gd" id="1_action_script"]
+[ext_resource type="Texture2D" uid="uid://bkn8a5jev7fdg" path="res://assets/icons/actions/systems/ms_grapple_swing.svg" id="1_6qom8"]
+[ext_resource type="Script" uid="uid://c6lj4uhi4msba" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_grapple.gd" id="1_action_script"]
 
 [resource]
 script = ExtResource("1_action_script")
 action_type = 3
-consumes_cp = false
 usage_group = &"action_drag_grapple"
+icon_override = ExtResource("1_6qom8")
 emit_text_popcorn_on_use = true

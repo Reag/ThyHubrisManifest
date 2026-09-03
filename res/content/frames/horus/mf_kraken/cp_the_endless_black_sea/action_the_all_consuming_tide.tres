@@ -1,16 +1,18 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" script_class="ActionSystemApplyBuff" format=3 uid="uid://bvbku584mu0px"]
 
 [ext_resource type="Script" uid="uid://cm50wdj5g8syg" path="res://engine/character/gear_action/archtypes/action_system_apply_buff.gd" id="1_apply_buff"]
 [ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="2_buff"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/buff_the_all_consuming_tide.tres" id="3_tide_buff"]
+[ext_resource type="Texture2D" uid="uid://bdbx1c414cktm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/cp_the_endless_black_sea.svg" id="3_pnfug"]
+[ext_resource type="Resource" uid="uid://dptqw0pa30wx0" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/buff_the_all_consuming_tide.tres" id="3_tide_buff"]
 
 [resource]
 script = ExtResource("1_apply_buff")
 buffs = Array[ExtResource("2_buff")]([ExtResource("3_tide_buff")])
-action_type = 1
-consumes_cp = true
-usage_group = &"action_the_all_consuming_tide"
-emit_text_popcorn_on_use = true
 apply_only_to_self = true
 can_apply_to_self = true
 can_reapply = false
+action_type = 1
+consumes_cp = true
+usage_group = &"action_the_all_consuming_tide"
+icon_override = ExtResource("3_pnfug")
+emit_text_popcorn_on_use = true

@@ -1,10 +1,12 @@
-[gd_resource type="Resource" script_class="Kit" format=3]
+[gd_resource type="Resource" script_class="Kit" format=3 uid="uid://dml6wkr2y0e5y"]
 
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_22x0y"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="1_kit"]
+[ext_resource type="Texture2D" uid="uid://cqvqfx6pidtxm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/mt_undulating_form.svg" id="2_4etf4"]
 [ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="2_passive"]
 [ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="3_buff"]
 [ext_resource type="Script" uid="uid://dy4kg537rc55e" path="res://engine/character/gear_passive/passive_buff_applicator.gd" id="4_applicator"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_undulating_form/buff_undulating_form.tres" id="5_buff_undulating_form"]
+[ext_resource type="Resource" uid="uid://dgbsitgbr6use" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_undulating_form/buff_undulating_form.tres" id="5_buff_undulating_form"]
 
 [sub_resource type="Resource" id="Resource_undulating_form_applicator"]
 script = ExtResource("4_applicator")
@@ -15,4 +17,5 @@ metadata/_custom_type_script = "uid://dy4kg537rc55e"
 script = ExtResource("1_kit")
 passives = Array[ExtResource("2_passive")]([SubResource("Resource_undulating_form_applicator")])
 is_trait = true
+icon_override = ExtResource("2_4etf4")
 metadata/_custom_type_script = "uid://ckrv6mvs5q65e"

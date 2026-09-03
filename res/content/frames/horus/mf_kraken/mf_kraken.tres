@@ -6,9 +6,9 @@
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="4_kit"]
 [ext_resource type="Resource" uid="uid://bsktp4ushq6g1" path="res://content/mounts/mount_flex.tres" id="5_mount_flex"]
 [ext_resource type="Texture2D" uid="uid://1ou6kbxnbtoy" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/mf_kraken.png" id="6_sprite"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_undulating_form/mt_undulating_form.tres" id="7_mt_undulating_form"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_my_domain/mt_my_domain.tres" id="8_mt_my_domain"]
-[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_irrepressible/mt_irrepressible.tres" id="9_mt_irrepressible"]
+[ext_resource type="Resource" uid="uid://dml6wkr2y0e5y" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_undulating_form/mt_undulating_form.tres" id="7_mt_undulating_form"]
+[ext_resource type="Resource" uid="uid://cksiqpdemmkry" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_my_domain/mt_my_domain.tres" id="8_mt_my_domain"]
+[ext_resource type="Resource" uid="uid://dh7tvsqqxh8ut" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_irrepressible/mt_irrepressible.tres" id="9_mt_irrepressible"]
 [ext_resource type="Resource" uid="uid://cnx62bb0ihjrr" path="res://content/frames/shared/mt_guardian/mt_guardian.tres" id="10_mt_guardian"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/cp_the_endless_black_sea.tres" id="11_cp_the_endless_black_sea"]
 

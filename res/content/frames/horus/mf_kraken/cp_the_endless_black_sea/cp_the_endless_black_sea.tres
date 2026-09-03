@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="Kit" format=3]
+[gd_resource type="Resource" script_class="Kit" format=3 uid="uid://cq4pxa326fhvd"]
 
 [ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_action"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
@@ -7,10 +7,13 @@
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_reposition.tres" id="5_drag_reposition"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_the_all_consuming_tide.tres" id="6_the_all_consuming_tide"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_tide_undertow.tres" id="7_tide_undertow"]
+[ext_resource type="Texture2D" uid="uid://bdbx1c414cktm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/cp_the_endless_black_sea.svg" id="8_or2d0"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_tide_seize.tres" id="8_tide_seize"]
+[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="9_l7726"]
 
 [resource]
 script = ExtResource("2_kit")
 actions = Array[ExtResource("1_action")]([ExtResource("3_drag_grapple"), ExtResource("4_drag_pull"), ExtResource("5_drag_reposition"), ExtResource("6_the_all_consuming_tide"), ExtResource("7_tide_undertow"), ExtResource("8_tide_seize")])
 is_trait = true
+icon_override = ExtResource("8_or2d0")
 metadata/_custom_type_script = "uid://ckrv6mvs5q65e"
