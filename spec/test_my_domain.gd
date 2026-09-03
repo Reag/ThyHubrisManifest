@@ -31,7 +31,9 @@ func before_each():
 	gear = kraken.core.equip_system(KIT_ID)
 	prey = SpecFactory.create_unit(game.map, PREY_TILE)
 
-## Grapple through My Domain's own gear, which is what the burst trigger does.
+## Grapple through My Domain's own gear. The burst trigger makes a real Grapple attack and then
+## records the hold against this trait as well, and it is that record these specs are about: both
+## halves of "count as though they are adjacent" read the attachment source rather than the attack.
 func _grapple() -> void:
 	Katamari.attach_units(SpecFactory.dummy_event(), kraken, prey, gear.persistent_id)
 

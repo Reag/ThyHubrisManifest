@@ -13,12 +13,18 @@
 # BLAST is the control. The trait names BURST specifically, and the two are different shapes in this
 # engine - a burst is built from the acting unit's own tiles, a blast is placed on a point - so a
 # blast must not trigger it however many characters it catches.
+#
+# Every grapple here is a real contested attack that can miss, so each one wants a fixed roll:
+# _use_burst takes the rolls to hand out, one per character it will ask about, front to back. A 20
+# lands and a 1 does not.
 extends GutTest
 
 const ModChoiceResponder := preload('res://testkit/mod_choice_responder.gd')
 
 const TRAIT_ID := &'mt_my_domain'
 const TETHER_BUFF_ID := &'buff_my_domain_tether'
+const GRAPPLE_KIT := &'mw_grapple'
+const GRAPPLE_ACTION := &'action_grapple'
 const BURST_SYSTEM := &'ms_enclave_pattern_support_shield' ## self-centred BURST 3
 const BLAST_WEAPON := &'mw_rocket_propelled_grenade'       ## BLAST 2, placed on a point
 
@@ -28,16 +34,32 @@ const ALSO_INSIDE_BURST := Vector2i(0, 2) ## and so is this
 const OUTSIDE_BURST := Vector2i(9, 9)     ## comfortably beyond it
 
 var game:Gamemaster
-var responder:ModChoiceResponder
+var responder:DomainWatcher
 var kraken:Unit
 var near_enemy:Unit
 var other_near_enemy:Unit
 var far_enemy:Unit
 
+## The ordinary responder, plus a reading of how far the Kraken's Grapple carried at the moment it
+## was asked about a character. That question is only ever asked while the trait is resolving, so it
+## is the one window in which the reach the burst earned is observable from outside.
+class DomainWatcher:
+	extends 'res://testkit/mod_choice_responder.gd'
+
+	var prompt_title:String = ''  ## only our own prompts; the gear being fired has its own
+	var sample:Callable           ## returns the reach to record
+	var reach_when_asked:Array[int] = []
+
+	func choose_yesno(request:ChoiceRequest, tile:Vector2i, title:String, desc:String, encourage_yes:bool):
+		if title == prompt_title and sample.is_valid(): reach_when_asked.append(sample.call())
+		await super.choose_yesno(request, tile, title, desc, encourage_yes)
+
 func before_each():
 	# add_responder = false: we install our own, which records the prompts it was shown.
 	game = SpecFactory.setup_gamemaster(self, false, null, {}, false)
-	responder = add_child_autoqfree(ModChoiceResponder.new())
+	responder = add_child_autoqfree(DomainWatcher.new())
+	responder.prompt_title = tr('gear.mt_my_domain.name')
+	responder.sample = _grapple_reach
 
 	kraken = SpecFactory.create_unit(game.map, KRAKEN_TILE)
 	kraken.core.equip_system(TRAIT_ID)
@@ -51,8 +73,11 @@ func _tough_enemy(tile:Vector2i) -> Unit:
 	enemy.core.current.health = 100 # a dead character cannot be grappled
 	return enemy
 
-func _use_burst() -> void:
+## Fire the burst, with one fixed roll per grapple the trait will attempt. Two by default, because
+## two characters stand inside the burst and both are taken unless a test says otherwise.
+func _use_burst(rolls:Array = [20, 20]) -> void:
 	kraken.core.equip_system(BURST_SYSTEM)
+	Dice.CHEAT_ROLL_QUEUE.append_array(rolls)
 	await SpecFactory.use_solo(game, kraken, BURST_SYSTEM)
 
 func _use_blast(at_tile:Vector2i) -> void:
@@ -64,11 +89,19 @@ func _use_blast(at_tile:Vector2i) -> void:
 func _held() -> Array[StringName]:
 	var held:Array[StringName] = []
 	for grapple:SpecificAction in UnitCondition.get_outgoing_grapples(kraken):
-		if Unit.is_valid(grapple.unit): held.append(grapple.unit.core.persistent_id)
+		if Unit.is_valid(grapple.unit): Util.append_nonduplicate(held, grapple.unit.core.persistent_id)
 	return held
 
 func _is_held(unit:Unit) -> bool:
 	return _held().has(unit.core.persistent_id)
+
+## How far the Kraken's own Grapple currently carries, in spaces. get_target_range is the engine's
+## own answer to "could it reach that", so this reads whatever the board actually allows rather than
+## anything about how the reach is granted.
+func _grapple_reach() -> int:
+	var specific := SpecificAction.from_id(kraken, GRAPPLE_KIT, GRAPPLE_ACTION)
+	if not SpecificAction.is_valid(specific): return -1
+	return specific.action.get_target_range(specific)
 
 ## Only OUR prompts. The responder records every yes/no the turn produced, and the gear being fired
 ## has its own confirmations, so counting all of them measures the wrong thing.
@@ -106,6 +139,59 @@ func test_a_blast_does_not_trigger_it():
 	await _use_blast(near_enemy.tile())
 	assert_eq(_held().size(), 0, 'A blast grapples nobody.')
 	assert_eq(_my_domain_prompts().size(), 0, 'And the player is not even asked.')
+
+# ============================== the attack ==============================
+
+func test_a_grapple_that_misses_takes_nobody():
+	# The grapple is a Grapple: a contested attack that can fail. A 1 fails any attack roll worth
+	# the name, and a failed grab has to leave the character exactly where the burst found it.
+	await _use_burst([1, 1])
+	assert_eq(_held().size(), 0, 'Neither attack landed, so nobody is held.')
+	assert_false(UnitCondition.has_buff(near_enemy, TETHER_BUFF_ID), 'One is untethered.')
+	assert_false(UnitCondition.has_buff(other_near_enemy, TETHER_BUFF_ID), 'And so is the other.')
+
+func test_a_character_that_gets_away_does_not_spare_the_rest():
+	# Each character is its own attack, so one of them slipping the grab must not carry the rest of
+	# the burst out with it.
+	await _use_burst([1, 20])
+	assert_eq(_my_domain_prompts().size(), 2, 'Both were still asked about.')
+	assert_eq(_held().size(), 1, 'And the one the landed attack caught was taken.')
+
+func test_the_tether_follows_the_grapple_that_landed():
+	# The tether marks who is in the domain. It has to follow the attack that actually hit rather
+	# than everyone the trait made an attempt on.
+	await _use_burst([1, 20])
+	var tethered:int = 0
+	for enemy:Unit in [near_enemy, other_near_enemy]:
+		if UnitCondition.has_buff(enemy, TETHER_BUFF_ID): tethered += 1
+	assert_eq(tethered, 1, 'One landed grapple, one tether.')
+	assert_eq(_held().size(), 1, 'And one character held.')
+
+# ============================== the reach ==============================
+
+func test_it_reaches_the_characters_its_burst_caught():
+	# "characters at least partially within any Bursts" is wider than a mech can ordinarily reach to
+	# Grapple, so the trait has to carry the attack out to them. Without this the rule would quietly
+	# mean "characters it could have grabbed anyway", which is nobody a burst adds.
+	assert_lt(_grapple_reach(), UnitRelation.distance_between(kraken, near_enemy),
+		'They stand further off than an ordinary Grapple reaches.')
+
+	await _use_burst()
+	assert_false(responder.reach_when_asked.is_empty(), 'The trait asked about somebody.')
+	if responder.reach_when_asked.is_empty(): return
+	assert_gte(responder.reach_when_asked.max(), UnitRelation.distance_between(kraken, near_enemy),
+		'While the domain was open, its Grapple reached that far.')
+
+func test_the_reach_does_not_outlive_the_domain():
+	# The reach is earned by a burst and lasts only as long as that burst is being resolved. A
+	# Kraken left able to Grapple across a room as an ordinary Quick action would be a silent, scene
+	# long grant the trait never makes.
+	var ordinary_reach := _grapple_reach()
+	await _use_burst()
+	assert_eq(_grapple_reach(), ordinary_reach,
+		'Afterwards its Grapple reaches exactly as far as any other mechs.')
+	assert_lt(_grapple_reach(), UnitRelation.distance_between(kraken, near_enemy),
+		'Which is not far enough to have reached across that burst.')
 
 # ============================== the "may" ==============================
 

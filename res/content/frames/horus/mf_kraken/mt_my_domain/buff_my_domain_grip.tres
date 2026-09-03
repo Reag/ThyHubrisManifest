@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="Buff" format=3]
+
+[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="1_buff"]
+
+[resource]
+script = ExtResource("1_buff")
+until = 0
+to = &"attach_at_distance"
+hide_from_player = true
