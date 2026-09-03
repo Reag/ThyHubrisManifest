@@ -97,20 +97,23 @@ gear.cp_the_endless_black_sea.action_tide_seize.trigger,"A character collides wi
 ,
 frame.mf_nuckelavee.name,Nuckelavee
 frame.mf_nuckelavee.flavor,
-frame.mf_nuckelavee.flavor.short,
+frame.mf_nuckelavee.flavor.short,Redecorating Roamer
 gear.mt_poisoned_soil.name,Poisoned Soil
-gear.mt_poisoned_soil.effect,
-gear.mt_poisoned_soil.trigger,
+gear.mt_poisoned_soil.effect,"When you BOOST, the Nuckelavee may turn the spaces it moves through into difficult terrain. This terrain lasts until you create terrain this way again."
+gear.mt_poisoned_soil.trigger,On |Boost|
 gear.mt_caustic_earth.name,Caustic Earth
-gear.mt_caustic_earth.effect,
+gear.mt_caustic_earth.effect,"Characters who start their turn in or enter a space of |difficult terrain| created by the Nuckelavee take |1 AP ENERGY|. Characters can take this damage 1/round. Characters who ignore |difficult terrain| ignore this damage"
 gear.mt_caustic_earth.trigger,
 gear.mt_earthstep.name,Earthstep
-gear.mt_earthstep.effect,
+gear.mt_earthstep.effect,"The Nuckelavee does not trigger |OVERWATCH| from characters in difficult terrain."
 gear.mt_earthstep.trigger,
 gear.cp_truth_in_filth.name,Truth in Filth
 gear.cp_truth_in_filth.effect,
-gear.cp_truth_in_filth.flavor,
+gear.cp_truth_in_filth.flavor,"You made us kill each other in your name. Its only fair we kill you in ours."
 gear.cp_truth_in_filth.action_acid_spill.name,Acid Spill
-gear.cp_truth_in_filth.action_acid_spill.effect,
+gear.cp_truth_in_filth.action_acid_spill.effect,"This weapon may only be used as a |free action| after you |BOOST|, and deals damage equal to half the distance moved. If you |BOOST| your full speed in a straight line, the attack area becomes difficult terrain which lasts until you create terrain this way again"
 gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.name,The Desperate Clawing Hands Of The Dead
-gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.effect,
+gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.effect,"For the rest of the scene, something terrible lurks in the cracks.
+• Hostile characters take |1d6 AP KINETIC| when knocked |PRONE| in |difficult terrain|, and must make a |HULL save| or become |IMMOBILIZED| until the end of their next turn.
+• Hostile characters must spend two movement to exit |difficult terrain|.
+• Caustic Earth loses its 1/round limit for hostile characters and applies to all |difficult terrain|."
