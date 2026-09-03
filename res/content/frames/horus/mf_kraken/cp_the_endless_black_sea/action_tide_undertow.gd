@@ -40,9 +40,6 @@ func activate(context:Context, activation:EventCore) -> void:
 	var prey:Unit = context.event.context.unit
 	if activation.abort_when(not hostiles_caught(kraken, prey)): return
 
-	if activation.abort_when(not await confirm(kraken, prey)): return
-	if activation.abort_without_units([kraken, prey]): return
-
 	var movement_type := MovementType.create_for_involuntary(prey)
 	movement_type.must_move_max_possible = true
 
@@ -50,8 +47,18 @@ func activate(context:Context, activation:EventCore) -> void:
 	# reason: that helper performs no immunity check of its own (unlike generate_knockback_events), and
 	# event_unit_move.gd exempts the primary mover, so nothing downstream would catch this either. Both
 	# pulls share the mechanism; a knockback-immune character should be immune to both.
+	#
+	# Checked here, before confirm() rather than after: this reaction prompts once per hostile turn,
+	# and that friction is already the ability's main cost. An immune character can never be moved by
+	# it, so asking anyway would announce the reaction, take the "yes", and then pull nothing - a
+	# wasted question with no possible outcome. action_drag_pull.gd never prompts at all, so it had no
+	# equivalent ordering to get wrong; putting the check in can_target_unit there is this same rule
+	# applied to its own shape.
 	if activation.abort_when(UnitCondition.is_immune_to_knockback_from(
 		prey, SpecificAction.from_context(context), movement_type)): return
+
+	if activation.abort_when(not await confirm(kraken, prey)): return
+	if activation.abort_without_units([kraken, prey]): return
 
 	var pull_events := await CommonActionUtil.generate_pull_events(
 		prey, kraken.occupied_tiles(), SpecificAction.from_context(context),
