@@ -319,6 +319,25 @@ func test_a_hostile_already_against_the_kraken_is_left_alone():
 	assert_eq(SpecFactory.current_responder.choices_made, questions_before,
 		'And nobody was asked about it.')
 
+func test_a_hostile_horizontally_adjacent_but_several_floors_up_is_left_alone():
+	# The pull-viability gate has to measure the same way the pull it guards measures: horizontally
+	# only, per CommonActionUtil.generate_pull_events (common_action_util.gd:159), which works from
+	# plain Vector2i footprints and never looks at height. The sensor check right below it in
+	# hostiles_caught is 3D on purpose - a rooftop is still within sensors - but that same 3D distance
+	# must not leak into the pull-viability gate, or a hostile standing right beside the Kraken on the
+	# map, just several floors up, reads as "far enough to bother pulling" when horizontally there is
+	# nowhere closer to put it. Same shape as the already-adjacent case above, reached from height
+	# instead of from flat range.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	SpecFactory.set_tiles_elevation(game.map, 5, [Vector2i(1, 0)])
+	await _raise_the_tide()
+
+	var questions_before:int = SpecFactory.current_responder.choices_made
+	await _start_turn_for(prey)
+	assert_eq(prey.tile(), Vector2i(1, 0), 'Still beside the Kraken - nowhere closer to drag it.')
+	assert_eq(SpecFactory.current_responder.choices_made, questions_before,
+		'And nobody was asked about it.')
+
 func test_a_character_immune_to_knockback_is_not_dragged():
 	# Drag To The Depths' Pull (action_drag_pull.gd) refuses the same characters, because
 	# generate_pull_events performs no immunity check of its own and event_unit_move.gd exempts the

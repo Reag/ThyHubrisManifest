@@ -34,7 +34,6 @@ func hostiles_caught(unit:Unit, starting_unit:Unit) -> bool:
 	if Faction.is_ally(unit.state.faction, starting_unit.state.faction): return false
 	if not UnitRelation.can_affect(unit, starting_unit): return false
 
-	var distance := UnitRelation.distance_between(unit, starting_unit)
 	# Already up against us, so there is nowhere closer to go: generate_pull_events finds no path and
 	# moves nobody (common_action_util.gd:159-187). This is the immunity check's argument above applied
 	# to the far commoner case - under the Tide every prisoner the Kraken holds at close range is one
@@ -45,9 +44,19 @@ func hostiles_caught(unit:Unit, starting_unit:Unit) -> bool:
 	# UnitRelation.is_adjacent, which this mod widens so a character grappled at range counts as
 	# adjacent (unit_relation.gd_ext.gd). A prisoner held three spaces away by My Domain is exactly the
 	# one the undertow SHOULD still be dragging.
-	if distance <= PULL_DISTANCE: return false
+	#
+	# ignore_vertical_distance = true here, and only here: generate_pull_events measures purely
+	# horizontally, via Tile.get_closest_pair_between on Vector2i footprints (common_action_util.gd:159),
+	# with no elevation term at all. A gate has to measure the same way the thing it guards measures -
+	# the 3D distance below is right for the sensor check but wrong for this one. Without the split, a
+	# hostile standing horizontally adjacent but several floors up (a mech on a rooftop beside the
+	# Kraken) reads as far enough on the 3D metric, clears this gate, gets prompted, and the pull then
+	# resolves to an occupied tile and moves nothing - the exact wasted prompt this gate exists to stop.
+	var pull_distance := UnitRelation.distance_between(unit, starting_unit, true)
+	if pull_distance <= PULL_DISTANCE: return false
 
-	return distance <= unit.get_sensor_range()
+	var sensor_distance := UnitRelation.distance_between(unit, starting_unit)
+	return sensor_distance <= unit.get_sensor_range()
 
 func activate(context:Context, activation:EventCore) -> void:
 	var kraken:Unit = context.unit
