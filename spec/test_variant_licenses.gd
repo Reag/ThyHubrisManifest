@@ -23,6 +23,7 @@ extends GutTest
 ## variant license -> { base license it clones, frame it must grant in place of the base's }
 const VARIANTS := {
 	&'li_erinyes': {&'clones': &'li_dusk_wing', &'grants': &'mf_erinyes'},
+	&'li_kraken': {&'clones': &'li_saladin', &'grants': &'mf_kraken'},
 }
 
 func test_every_variant_grants_exactly_its_base_licenses_gear():

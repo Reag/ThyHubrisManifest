@@ -214,3 +214,116 @@ func test_the_core_power_abilities_are_written():
 		return
 
 	assert_true(true, 'Both core power abilities have effect text.')
+
+# ============================== Kraken ==============================
+#
+# Variant frame cloning the HA Saladin license. Everything below is wiring only - the three unique
+# traits are behaviourless stubs and the statblock is the Saladin's, pending real numbers.
+#
+# There is deliberately NO license test here: test_variant_licenses.gd already asserts that
+# li_kraken grants mf_kraken at rank 2, matches the Saladin's gear rank-for-rank, and counts as
+# HORUS. Duplicating it would just be two places to update.
+
+const KRAKEN_TRAITS := [&'mt_undulating_form', &'mt_my_domain', &'mt_irrepressible']
+const KRAKEN_SHARED_TRAIT := &'mt_guardian'
+const KRAKEN_CORE_POWER := &'cp_the_endless_black_sea'
+## Drag To The Depths is three separate FREE actions rather than one with a sub-menu: they target
+## completely differently, and VariantActionGroup only modifies a single action. See the design doc.
+const KRAKEN_DRAG_MODES := [&'action_drag_grapple', &'action_drag_pull', &'action_drag_reposition']
+const KRAKEN_TIDE_MODES := [&'action_the_all_consuming_tide', &'action_tide_undertow', &'action_tide_seize']
+const KRAKEN_CORE_POWER_MODES := KRAKEN_DRAG_MODES + KRAKEN_TIDE_MODES
+
+func test_kraken_frame_is_registered():
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_kraken')
+	assert_true(is_instance_valid(frame), 'mf_kraken is in the frames index.')
+	if not is_instance_valid(frame): return
+	assert_eq(frame.role_primary, Lancer.SQUAD_ROLE.CONTROLLER, 'Kraken is a Controller first.')
+	assert_eq(frame.role_secondary, Lancer.SQUAD_ROLE.DEFENDER, 'Kraken is a Defender second.')
+
+func test_kraken_traits_and_core_power_are_registered():
+	for kit_id:StringName in KRAKEN_TRAITS + [KRAKEN_CORE_POWER]:
+		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
+
+func test_the_kraken_frame_carries_its_traits_in_book_order():
+	# Guardian sits fourth, between the three unique traits and the core power, and is vanilla's
+	# resource rather than a copy - so this also catches the shared trait being dropped or duplicated.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_kraken')
+	if not is_instance_valid(frame): return fail_test('mf_kraken loaded.')
+	var wired:Array[StringName] = []
+	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
+	assert_eq(wired, KRAKEN_TRAITS + [KRAKEN_SHARED_TRAIT, KRAKEN_CORE_POWER],
+		'Three unique traits, then Guardian, then the core power.')
+
+func test_kraken_traits_are_flagged_as_traits():
+	for kit_id:StringName in KRAKEN_TRAITS + [KRAKEN_CORE_POWER]:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
+		assert_false(kit.is_destructable(), 'And so is not destructible.')
+
+func test_the_kraken_core_power_reads_as_a_core_power():
+	var kit:Kit = ContentLibrary.get_kit(KRAKEN_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % KRAKEN_CORE_POWER)
+	assert_true(kit.is_core_power(), '%s is a core power.' % KRAKEN_CORE_POWER)
+
+func test_the_kraken_core_power_has_six_distinct_modes():
+	# The whole point of the core power's shape: the three Drag To The Depths options are FREE
+	# actions that cost no core power, The All-Consuming Tide is a QUICK action that spends it, and
+	# the Undertow and the Seize are reactions the Tide triggers on its own. Getting consumes_cp
+	# backwards would leave a frame whose core power either never depletes or depletes on every free
+	# use, and neither shows up as an error - just as a mech that plays wrong.
+	var kit:Kit = ContentLibrary.get_kit(KRAKEN_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % KRAKEN_CORE_POWER)
+
+	var by_id := {}
+	for action:Action in kit.actions: by_id[action.get_id()] = action
+	assert_eq(by_id.keys(), KRAKEN_CORE_POWER_MODES, 'It carries exactly its six modes.')
+
+	for mode_id:StringName in KRAKEN_DRAG_MODES:
+		var free_mode:Action = by_id.get(mode_id)
+		if not Action.is_valid(free_mode): continue
+		assert_eq(free_mode.get_action_type(null), Lancer.ACTION.FREE, '%s is free.' % mode_id)
+		assert_false(bool(free_mode.consumes_core_power()), 'And %s does not spend the core.' % mode_id)
+
+	var core_mode:Action = by_id.get(&'action_the_all_consuming_tide')
+	if Action.is_valid(core_mode):
+		assert_eq(core_mode.get_action_type(null), Lancer.ACTION.QUICK, 'The All-Consuming Tide is quick.')
+		assert_true(bool(core_mode.consumes_core_power()), 'And spends the core.')
+
+func test_the_kraken_core_power_modes_do_not_share_a_round_allowance():
+	# Actions on one Kit default to a single usage_group keyed on the gear id, so a limited mode
+	# would be silently spent by its neighbour. Bit the Erinyes once; pinned here from the start.
+	var kit:Kit = ContentLibrary.get_kit(KRAKEN_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % KRAKEN_CORE_POWER)
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Every mode has its own usage_group.')
+	assert_false(groups.has(&''), 'And none of them fell back to the shared default.')
+
+func test_kraken_names_are_localized():
+	var keys:Array[String] = ['frame.mf_kraken.name']
+	for kit_id:StringName in KRAKEN_TRAITS + [KRAKEN_CORE_POWER]:
+		keys.append('gear.%s.name' % kit_id)
+	for mode_id:StringName in KRAKEN_CORE_POWER_MODES:
+		keys.append('gear.%s.%s.name' % [KRAKEN_CORE_POWER, mode_id])
+	for key:String in keys:
+		assert_ne(tr(key), key, '%s resolves to real text.' % key)
+
+func test_kraken_effects_and_flavor_are_written():
+	# Stub rows, blank until the copy is written. Pending, not failing - see the Draugr traits above.
+	var unwritten:PackedStringArray = []
+	for key:String in ['frame.mf_kraken.flavor', 'frame.mf_kraken.flavor.short',
+			'gear.%s.effect' % KRAKEN_CORE_POWER, 'gear.%s.flavor' % KRAKEN_CORE_POWER]:
+		if tr(key) == key: unwritten.append(key)
+	for kit_id:StringName in KRAKEN_TRAITS:
+		var key := 'gear.%s.effect' % kit_id
+		if tr(key) == key: unwritten.append(key)
+	for mode_id:StringName in KRAKEN_CORE_POWER_MODES:
+		var key := 'gear.%s.%s.effect' % [KRAKEN_CORE_POWER, mode_id]
+		if tr(key) == key: unwritten.append(key)
+
+	if not unwritten.is_empty():
+		pending('Kraken copy not written yet: %s' % ', '.join(unwritten))
+		return
+
+	assert_true(true, 'The Kraken has flavor and effect text throughout.')

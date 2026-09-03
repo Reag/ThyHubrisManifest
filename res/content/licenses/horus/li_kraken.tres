@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="UnlockTree" format=3]
+
+[ext_resource type="Script" uid="uid://dq0jowvw37x6i" path="res://engine/character/unit_core/unlock_tree.gd" id="1_unlock_tree"]
+[ext_resource type="Script" uid="uid://ctb1pfqlfgmni" path="res://engine/character/unit_core/unlock_rank.gd" id="2_unlock_rank"]
+[ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="3_frame"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="4_kit"]
+[ext_resource type="Texture2D" uid="uid://h17gn7ncv4p7" path="res://assets/media/horus.png" id="5_horus_icon"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mf_kraken.tres" id="6_mf_kraken"]
+[ext_resource type="Resource" uid="uid://dm4rcvttgf0d0" path="res://content/gear/ha/systems/ms_enclave_pattern_support_shield/ms_enclave_pattern_support_shield.tres" id="7_ms_enclave_pattern_support_shield"]
+[ext_resource type="Resource" uid="uid://dlqol735yp0ms" path="res://content/gear/ha/weapons/mw_shatterhead_colony_missiles/mw_shatterhead_colony_missiles.tres" id="8_mw_shatterhead_colony_missiles"]
+[ext_resource type="Resource" uid="uid://jstvtxo3jaua" path="res://content/gear/ha/systems/ms_flash_anchor/ms_flash_anchor.tres" id="9_ms_flash_anchor"]
+[ext_resource type="Resource" uid="uid://dfshe37cmtc2j" path="res://content/gear/ha/systems/ms_hardlight_defense_system/ms_hardlight_defense_system.tres" id="10_ms_hardlight_defense_system"]
+[ext_resource type="Resource" uid="uid://o4ff5ttikfq" path="res://content/gear/ha/systems/ms_noah_class_nhp/ms_noah_class_nhp.tres" id="11_ms_noah_class_nhp"]
+[ext_resource type="Resource" uid="uid://c85yedvdnglu4" path="res://content/gear/ha/systems/wm_paracausal_mod.tres" id="12_wm_paracausal_mod"]
+
+[sub_resource type="Resource" id="Resource_kraken_rank_1"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("7_ms_enclave_pattern_support_shield"), ExtResource("8_mw_shatterhead_colony_missiles")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[sub_resource type="Resource" id="Resource_kraken_rank_2"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("9_ms_flash_anchor"), ExtResource("10_ms_hardlight_defense_system")])
+granted_frames = Array[ExtResource("3_frame")]([ExtResource("6_mf_kraken")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[sub_resource type="Resource" id="Resource_kraken_rank_3"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("11_ms_noah_class_nhp"), ExtResource("12_wm_paracausal_mod")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[resource]
+script = ExtResource("1_unlock_tree")
+icon = ExtResource("5_horus_icon")
+rank_1 = SubResource("Resource_kraken_rank_1")
+rank_2 = SubResource("Resource_kraken_rank_2")
+rank_3 = SubResource("Resource_kraken_rank_3")
+metadata/_custom_type_script = "uid://dq0jowvw37x6i"

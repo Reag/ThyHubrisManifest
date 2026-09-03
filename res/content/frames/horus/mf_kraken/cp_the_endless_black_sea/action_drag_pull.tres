@@ -1,0 +1,12 @@
+[gd_resource type="Resource" format=3 uid="uid://d1b4jab10k2yr"]
+
+[ext_resource type="Script" uid="uid://dnaftfbjbvl2" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_drag_pull.gd" id="1_action_script"]
+[ext_resource type="Texture2D" uid="uid://ctwk8pjxclw4k" path="res://assets/icons/actions/cp_cloudscout_tacsism_swarms/action_tactical_simulation.svg" id="1_don25"]
+
+[resource]
+script = ExtResource("1_action_script")
+target_range_is_sensors = true
+action_type = 3
+usage_group = &"action_drag_pull"
+icon_override = ExtResource("1_don25")
+emit_text_popcorn_on_use = true

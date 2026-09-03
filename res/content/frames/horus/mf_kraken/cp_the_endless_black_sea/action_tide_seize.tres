@@ -1,0 +1,11 @@
+[gd_resource type="Resource" format=3 uid="uid://cwsegc7w7qxsu"]
+
+[ext_resource type="Script" uid="uid://d3gp7vt0p8fcu" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_tide_seize.gd" id="1_action_script"]
+[ext_resource type="Texture2D" uid="uid://bdbx1c414cktm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/cp_the_endless_black_sea.svg" id="1_g05q2"]
+
+[resource]
+script = ExtResource("1_action_script")
+triggers_on = Array[StringName]([&"collision"])
+usage_group = &"action_tide_seize"
+icon_override = ExtResource("1_g05q2")
+emit_text_popcorn_on_use = true

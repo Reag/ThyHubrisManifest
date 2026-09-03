@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3 uid="uid://dgbsitgbr6use"]
+
+[ext_resource type="Script" uid="uid://ciqgfapkjtkg0" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_undulating_form/buff_undulating_form.gd" id="1_buff_script"]
+[ext_resource type="Texture2D" uid="uid://cqvqfx6pidtxm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/mt_undulating_form.svg" id="1_sd2gf"]
+
+[resource]
+script = ExtResource("1_buff_script")
+to = &"can_share_space"
+hide_from_player = true
+icon = ExtResource("1_sd2gf")

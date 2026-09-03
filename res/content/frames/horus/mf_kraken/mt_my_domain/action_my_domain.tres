@@ -1,0 +1,12 @@
+[gd_resource type="Resource" format=3 uid="uid://t41am0xdjq60"]
+
+[ext_resource type="Script" uid="uid://ctxssdt3nxc1h" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_my_domain/action_my_domain.gd" id="1_action_script"]
+[ext_resource type="Texture2D" uid="uid://buv70j4sa0ui0" path="res://assets/icons/buffs/buff_grapple_cable.svg" id="1_ccry4"]
+
+[resource]
+script = ExtResource("1_action_script")
+triggers_on = Array[StringName]([&"unit_action"])
+consumes_rxn = false
+usage_group = &"action_my_domain"
+icon_override = ExtResource("1_ccry4")
+emit_text_popcorn_on_use = true

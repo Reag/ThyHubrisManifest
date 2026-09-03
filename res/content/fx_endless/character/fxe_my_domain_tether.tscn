@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://ck34knquhucbv" path="res://engine/gamemaster/effects_controller/fx_endless/fx_endless.gd" id="1_fx_endless"]
+[ext_resource type="Script" uid="uid://dm0iha1lmqar7" path="res://engine/gamemaster/effects_controller/fx_endless/line_3d_anchored.gd" id="2_line"]
+
+[node name="Fxe" type="Node3D"]
+script = ExtResource("1_fx_endless")
+
+[node name="Line3DAnchored" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+script = ExtResource("2_line")
+color = Color(0.031, 0.078, 0.14, 1)
+use_global_space = true
+points = PackedVector3Array(0, 0, 0, 2, 0, 0)
+metadata/_custom_type_script = "uid://dm0iha1lmqar7"

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3 uid="uid://dptqw0pa30wx0"]
+
+[ext_resource type="Script" uid="uid://6l027ah05r36" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/buff_the_all_consuming_tide.gd" id="1_buff_script"]
+[ext_resource type="Texture2D" uid="uid://bdbx1c414cktm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/cp_the_endless_black_sea.svg" id="1_e6125"]
+
+[resource]
+script = ExtResource("1_buff_script")
+to = &"movement_restriction"
+icon = ExtResource("1_e6125")
+log_on_application = true

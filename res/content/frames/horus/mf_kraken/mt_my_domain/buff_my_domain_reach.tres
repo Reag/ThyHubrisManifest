@@ -1,0 +1,14 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_my_domain/buff_my_domain_reach.gd" id="1_buff_script"]
+
+[resource]
+script = ExtResource("1_buff_script")
+bonus_subtype = &"threat_range"
+bonus_value = 0
+overrides = true
+weapon_types = Array[int]([2])
+allow_basic = true
+until = 2
+to = &"action_range"
+hide_from_player = true
