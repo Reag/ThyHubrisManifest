@@ -64,8 +64,10 @@ static func _append_valid(units:Array[Unit], unit:Unit) -> void:
 # receiving it. So nothing here touches the status; can_affect is widened instead.
 #
 # TO REMOVE THIS, once an engine can express dual tangibility:
-#   - delete counts_as_every_tangibility, tangibility_is_the_only_objection, and can_affect's widened
-#     branch (that is the whole workaround)
+#   - delete counts_as_every_tangibility, tangibility_is_the_only_objection, can_affect's widened
+#     branch, and the bridged_by_the_black_sea local below - it exists only to feed that branch, so
+#     both of its assignments go with it while the guards that set them keep their plain "return
+#     false" refusals (that is the whole workaround)
 #   - keep cut_off_during_own_turn and is_reachable_from_the_black_sea: they are a real game rule,
 #     not a workaround, and would simply be reimplemented by applying INTANGIBLE to held characters
 #   - spec/test_the_all_consuming_tide.gd asserts the RULES rather than this mechanism, so it must
@@ -104,11 +106,11 @@ static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerabilit
 	# that is itself intangible, and nothing at all besides. Symmetric, so its own allies cannot
 	# reach in either.
 	#
-	# Each guard records whether it cleared the pairing, rather than leaving that fact to be
-	# re-derived later from Unit.is_valid(..._captor). That local is only a correct proxy for
-	# "already vetted" as long as it is read after the guard that computed it, and only for as long as
-	# neither guard below is reordered or joined by a third - a coupling worth naming rather than
-	# leaving to be discovered by whoever edits this next.
+	# Each guard records whether it cleared the pairing directly, rather than leaving that fact to be
+	# re-derived later from Unit.is_valid(..._captor). Reading the flag tells the truth only as long as
+	# it is read after the guards that set it, and only for as long as neither guard below is reordered
+	# or joined by a third - a coupling worth naming rather than leaving to be discovered by whoever
+	# edits this next.
 	var bridged_by_the_black_sea := false
 	var origins_captor := cut_off_during_own_turn(origin_unit)
 	if Unit.is_valid(origins_captor):
@@ -149,6 +151,10 @@ static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerabilit
 ## yes instead. That leaves the guard clause in can_affect unable to fire on missing information, and
 ## vanilla's own invalid-unit answer (unit_relation.gd:394, "return TRUE if we don't have enough
 ## information") is what actually decides the pairing.
+##
+## Answering yes on that invalid-unit path also makes the calling guard set bridged_by_the_black_sea,
+## which is spurious but harmless: super.can_affect already answers true whenever either unit is
+## invalid, so the branch that reads the flag is never reached for a pairing that got here this way.
 static func is_reachable_from_the_black_sea(other_unit:Unit, captor:Unit) -> bool:
 	if not Unit.is_valid(other_unit): return true
 	if other_unit == captor: return true
