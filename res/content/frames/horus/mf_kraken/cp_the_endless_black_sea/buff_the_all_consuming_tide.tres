@@ -1,0 +1,8 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/buff_the_all_consuming_tide.gd" id="1_buff_script"]
+
+[resource]
+script = ExtResource("1_buff_script")
+until = 0
+log_on_application = true
