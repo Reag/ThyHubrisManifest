@@ -705,3 +705,163 @@ func test_nothing_is_capped_before_the_tide_is_raised():
 	assert_false(_tide_is_up(), 'The Tide is down.')
 
 	assert_true(_restriction_buffs_for(prey).is_empty(), 'Nothing restricts its retreat before the Tide is up.')
+
+# ------------------ the cap must never GIVE a character movement ------------------
+# A reach cap is a subtraction, and the question a playtester cannot answer from the board is whether
+# it is only ever that. pathfinder.gd:340-350 reads a MOVEMENT_RESTRICTION buff's `boolean` to decide
+# whether its tile array is INTERSECTED against where the character may go or MERGED into it - and
+# merged, the Tide would be a licence for every hostile in SENSORS to walk anywhere it reaches. The
+# tests above cannot see that: they ask the buff what it permits, and a buff that permits too much
+# looks exactly like a buff that permits the right amount. So these ask real pathfinders, the same
+# call the move chooser makes when a character's turn opens (phase_ui_player_action.gd:126).
+#
+# They need somewhere to run to, and the shared spec map is 5x5, so they build a wider one of their
+# own - the way test/unit/ai/test_ai_movement_heatmap.gd:14 does. A fresh gamemaster, so the odd map
+# is not handed to the next test.
+
+const WIDE_MAP := Vector2i(15, 5)
+
+func _on_a_wider_map() -> void:
+	game = SpecFactory.setup_gamemaster(self, true, SpecFactory.create_combat(Landscape.create_default(WIDE_MAP)))
+	kraken = SpecFactory.create_unit(game.map, KRAKEN_TILE)
+	gear = kraken.core.equip_system(CORE_POWER_ID)
+	kraken.core.has_core_power = true
+
+func _prey_at(tile:Vector2i) -> Unit:
+	return SpecFactory.create_unit(game.map, tile, Faction.AI_ENEMY)
+
+## Turn start is what hands a character its speed and its Boost (unit_action.gd:74-82), so a character
+## that has not had one has nothing to retreat with. The undertow is declined: it drags on the
+## Kraken's authority, and these tests count ground the character covered on its own.
+func _its_own_turn(mover:Unit) -> void:
+	SpecFactory.current_responder.chosen_yesnos = false
+	await SpecFactory.start_turn(game, mover)
+	SpecFactory.current_responder.chosen_yesnos = true
+
+## Everywhere the game would actually offer this character, Boost included.
+func _move_options(mover:Unit, include_boost:bool = true) -> Pathfinder:
+	return await Pathfinder.generate_for_standard_move(
+		mover, MovementType.create_for_standard_move(mover), include_boost)
+
+func _tiles_offered_only_by(options:Pathfinder, and_not_by:Pathfinder) -> Array[Vector2i]:
+	var only_here:Array[Vector2i] = []
+	for tile:Vector2i in options.reachable_tiles:
+		if not and_not_by.is_reachable(tile): only_here.append(tile)
+	return only_here
+
+func _furthest_it_may_end_from_the_kraken(options:Pathfinder) -> int:
+	var furthest:int = 0
+	for tile:Vector2i in options.reachable_tiles: furthest = maxi(furthest, Tile.distance(KRAKEN_TILE, tile))
+	return furthest
+
+func test_the_cap_takes_tiles_away_and_never_hands_one_back():
+	# The whole worry, in one pair of assertions: raising the Tide must shut tiles, and must not open
+	# a single one that was shut to a character before it rose.
+	#
+	# Which of the two catches a mis-declared cap is worth knowing. Flipping the buff's `boolean` to
+	# true - the exact "accidentally grants movement" mistake - is caught by the SECOND assertion, not
+	# the first: pathfinder.gd:352-353 merges added tiles into the CANDIDATE set and then filters that
+	# set by budget, zone and interior anyway, so merging can only re-offer tiles the character could
+	# already afford. A restriction buff in this engine can lose its restriction; it cannot hand out
+	# reach. The first assertion pins that engine guarantee, which this clause leans on entirely.
+	_on_a_wider_map()
+	var prey := _prey_at(Vector2i(5, 0))
+	await _its_own_turn(prey)
+
+	var before_the_tide := await _move_options(prey)
+	await _raise_the_tide()
+	var under_the_tide := await _move_options(prey)
+
+	var opened := _tiles_offered_only_by(under_the_tide, before_the_tide)
+	var shut := _tiles_offered_only_by(before_the_tide, under_the_tide)
+	assert_true(opened.is_empty(), 'The Tide opens no tile that was shut before it rose: %s' % [opened])
+	assert_false(shut.is_empty(), 'And it does shut some, so the question above is a real one.')
+
+func test_nothing_the_cap_leaves_open_costs_more_than_the_character_can_pay():
+	# The other half of "it cannot grant movement". A tile the cap leaves open must still be one the
+	# character can afford to walk to: the clause edits where a character may end up, never the
+	# movement that buys the trip.
+	_on_a_wider_map()
+	var prey := _prey_at(Vector2i(5, 0))
+	await _raise_the_tide()
+	await _its_own_turn(prey)
+
+	var options := await _move_options(prey)
+	assert_false(options.reachable_tiles.is_empty(), 'It has somewhere to go, so the two checks below look at something.')
+	var unaffordable:Array[Vector2i] = []
+	for tile:Vector2i in options.reachable_tiles:
+		if options.get_path_cost(options.path_to(tile)) > options.max_budget: unaffordable.append(tile)
+	assert_true(unaffordable.is_empty(), 'Everywhere still offered is somewhere it can walk to: %s' % [unaffordable])
+
+	var beyond_its_speed:Array[Vector2i] = []
+	for tile:Vector2i in options.movable_tiles:
+		if options.get_path_cost(options.path_to(tile)) > prey.core.current.speed: beyond_its_speed.append(tile)
+	assert_true(beyond_its_speed.is_empty(),
+		'And nothing is offered as a plain move that costs more than its speed: %s' % [beyond_its_speed])
+
+func test_closing_and_then_pulling_back_out_is_a_move_and_a_boost_not_a_refund():
+	# What a playtester counts from the board: a character crosses its whole speed toward the Kraken
+	# and then half of it again on the way out - about one and a half speeds of ground in a single
+	# turn - and cannot tell whether the Tide gave it something. It did not. That is a move and a
+	# Boost, two separate grants of movement, and the cap SHORTENED the second leg from four spaces to
+	# two. Without the Tide the same character covers eight.
+	_on_a_wider_map()
+	var prey := _prey_at(Vector2i(9, 0))
+	await _raise_the_tide()
+	await _its_own_turn(prey)
+	assert_eq(prey.tile(), Vector2i(9, 0), 'It starts its turn where it stood.')
+	assert_eq(prey.get_speed_max(), 4, 'A speed of four, which is what the counts below are one and a half of.')
+
+	await SpecFactory.move(game, prey, Vector2i(5, 0), MovementType.create_for_standard_move(prey))
+	assert_eq(prey.tile(), Vector2i(5, 0), 'Closing is never capped, so it crosses its whole speed inward.')
+
+	await SpecFactory.use_solo(game, prey, &'ms_boost')
+	var boosted := await _move_options(prey, false)
+	assert_false(boosted.is_reachable(Vector2i(9, 0)), 'A whole Boost of retreat is not on offer.')
+	assert_true(boosted.is_reachable(Vector2i(7, 0)), 'Half of one is.')
+
+	await SpecFactory.move(game, prey, Vector2i(7, 0), MovementType.create_for_standard_move(prey))
+	assert_eq(prey.tile(), Vector2i(7, 0), 'Two spaces back out.')
+	assert_eq(prey.state.spaces_moved_this_turn, 6, 'Six spaces on a speed of four - the one and a half that gets counted.')
+	assert_lte(prey.state.spaces_moved_this_turn, prey.get_speed_max() * 2,
+		'And never more ground than its move and its Boost would have bought with no Tide at all.')
+
+func test_closing_in_never_buys_a_longer_way_back_out():
+	# The cap measures from wherever the character stands when the question is asked, and a character
+	# may split its move - so in principle a retreat could be bought by walking in first and having
+	# the mark re-measured from closer. It cannot: every space spent closing is a space not spent
+	# leaving, and the mark comes in with it.
+	_on_a_wider_map()
+	var prey := _prey_at(Vector2i(5, 0))
+	await _raise_the_tide()
+	await _its_own_turn(prey)
+
+	var straight_out := await _move_options(prey, false)
+	var furthest_straight_out := _furthest_it_may_end_from_the_kraken(straight_out)
+
+	await SpecFactory.move(game, prey, Vector2i(3, 0), MovementType.create_for_standard_move(prey))
+	assert_eq(prey.tile(), Vector2i(3, 0), 'It walked two spaces in.')
+
+	var after_closing := await _move_options(prey, false)
+	assert_lt(_furthest_it_may_end_from_the_kraken(after_closing), furthest_straight_out,
+		'Walking in first leaves it a shorter way out, not a longer one.')
+
+func test_a_retreat_taken_a_space_at_a_time_still_costs_a_space_at_a_time():
+	# A character may move, act, and move again, and the cap re-measures from wherever it stands each
+	# time - so a retreat taken one space at a time is measured against a mark that slides out with it,
+	# and buys three spaces on a speed of four where a single dash buys two. That is the approximation
+	# sitting looser than the clause it stands for, and it is the direction everything else here errs
+	# in too. What it must never do is conjure ground: three spaces of retreat cost three spaces of
+	# movement, and the fourth space of speed buys nothing at all.
+	_on_a_wider_map()
+	var prey := _prey_at(Vector2i(5, 0))
+	await _raise_the_tide()
+	await _its_own_turn(prey)
+
+	for x:int in [6, 7, 8, 9]:
+		await SpecFactory.move(game, prey, Vector2i(x, 0), MovementType.create_for_standard_move(prey))
+
+	assert_eq(prey.tile(), Vector2i(8, 0), 'Three spaces out one at a time, and then the cap holds it.')
+	assert_eq(prey.state.spaces_moved_this_turn, 3, 'Three spaces of retreat cost three spaces of movement.')
+	assert_lte(prey.state.spaces_moved_this_turn, prey.get_speed_max(),
+		'Splitting the move up buys reach, never ground.')
