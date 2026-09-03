@@ -40,9 +40,11 @@ func _refresh_terrain() -> void:
 	UnitTile.update_tracking_and_statuses(game.map)
 
 ## What the game would actually offer this unit, boost excluded so the budget is just its speed.
-func _move_options(mover:Unit) -> Pathfinder:
-	return await Pathfinder.generate_for_standard_move(
-		mover, MovementType.create_for_standard_move(mover), false)
+## `movement_type` defaults to a standard voluntary move; pass a different one (e.g.
+## MovementType.create_for_involuntary) to see the same tiles priced under different rules.
+func _move_options(mover:Unit, movement_type:MovementType = null) -> Pathfinder:
+	if movement_type == null: movement_type = MovementType.create_for_standard_move(mover)
+	return await Pathfinder.generate_for_standard_move(mover, movement_type, false)
 
 ## Cumulative cost of walking to `tile`. Pathfinder.Step.cost accumulates along the path, so the
 ## last step's cost is the total.
@@ -229,3 +231,70 @@ func test_spaces_crossed_before_the_boost_are_not_part_of_the_trail():
 	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
 	assert_eq(PoisonedSoil.read_trail(trait_gear), [NEIGHBOUR, Vector2i(2, 0)],
 		'Arming happens on the boost, so the first move is not in it.')
+
+# ============================== isolation from other units ==============================
+
+func test_another_units_steps_do_not_pollute_our_pending_buffer():
+	# Coverage gap from the Task 3 review: action_poisoned_soil_track.triggers_on_event fires for
+	# EVERY step by EVERY unit on the map, and filters down to `triggering_event.context.unit == unit`
+	# (the reaction's own owner). Arm first so there is something the buffer could wrongly grow from,
+	# then move a completely different unit several tiles and confirm our pending is untouched.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_eq(PoisonedSoil.read_pending(trait_gear), [START], 'Armed and seeded, so a change would be visible.')
+
+	var other := SpecFactory.create_unit(game.map, Vector2i(4, 4))
+	SpecFactory.apply_passive_buffs(other)
+	await SpecFactory.start_turn(game, other)
+	await SpecFactory.move(game, other, Vector2i(3, 4))
+	await SpecFactory.move(game, other, Vector2i(2, 4))
+
+	assert_eq(PoisonedSoil.read_pending(trait_gear), [START],
+		"Someone else's steps never reached our pending buffer.")
+
+# ============================== deliberate, and it looks like a bug ==============================
+
+func test_the_nuckelavee_pays_double_to_cross_its_own_trail():
+	# Nothing in the trait text exempts its owner, so the terrain is real terrain for everyone.
+	# This is NOT a gap - see the Bulwark Mods test below, which is the license's answer to it.
+	PoisonedSoil.write_trail(trait_gear, [NEIGHBOUR])
+	_refresh_terrain()
+	await SpecFactory.start_turn(game, nuckelavee)
+	assert_eq(await _cost_to(nuckelavee, NEIGHBOUR), 2, 'Its own filth slows it too.')
+
+func test_bulwark_mods_carries_the_nuckelavee_over_its_own_trail_free():
+	# The designed pair. ms_bulwark_mods is RANK 1 of the license the Nuckelavee clones - a 1 SP
+	# always-on BuffMovementType with ignore_difficult = true - and
+	# MovementType.ignores_difficult_terrain() consumes exactly that flag. The first thing the
+	# license unlocks is the tool for the frame's own terrain, the same shape as the Kraken's
+	# IMMOBILIZED gate. Asserted so nobody "fixes" the test above by exempting the owner.
+	nuckelavee.core.equip_system(&'ms_bulwark_mods')
+	SpecFactory.apply_passive_buffs(nuckelavee)
+	PoisonedSoil.write_trail(trait_gear, [NEIGHBOUR])
+	_refresh_terrain()
+	await SpecFactory.start_turn(game, nuckelavee)
+	assert_eq(await _cost_to(nuckelavee, NEIGHBOUR), 1, 'Bulwark Mods walks over it.')
+
+func test_forced_movement_crosses_the_trail_free_but_voluntary_movement_still_pays_double():
+	# Deviates from the brief, which only asserted involuntary.ignores_difficult_terrain() - a
+	# vanilla MovementType predicate that never touches our trail, so that version would pass even
+	# with the trait deleted. This version goes through a real Pathfinder built the same way _cost_to
+	# does, but with MovementType.create_for_involuntary(mover) instead of create_for_standard_move,
+	# so it can only pass if our terrain zone is actually feeding the pathfinder: the fouled tile has
+	# to come back at the SAME cost as clean ground for involuntary movement, while the standard
+	# (voluntary) pathfinder over the identical tile still pays double.
+	#
+	# ignores_difficult_terrain() is `ignore_difficult or teleport or flying or not voluntary`, and
+	# create_for_involuntary leaves `voluntary` at its default false - so anything knocked or dragged
+	# across the trail crosses free. Vanilla behaviour, not ours.
+	PoisonedSoil.write_trail(trait_gear, [NEIGHBOUR])
+	_refresh_terrain()
+	await SpecFactory.start_turn(game, nuckelavee)
+
+	var involuntary := await _move_options(nuckelavee, MovementType.create_for_involuntary(nuckelavee))
+	var involuntary_path:Array[Pathfinder.Step] = involuntary.path_to(NEIGHBOUR)
+	assert_false(involuntary_path.is_empty(), 'The trail tile is reachable at all - vacuity guard.')
+	if not involuntary_path.is_empty():
+		assert_eq(involuntary_path.back().cost, 1, 'Forced movement crosses the trail at clean-ground cost.')
+
+	assert_eq(await _cost_to(nuckelavee, NEIGHBOUR), 2, 'The same tile still costs double for voluntary movement.')

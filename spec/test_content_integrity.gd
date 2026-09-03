@@ -463,3 +463,36 @@ func _statblock_signature(stat:Statblock) -> Array:
 	return [stat.size, stat.structure, stat.stress, stat.health, stat.armor, stat.evasion, stat.edef,
 		stat.speed, stat.heat, stat.save_target, stat.sensor_range, stat.tech_attack, stat.repairs,
 		stat.systems_points, stat.reactions, stat.activations]
+
+# ==================== Poisoned Soil ====================
+
+const POISONED_SOIL_ACTIONS := [&'action_poisoned_soil_arm', &'action_poisoned_soil_track',
+	&'action_poisoned_soil_lay']
+
+func test_poisoned_soil_carries_one_terrain_zone_and_three_reactions():
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+
+	assert_eq(kit.get_passives(PassiveTerrainZone).size(), 1, 'Exactly one terrain zone.')
+
+	var action_ids:Array[StringName] = []
+	for action:Action in kit.actions: action_ids.append(action.get_id())
+	assert_eq(action_ids, POISONED_SOIL_ACTIONS, 'Arm, track, lay - in that order.')
+
+func test_no_poisoned_soil_reaction_consumes_the_reaction():
+	# A consuming reaction is hard-capped at 1/round by ActionReaction.get_action_type returning
+	# RXN, which would silently stop the tracker after its first step.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+	for action:Action in kit.actions:
+		assert_true(action is ActionReaction, '%s is a reaction.' % action.get_id())
+		if action is ActionReaction:
+			assert_false(action.consumes_rxn, '%s does not spend the reaction.' % action.get_id())
+
+func test_the_poisoned_soil_reactions_do_not_share_a_round_allowance():
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Every reaction has its own usage_group.')
+	assert_false(groups.has(&''), 'And none fell back to the shared default.')
