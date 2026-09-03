@@ -160,6 +160,33 @@ func test_an_armed_boost_does_not_carry_into_a_later_round_it_never_moved_in():
 	assert_eq(SpecFactory.current_responder.choices_made, choices_before,
 		'And the lay prompt should never have appeared at all.')
 
+func test_an_armed_boost_does_not_carry_into_a_second_turn_in_the_same_round():
+	# Round 2 of this same review finding: the round stamp above bounds a stale arm to the rest of
+	# the ARMING ROUND, not the arming TURN - and this game can grant two turns in one round.
+	# content/frames/horus/mf_goblin/cp_instinct_rig/action_symbiosis_shared_turn.gd drives a linked
+	# turn for a fused ally off the HOST's own turn start/end, so a Nuckelavee fused to a Goblin can
+	# boost on turn A, never move, end turn A, then take a second, LINKED turn B in the SAME round -
+	# the round stamp still matches, track still fires, and lay still prompts, with no boost behind
+	# it at all. The fusion mechanism itself does not matter here, only that a second turn happens
+	# within one round without the round counter moving - a second SpecFactory.start_turn on the
+	# same unit is the simplest way to prove that, and is what action_poisoned_soil_disarm.gd (an
+	# END_TURN reaction on our own owner, independent of the round) has to catch instead.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_true(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count),
+		'Armed by the boost - sanity check before the turn ends.')
+	await SpecFactory.end_turn(game, nuckelavee)
+
+	# A second turn, same round: round_count never moves.
+	await SpecFactory.start_turn(game, nuckelavee)
+
+	var choices_before:int = SpecFactory.current_responder.choices_made
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [], 'No boost this turn - nothing should be laid.')
+	assert_eq(SpecFactory.current_responder.choices_made, choices_before,
+		'And the lay prompt should never have appeared at all.')
+
 # ============================== tracking the path ==============================
 #
 # Task 4 note: there used to be a test_moving_while_armed_records_every_tile_stepped_onto here,

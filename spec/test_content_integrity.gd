@@ -467,9 +467,14 @@ func _statblock_signature(stat:Statblock) -> Array:
 # ==================== Poisoned Soil ====================
 
 const POISONED_SOIL_ACTIONS := [&'action_poisoned_soil_arm', &'action_poisoned_soil_track',
-	&'action_poisoned_soil_lay']
+	&'action_poisoned_soil_lay', &'action_poisoned_soil_disarm']
 
-func test_poisoned_soil_carries_one_terrain_zone_and_three_reactions():
+func test_poisoned_soil_carries_one_terrain_zone_and_four_reactions():
+	# The fourth reaction (disarm, on END_TURN) was added by the final review's round-2 fix: a round
+	# stamp alone bounds a stale arm to the rest of the ARMING ROUND, which is one grain too coarse
+	# for a turn-scoped effect - action_symbiosis_shared_turn.gd can grant a second, linked turn
+	# within the same round. Disarming unconditionally at the end of the arming unit's own turn is
+	# what actually closes that.
 	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
 	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
 
@@ -477,7 +482,7 @@ func test_poisoned_soil_carries_one_terrain_zone_and_three_reactions():
 
 	var action_ids:Array[StringName] = []
 	for action:Action in kit.actions: action_ids.append(action.get_id())
-	assert_eq(action_ids, POISONED_SOIL_ACTIONS, 'Arm, track, lay - in that order.')
+	assert_eq(action_ids, POISONED_SOIL_ACTIONS, 'Arm, track, lay, disarm - in that order.')
 
 func test_no_poisoned_soil_reaction_consumes_the_reaction():
 	# A consuming reaction is hard-capped at 1/round by ActionReaction.get_action_type returning
