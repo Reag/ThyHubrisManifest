@@ -27,13 +27,27 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	return hostiles_caught(unit, triggering_event.context.unit)
 
 ## Is this somebody the Tide has a grip on? A hostile character, not the Kraken itself, standing
-## within the Kraken's sensors.
+## within the Kraken's sensors and far enough out that a pull would move it at all.
 func hostiles_caught(unit:Unit, starting_unit:Unit) -> bool:
 	if not Unit.is_valid(starting_unit) or starting_unit == unit: return false
 	if not starting_unit.is_actor(): return false
 	if Faction.is_ally(unit.state.faction, starting_unit.state.faction): return false
 	if not UnitRelation.can_affect(unit, starting_unit): return false
-	return UnitRelation.distance_between(unit, starting_unit) <= unit.get_sensor_range()
+
+	var distance := UnitRelation.distance_between(unit, starting_unit)
+	# Already up against us, so there is nowhere closer to go: generate_pull_events finds no path and
+	# moves nobody (common_action_util.gd:159-187). This is the immunity check's argument above applied
+	# to the far commoner case - under the Tide every prisoner the Kraken holds at close range is one
+	# of these, and without this the player is asked "drag it deeper?" every round forever and yes does
+	# nothing.
+	#
+	# Footprint distance, the same measure the sensor check uses - deliberately NOT
+	# UnitRelation.is_adjacent, which this mod widens so a character grappled at range counts as
+	# adjacent (unit_relation.gd_ext.gd). A prisoner held three spaces away by My Domain is exactly the
+	# one the undertow SHOULD still be dragging.
+	if distance <= PULL_DISTANCE: return false
+
+	return distance <= unit.get_sensor_range()
 
 func activate(context:Context, activation:EventCore) -> void:
 	var kraken:Unit = context.unit

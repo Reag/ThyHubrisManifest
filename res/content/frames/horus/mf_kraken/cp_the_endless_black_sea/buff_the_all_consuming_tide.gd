@@ -31,11 +31,21 @@ extends Buff
 # the pathfinder loops EVERY character's restriction buffs against whoever is moving
 # (pathfinder.gd:340-350), so this buff sits on the Kraken and restrains other units.
 #
+# DECLARED BOUNDARY: the cap binds only movement that difficult terrain would actually tax. That
+# restriction loop runs for EVERY movement type, whereas vanilla difficult terrain is skipped outright
+# for forced, flying, teleport and INTANGIBLE movement (movement_type.gd:107-108, consumed at
+# pathfinder.gd:97). Binding those would be broader than the clause being approximated, and
+# RESTRICTIVE where every other liberty taken here is permissive. It would also quietly nerf the
+# Kraken's own gear: Drag To The Depths' Reposition throws a prisoner on
+# MovementType.create_for_involuntary (action_drag_reposition.gd:63-66), whose "3 spaces in any
+# direction" would silently become "3 spaces, but no further from yourself than half its speed" -
+# 2 spaces against a speed-4 prisoner, with no message. caps_this_movement below is that boundary.
+#
 # REMOVAL: the user has said this clause may be dropped outright if it reads badly in play. Doing so
-# means deleting check_if_passive_applies, is_buff_context_valid_for_passive and get_values below,
-# AND the `to = &"movement_restriction"` line on buff_the_all_consuming_tide.tres - both halves, not
-# one. Deleting only the three methods is safe rather than broken: pathfinder.gd:347 skips any
-# restriction buff whose values.object is not a PackedInt64Array, and the base Buff.get_values()
+# means deleting check_if_passive_applies, caps_this_movement, is_buff_context_valid_for_passive and
+# get_values below, AND the `to = &"movement_restriction"` line on buff_the_all_consuming_tide.tres -
+# both halves, not one. Deleting only the methods is safe rather than broken: pathfinder.gd:347 skips
+# any restriction buff whose values.object is not a PackedInt64Array, and the base Buff.get_values()
 # (buff.gd:168-169) returns a bare Context.new() with object left null, so the un-overridden buff is
 # silently ignored by the loop that reads it - a no-op, not a crash.
 
@@ -48,7 +58,21 @@ func check_if_passive_applies(core:BuffCore, context:Context) -> bool:
 	if mover == kraken: return false
 	if not mover.is_actor(): return false
 	if Faction.is_ally(kraken.state.faction, mover.state.faction): return false
+	if not caps_this_movement(context.resource): return false
 	return UnitRelation.distance_between(kraken, mover) <= kraken.get_sensor_range()
+
+## Is this a move difficult terrain would actually have taxed? The pathfinder hands its planned
+## MovementType down in context.resource (pathfinder.gd:343) and runs the restriction loop for every
+## one of them, so this is where the DECLARED BOUNDARY above is enforced - see it for why forced,
+## flying, teleporting and INTANGIBLE movement must fall outside the cap.
+##
+## Untyped parameter, and MovementType.is_valid rather than a cast: context.resource is a plain
+## Resource and nothing guarantees a caller filled it with the right one. A missing or wrong resource
+## is not a movement this clause can speak about, so it declines - erring permissive, the same
+## direction as everything else here. The one real caller always supplies a MovementType.
+func caps_this_movement(movement_type) -> bool:
+	if not MovementType.is_valid(movement_type): return false
+	return not movement_type.ignores_difficult_terrain()
 
 func is_buff_context_valid_for_passive(core:BuffCore, context:Context) -> bool:
 	return (

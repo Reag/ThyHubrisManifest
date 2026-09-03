@@ -150,6 +150,7 @@ func test_the_tide_does_not_cross_a_shard_boundary():
 # INTANGIBLE to the prisoner and get the same result.
 
 const MY_DOMAIN_ID := &'mt_my_domain'
+const IRREPRESSIBLE_ID := &'mt_irrepressible'
 
 ## Grapple through My Domain's gear, whose attachment holds at range.
 func _hold(prey:Unit) -> void:
@@ -185,6 +186,17 @@ func test_a_held_character_can_still_reach_the_kraken_on_its_turn():
 	_its_turn(prey)
 	assert_true(UnitRelation.can_affect(prey, kraken), 'It can still fight the Kraken.')
 	assert_true(UnitRelation.can_affect(kraken, prey), 'And the Kraken can still work on it.')
+
+func test_a_held_character_can_still_act_on_itself_on_its_turn():
+	# Cut off from the map is not cut off from oneself. A character always reaches itself, and a great
+	# deal quietly hangs off that: an area effect centred on the caster, the AI's own entry in its
+	# score table, the crosshair drawn on its own tile. Losing it would show up as none of those
+	# working rather than as anything to do with the Tide.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	_hold(prey)
+	_its_turn(prey)
+	assert_true(UnitRelation.can_affect(prey, prey), 'It can still act on itself.')
 
 func test_a_held_character_can_reach_an_intangible_bystander_on_its_turn():
 	# It is intangible in the fiction, so intangible company is reachable. Included deliberately:
@@ -288,6 +300,25 @@ func test_a_hostile_outside_sensors_is_never_dragged():
 	await _start_turn_for(prey)
 	assert_eq(prey.tile(), Vector2i(3, 0), 'Out of the Tide, out of reach.')
 
+func test_a_hostile_already_against_the_kraken_is_left_alone():
+	# A pull toward something you are already touching has nowhere to put you, so the Tide does not ask
+	# about it. Under the Tide that is the common case, not a corner one - every character the Kraken
+	# is holding at close range would otherwise be offered up for the same pointless question at the
+	# start of every one of its turns, and answering yes would move nothing.
+	#
+	# The responder answers yes to everything by default, so a regression that asked anyway would still
+	# leave the tile assertion green - the pull would simply find no path. Counting the questions is
+	# what separates "asked and moved nothing" from "never asked", and not asking is the point.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+
+	# Counted across the turn start alone: raising the Tide asks a question of its own.
+	var questions_before:int = SpecFactory.current_responder.choices_made
+	await _start_turn_for(prey)
+	assert_eq(prey.tile(), Vector2i(1, 0), 'There is nowhere closer to drag it.')
+	assert_eq(SpecFactory.current_responder.choices_made, questions_before,
+		'And nobody was asked about it.')
+
 func test_a_character_immune_to_knockback_is_not_dragged():
 	# Drag To The Depths' Pull (action_drag_pull.gd) refuses the same characters, because
 	# generate_pull_events performs no immunity check of its own and event_unit_move.gd exempts the
@@ -374,6 +405,21 @@ func test_a_collision_elsewhere_is_not_the_krakens_business():
 	assert_eq(kraken.core.current.reactions, reactions_before,
 		'And it did not even reach for its reaction.')
 
+func test_the_seize_still_fires_while_the_kraken_is_itself_grappled():
+	# Under its own Tide the Kraken is usually holding somebody and being held in turn, so this is its
+	# ordinary state rather than an edge case. Unlike the undertow, the seize spends the reaction, and
+	# spending a reaction is exactly what being GRAPPLED takes away - Irrepressible is the frame's
+	# answer to that, and it is equipped here because the frame carries it. Without this the clause
+	# would be dead precisely when the Tide is working.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	kraken.core.equip_system(IRREPRESSIBLE_ID)
+	SpecFactory.apply_passive_buffs(kraken) # before the Tide: this repairs the Kraken, and would undo it
+	await _raise_the_tide()
+	SpecFactory.apply(kraken, Lancer.STATUS.GRAPPLED)
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await _collide_into(prey, KRAKEN_TILE)
+	assert_true(_is_held(prey), 'Held or not, the Tide still takes what runs into it.')
+
 func test_nothing_is_seized_before_the_tide_is_raised():
 	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
 	assert_false(_tide_is_up(), 'The Tide is down.')
@@ -392,12 +438,14 @@ func test_nothing_is_seized_before_the_tide_is_raised():
 #
 # Reads the allowed set straight off the buff, the way test_bind_thy_flesh reads the chain's.
 
-func _allowed_tiles_for(mover:Unit) -> Array[Vector2i]:
+## The movement type is the one the pathfinder would be planning; pass a different one to ask about a
+## different kind of move.
+func _allowed_tiles_for(mover:Unit, movement_type:MovementType = null) -> Array[Vector2i]:
 	var buff:BuffCore = UnitCondition.get_buffs(kraken, TIDE_BUFF_ID)[0]
 	var context := Context.create({
 		unit = mover,
 		map = game.map,
-		resource = MovementType.create(mover, true, true),
+		resource = movement_type if MovementType.is_valid(movement_type) else MovementType.create(mover, true, true),
 	})
 	if not buff.base.check_if_passive_applies(buff, context): return []
 	var values := buff.base.get_values(buff, context)
@@ -466,12 +514,30 @@ func test_circling_the_kraken_at_the_same_range_is_never_capped():
 	# than the mover started, so a tile at the SAME range - off to the side rather than toward or away
 	# - is free too. A plain radius leash would pass this trivially, but so would a bug that banned
 	# every tile off the direct retreat line; this pins that circling specifically stays open.
+	#
+	# Speed 0, so the cap is the baseline exactly and the tile sits precisely on it. At any higher
+	# speed the same-range tile clears with spaces to spare and would pass for a cap that was not
+	# directional at all.
 	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
-	prey.core.current.speed = 4
+	prey.core.current.speed = 0
 	await _raise_the_tide()
 
 	var allowed := _allowed_tiles_for(prey)
 	assert_true(allowed.has(Vector2i(0, 3)), 'Circling at the same range from the Kraken stays free.')
+
+func test_a_forced_move_is_not_capped():
+	# The clause the cap stands in for taxes movement as difficult terrain, and difficult terrain does
+	# not touch a character being thrown, flown or teleported - so neither does this. It is the one
+	# place the approximation errs restrictive if left unchecked, and the gear it would cost is the
+	# Kraken's own: Drag To The Depths' Reposition moves a prisoner exactly this way, and its "3 spaces
+	# in any direction" must stay 3 spaces while the Tide is up.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	prey.core.current.speed = 4
+	await _raise_the_tide()
+
+	assert_false(_allowed_tiles_for(prey).is_empty(), 'Its own retreat is capped.')
+	assert_true(_allowed_tiles_for(prey, MovementType.create_for_involuntary(prey)).is_empty(),
+		'But being thrown is not something the Tide bogs down.')
 
 func test_allies_are_not_capped():
 	var friend := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.PLAYER)

@@ -63,13 +63,24 @@ static func _append_valid(units:Array[Unit], unit:Unit) -> void:
 # every prisoner every turn, and a prisoner given the status would be released by the act of
 # receiving it. So nothing here touches the status; can_affect is widened instead.
 #
-# TO REMOVE THIS, once an engine can express dual tangibility:
-#   - delete counts_as_every_tangibility, tangibility_is_the_only_objection, can_affect's widened
-#     branch, and the bridged_by_the_black_sea local below - it exists only to feed that branch, so
-#     both of its assignments go with it while the guards that set them keep their plain "return
-#     false" refusals (that is the whole workaround)
-#   - keep cut_off_during_own_turn and is_reachable_from_the_black_sea: they are a real game rule,
-#     not a workaround, and would simply be reimplemented by applying INTANGIBLE to held characters
+# TO REMOVE THIS, once an engine can express dual tangibility - the Kraken genuinely holding both
+# states, and a held character genuinely gaining INTANGIBLE for the length of its turn:
+#   - delete can_affect outright: its self short-circuit, both cut-off guards, the widened branch and
+#     the bridged_by_the_black_sea local that exists only to feed that branch. Delete
+#     tangibility_is_the_only_objection and is_reachable_from_the_black_sea with it; both are
+#     can_affect helpers and have no other caller. Every pairing they arbitrate is answered by
+#     vanilla's own can_affect once the statuses are real - the Kraken reaches the intangible because
+#     it IS intangible, and a prisoner is cut off from its tangible allies for the same reason while
+#     still reaching its captor and any intangible company. That is the whole of the workaround.
+#   - do NOT delete counts_as_every_tangibility with them. It has two jobs, and only one is the
+#     workaround. Inside can_affect it widens tangibility; inside cut_off_during_own_turn it answers a
+#     RULES question - "is this character held by a Kraken that has the Tide up" - which is precisely
+#     the question the replacement must ask before it applies INTANGIBLE to the prisoner. Inline it
+#     into cut_off_during_own_turn, or rename it to what it actually tests (has_the_tide_up), and keep
+#     it. Deleting it outright leaves cut_off_during_own_turn calling a function that is not there.
+#   - cut_off_during_own_turn therefore MOVES rather than stays: it stops being a can_affect helper
+#     and becomes the condition on which the replacement applies the status at the start of the
+#     prisoner's turn and clears it at the end. Its is_taking_turn test is the same test either way.
 #   - spec/test_the_all_consuming_tide.gd asserts the RULES rather than this mechanism, so it must
 #     keep passing unchanged. If it does not, the replacement is not equivalent.
 # ============================================================================================
@@ -102,6 +113,19 @@ static func cut_off_during_own_turn(unit:Unit) -> Unit:
 ##
 ## Everything else is left to super, so no other pair of units on the map is affected.
 static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerability := false) -> bool:
+	# Nothing is ever cut off from ITSELF. Left to the guards below, a cut-off prisoner asked about
+	# itself would be refused - it is neither its own captor nor genuinely INTANGIBLE - where vanilla
+	# says yes and so would the faithful implementation, since a really-INTANGIBLE prisoner has the
+	# same tangibility on both sides of unit_relation.gd:397. The refusal would be silent and wide:
+	# map_state.gd:320 filters a tile's unit list through this, so a self-including AoE would miss its
+	# own caster; ai_action_decider.gd:386 would drop the self-entry from the AI's score dictionary;
+	# tilepicker_compcon.gd:379 would omit the prisoner's own crosshair.
+	#
+	# Deferred to super rather than answered `true` outright: exile and invulnerability still refuse a
+	# unit its own reach in vanilla, and this clause has no business changing that.
+	if origin_unit == target_unit:
+		return super.can_affect(origin_unit, target_unit, ignore_invulnerability)
+
 	# A held character's turn is spent in the black sea: it may reach its captor, and anything else
 	# that is itself intangible, and nothing at all besides. Symmetric, so its own allies cannot
 	# reach in either.
