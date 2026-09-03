@@ -173,9 +173,18 @@ func test_declining_leaves_the_previous_trail_standing():
 	PoisonedSoil.write_trail(trait_gear, [Vector2i(4, 4)])
 	_refresh_terrain()
 
-	SpecFactory.current_responder.chosen_yesnos = false
+	# chosen_yesnos answers EVERY quick_yesno, including action_boost's own confirm-use prompt - so
+	# it has to accept the boost and only flip to decline for the lay prompt the move raises.
+	# Toggling it mid-test between two awaits is house precedent: test_the_all_consuming_tide.gd's
+	# _its_own_turn helper does the same for the same reason.
+	SpecFactory.current_responder.chosen_yesnos = true
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	# Guard against going vacuous again: if the boost ever stopped arming the trail, the assertions
+	# below would pass for the wrong reason (nothing to decline) exactly as this test once did.
+	assert_true(PoisonedSoil.is_armed(trait_gear), 'The boost armed the trail before the decline.')
+
+	SpecFactory.current_responder.chosen_yesnos = false
 	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
 
 	assert_eq(PoisonedSoil.read_trail(trait_gear), [Vector2i(4, 4)], 'The old trail is untouched.')
