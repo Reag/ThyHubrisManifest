@@ -18,12 +18,34 @@
 # to the Kraken's OWN action_grapple through CommonActionUtil.choose_and_use, the same way Drag To
 # The Depths' grapple and the Tide's seize do. The burst is what earns the attempt, not the hold.
 #
+# THE MAY IS THE TARGETING. "can Grapple" is a may, and it is offered per character: every extra
+# character in the katamari raises the size the hold has to beat to survive
+# (Katamari.recalculate_largest_unit), so taking everyone on offer can be strictly worse than taking
+# one. That decision used to be a yes/no question asked in front of each attack, and playtest showed
+# it up as the same question twice - the Grapple's own targeting opens immediately afterwards, and
+# cancelling that targeting is already a refusal. So there is no question any more: taking the
+# targeting is the yes and cancelling it is the no.
+#
+# A cancel declines exactly ONE character. choose_and_use only loops back to re-pick when it was
+# given more than one action to choose from (common_action_util.gd:734) and we give it one, so a
+# cancelled targeting simply returns with nothing grappled; the currently_held check below fails,
+# and the loop moves on to the next character. The cancel aborts the child event it created, never
+# this activation - nothing propagates an abort upwards.
+#
+# WHICH IS WHY THE TARGET IS MARKED. That targeting restricts what can be CLICKED and says nothing
+# about WHO: with several characters caught, "click the one the burst caught" is not an instruction
+# a player can follow on a busy board. So take_hold names the character itself - whois panel, target
+# line, camera - around each attack. choose_and_use does exactly this for a mandatory target, but
+# only on the branch where the player picks between several actions (common_action_util.gd:645-653);
+# hand it a single action and it auto-picks at :642 and marks nothing, which is why nothing marked
+# the target before.
+#
 # THE REACH. action_grapple is melee, so its reach is threat range, which is 1; a burst is wider.
 # buff_my_domain_reach carries the attack out to whoever the burst caught, on the pattern of the
 # Blackbeard's buff_grapple_cable_threat - see that file's header for the mechanism. The difference
 # is that the Blackbeard's is always on and this one is scoped to the activation: opened when the
 # trait resolves, sized to the furthest character the burst actually caught, and closed again the
-# moment the last question has been answered. An always-on reach would let the Kraken Grapple across
+# moment the last attack has resolved. An always-on reach would let the Kraken Grapple across
 # a room as an ordinary Quick action, which the trait does not grant.
 #
 # THE HOLD IS MY DOMAIN'S, not the basic Grapple's - and this is load-bearing, not bookkeeping.
@@ -152,34 +174,38 @@ func activate(context:Context, activation:EventCore) -> void:
 	if activation.abort_when(not SpecificAction.is_valid(grapple_for(kraken))): return
 
 	# open_the_domain and close_the_domain bracket the whole loop, and take_hold always returns
-	# rather than returning early past this line - so a decline, a miss, an empty burst and a Kraken
-	# that died somewhere in the middle all leave through the same close. A reach that outlived its
-	# activation would be silent and would last the rest of the scene.
+	# rather than returning early past this line - so a cancelled targeting, a miss, an empty burst
+	# and a Kraken that died somewhere in the middle all leave through the same close. A reach that
+	# outlived its activation would be silent and would last the rest of the scene.
 	open_the_domain(activation, context, kraken, reach_needed(kraken, caught))
 	var taken := await take_hold(activation, context, kraken, caught)
 	close_the_domain(activation, kraken)
 
-	# Declining every one of them is declining the trait; nothing has been changed at this point.
+	# Cancelling every one of them is declining the trait; nothing has been changed at this point.
 	if activation.abort_when(taken.is_empty()): return
 
 	kraken.update_attached_fx()
 	for target:Unit in taken: target.update_attached_fx()
 
-## Ask, attack, and keep whoever the attack actually caught.
+## Offer, attack, and keep whoever the attack actually caught.
 ##
-## Asked one at a time, not once for the burst. Every extra character in the katamari raises the
+## Offered one at a time, not once for the burst. Every extra character in the katamari raises the
 ## size it has to beat to stay held (Katamari.recalculate_largest_unit), so grabbing everyone
 ## available can be strictly worse than grabbing one - that is a per-target judgement and has to be
-## a per-target question.
+## a per-target offer. The offer IS the Grapple's own targeting; see the file header.
 func take_hold(activation:EventCore, context:Context, kraken:Unit, caught:Array[Unit]) -> Array[Unit]:
 	var tether:Buff = ContentLibrary.get_buff(TETHER_BUFF_ID)
 	var taken:Array[Unit] = []
 	for target:Unit in caught:
 		if not Unit.is_valid(kraken): break # the sea closed over it partway through
 		if not Unit.is_valid(target): continue
-		if not await confirm(context, kraken, target): continue
 
+		# Bracketed the way the domain buffs are, and for the same reason: raised, one await, put
+		# away. A cancel, a miss and a Kraken that dies mid-attack all leave through the same line,
+		# and a whois panel or a target line still up after the domain closes is a visible bug.
+		var marked := mark_target(kraken, target)
 		await grapple(activation, context, kraken, target)
+		if marked: unmark_target()
 
 		# choose_and_use's bool does NOT report a hit, whatever its comment says: it returns
 		# SpecificAction.is_valid(chosen) (common_action_util.gd:736), and with a single option and a
@@ -194,25 +220,45 @@ func take_hold(activation:EventCore, context:Context, kraken:Unit, caught:Array[
 		taken.append(target)
 	return taken
 
-## "can Grapple" is a may, offered per character.
+## Say who the next Grapple is being offered against, for as long as it is being aimed.
 ##
-## The camera goes to whoever is being asked about first. With several characters caught, a prompt
-## naming one of them is not much use if the player cannot see which one it means - and the answer
-## depends on where that character is standing.
-func confirm(context:Context, kraken:Unit, target:Unit) -> bool:
-	if not kraken.is_player_controlled(): return true # the AI always takes it
+## Vanilla's own three markers for a mandatory target, in the order choose_and_use uses them: the
+## camera, the whois panel, and a line from the Kraken. Guarded on player control because there is
+## nobody to inform on an AI turn, which is the same gate choose_and_use puts on its copy.
+##
+## show_whois is deliberately not awaited: it opens an info request and then waits for that request
+## to resolve, and every vanilla caller starts it and walks away (common_action_util.gd:648,
+## action_aegis_shield_generator_reduction.gd:46). The targeting request that follows ends it
+## (choice_bus.gd:69-70).
+##
+## THE LINE IS THE WEAKEST OF THE THREE, and knowingly so. tilepicker_compcon draws a target line of
+## its own while the player hovers and hides it when they are not over a valid target
+## (tilepicker_compcon.gd:351, :392), and its first hover update runs as the picker opens - so ours
+## survives the camera move and then gives way to the picker's. The whois panel is what stays up for
+## the whole offer. Kept anyway because it costs nothing, it is what choose_and_use would have drawn,
+## and it is the marker that reads at a glance during the pan.
+##
+## Returns whether anything was shown, so the caller can put it away again without interrogating a
+## Kraken that may not have survived the attack.
+func mark_target(kraken:Unit, target:Unit) -> bool:
+	if not kraken.is_player_controlled(): return false
 
 	# No zoom reset and no rotation: this runs once per character, and re-framing the board between
-	# each question would be worse than not moving at all.
+	# each one would be worse than not moving at all. choose_and_use re-centres on the acting Kraken
+	# as it opens (common_action_util.gd:638), so this is a lean toward the character being offered
+	# rather than a hold on it.
 	camera_bus.focus_on_unit(target, false, false)
 
-	# String.format rather than %, so an unwritten localization row degrades to the raw key instead
-	# of erroring on a format specifier that is not there.
-	return await choice_bus.quick_yesno(
-		target.tile(),
-		tr('gear.mt_my_domain.name'),
-		tr('gear.mt_my_domain.prompt').format({name = target.core.get_pilot_or_mech_name()}),
-	)
+	choice_bus.show_whois(target)
+	effect_bus.show_target_line(
+		UnitTile.position_center(kraken), UnitTile.position_center(target), Action.FLAVOR.WEAPON)
+	return true
+
+## Put the markers away again. Takes nothing and checks nothing: it is called only from the bracket
+## that raised them, and it has to run even if the Kraken did not survive the attack.
+func unmark_target() -> void:
+	choice_bus.hide_whois()
+	effect_bus.hide_target_line()
 
 ## The attack: the Kraken's own Grapple, aimed at one character, routed rather than reimplemented.
 ## A contested roll that can miss, with mw_grapple's own on-hit effect doing the attaching and the
