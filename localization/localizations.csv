@@ -86,3 +86,7 @@ gear.cp_the_endless_black_sea.action_the_all_consuming_tide.name,The All-Consumi
 gear.cp_the_endless_black_sea.action_the_all_consuming_tide.effect,"For the rest of the |scene|, the Kraken counts as both tangible and |INTANGIBLE|, and characters you have |GRAPPLED| are |INTANGIBLE| during their turn.
 Characters of your choice are pulled 1 space toward you at the beginning of their turn. Hostile characters within your |SENSORS| treat movement away from you as |difficult terrain|.
 If a character collides with you, you may expend your |OVERWATCH| to attempt to |Grapple| the character as a |reaction|."
+gear.cp_the_endless_black_sea.action_tide_undertow.name,Undertow
+gear.cp_the_endless_black_sea.action_tide_undertow.effect,"While |The All-Consuming Tide| is active, characters of your choice within your |SENSORS| are pulled 1 space toward you at the beginning of their turn."
+gear.cp_the_endless_black_sea.action_tide_undertow.trigger,"A hostile character within your |SENSORS| begins its turn"
+gear.cp_the_endless_black_sea.action_tide_undertow.prompt,"Drag {name} deeper?"

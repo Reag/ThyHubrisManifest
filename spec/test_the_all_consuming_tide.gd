@@ -240,3 +240,58 @@ func test_a_prisoner_is_freed_when_the_kraken_dies():
 	# as happily if the death event had taken the prisoner down with its captor.
 	assert_true(Unit.is_valid(prey), 'The prisoner outlives its captor.')
 	assert_true(UnitRelation.can_affect(prey, friend), 'And free once the Kraken is gone.')
+
+# ============================== the undertow ==============================
+# "Characters of your choice are pulled 1 space toward you at the beginning of their turn."
+#
+# Scoped to hostiles within SENSORS: the clause names no range, but the sentence after it establishes
+# SENSORS as the Tide's zone. Prompted per character, like My Domain, because each pull changes the
+# board and so is a per-target judgement. The spec responder answers yes by default; set
+# chosen_yesnos to false to decline.
+
+const UNDERTOW_ACTION := &'action_tide_undertow'
+
+func _start_turn_for(unit:Unit) -> void:
+	await game.execute_event(&'event_turn_start', {unit = unit})
+
+func test_a_hostile_in_sensors_is_dragged_a_space_closer_at_its_turn_start():
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	await _start_turn_for(prey)
+	assert_eq(prey.tile(), Vector2i(2, 0), 'Dragged one space towards the Kraken.')
+
+func test_declining_leaves_it_where_it_stands():
+	# "of your choice" has to mean no as well as yes.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	SpecFactory.current_responder.chosen_yesnos = false # decline (defaults true, spec_factory.gd:373)
+	await _start_turn_for(prey)
+	assert_eq(prey.tile(), Vector2i(3, 0), 'It held its ground.')
+
+func test_an_ally_is_never_dragged():
+	var friend := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.PLAYER)
+	await _raise_the_tide()
+	await _start_turn_for(friend)
+	assert_eq(friend.tile(), Vector2i(3, 0), 'Allies are not prey.')
+
+func test_a_hostile_outside_sensors_is_never_dragged():
+	# Sensor range is shrunk on the unit rather than the frame: frame.stat is a shared resource and
+	# mutating it would leak into every later test in the file.
+	#
+	# Shrunk AFTER raising the Tide, not before: applying buff_the_all_consuming_tide runs
+	# update_cached_values_and_token on the Kraken (unit_condition.gd's post_apply_buff_cache_update),
+	# which clears and rebuilds state.stat_bonus from scratch (unit_battle_state.gd:229). Setting the
+	# override first would just have the buff application silently wipe it before the reaction ever
+	# checks it.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	kraken.state.stat_bonus.sensor_range = -(kraken.get_sensor_range() - 1)
+	assert_eq(kraken.get_sensor_range(), 1, 'Sensors shrunk to 1.')
+	await _start_turn_for(prey)
+	assert_eq(prey.tile(), Vector2i(3, 0), 'Out of the Tide, out of reach.')
+
+func test_nothing_is_dragged_before_the_tide_is_raised():
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	assert_false(_tide_is_up(), 'The Tide is down.')
+	await _start_turn_for(prey)
+	assert_eq(prey.tile(), Vector2i(3, 0), 'So nothing pulls.')
