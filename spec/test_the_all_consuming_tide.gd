@@ -380,3 +380,77 @@ func test_nothing_is_seized_before_the_tide_is_raised():
 	Dice.CHEAT_ROLL_QUEUE.append(20)
 	await _collide_into(prey, KRAKEN_TILE)
 	assert_false(_is_held(prey), 'So nothing is seized.')
+
+# ============================== the reach cap ==============================
+# "Hostile characters within your SENSORS treat movement away from you as difficult terrain."
+#
+# There is no cost seam in this engine - extra_cost is written only inside
+# Pathfinder.Occupation.calculate_for, which consults no buff, and Pathfinder carries a class_name so
+# it cannot be extended. What ships is a REACH CAP: a hostile may not END its move more than half its
+# remaining speed further from the Kraken than it started. Faithful about direction, permissive about
+# cost. This is the clause the user has said may be dropped if it reads badly in play.
+#
+# Reads the allowed set straight off the buff, the way test_bind_thy_flesh reads the chain's.
+
+func _allowed_tiles_for(mover:Unit) -> Array[Vector2i]:
+	var buff:BuffCore = UnitCondition.get_buffs(kraken, TIDE_BUFF_ID)[0]
+	var context := Context.create({
+		unit = mover,
+		map = game.map,
+		resource = MovementType.create(mover, true, true),
+	})
+	if not buff.base.check_if_passive_applies(buff, context): return []
+	var values := buff.base.get_values(buff, context)
+	return Tile.from_bitwise_array(values.object, game.map.size)
+
+func test_a_hostile_cannot_retreat_further_than_half_its_remaining_speed():
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	prey.core.current.speed = 4
+	await _raise_the_tide()
+
+	var allowed := _allowed_tiles_for(prey)
+	assert_true(allowed.has(Vector2i(3, 0)), 'Two spaces further out is still allowed.')
+	assert_false(allowed.has(Vector2i(4, 0)), 'Three is not.')
+
+func test_the_cap_is_measured_against_movement_still_left():
+	# Difficult terrain charges against what you have left, so a unit that already moved gets less
+	# retreat, not the same amount. Using max speed here would quietly refund spent movement.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	prey.core.current.speed = 2
+	await _raise_the_tide()
+
+	var allowed := _allowed_tiles_for(prey)
+	assert_true(allowed.has(Vector2i(2, 0)), 'One space further out is allowed.')
+	assert_false(allowed.has(Vector2i(3, 0)), 'Two is not, on half the budget.')
+
+func test_closing_with_the_kraken_is_never_capped():
+	# The whole point of choosing this approximation: it is directional. Coming closer stays free.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.AI_ENEMY)
+	prey.core.current.speed = 4
+	await _raise_the_tide()
+
+	var allowed := _allowed_tiles_for(prey)
+	assert_true(allowed.has(Vector2i(1, 0)), 'It may close all the way in.')
+
+func test_allies_are_not_capped():
+	var friend := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.PLAYER)
+	friend.core.current.speed = 4
+	await _raise_the_tide()
+	assert_true(_allowed_tiles_for(friend).is_empty(), 'The Tide does not restrain its own side.')
+
+func test_nothing_is_capped_before_the_tide_is_raised():
+	# _allowed_tiles_for cannot run here - it indexes UnitCondition.get_buffs(kraken, TIDE_BUFF_ID)[0],
+	# which does not exist before the Tide is raised. So rather than restate "no buff, no restriction"
+	# a second time, this asks the same question the pathfinder itself asks: pathfinder.gd:340-350
+	# loops every character's MOVEMENT_RESTRICTION buffs against whoever is moving. Same prey
+	# placement and speed as the positive tests above, so the Tide is the only variable.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	prey.core.current.speed = 4
+	assert_false(_tide_is_up(), 'The Tide is down.')
+
+	var restriction_context := Context.create({unit = prey, resource = MovementType.create(prey, true, true)})
+	var restriction_buffs:Array[BuffCore] = []
+	for check_unit:Unit in game.map.get_all_characters():
+		restriction_buffs.append_array(
+			UnitCondition.get_buffs_to(check_unit, Buff.TO.MOVEMENT_RESTRICTION, restriction_context))
+	assert_true(restriction_buffs.is_empty(), 'Nothing restricts its retreat before the Tide is up.')
