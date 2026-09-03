@@ -114,10 +114,13 @@ func test_another_units_boost_does_not_arm_our_trail():
 # ============================== tracking the path ==============================
 
 func test_moving_while_armed_records_every_tile_stepped_onto():
+	# Task 4 note: this move is a complete ENTIRE_MOVEMENT on its own, so by the time it returns the
+	# lay reaction has already fired (default responder accepts) and committed pending into trail,
+	# clearing pending back to []. read_trail is therefore the only place left to observe this.
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
-	assert_eq(PoisonedSoil.read_pending(trait_gear),
+	assert_eq(PoisonedSoil.read_trail(trait_gear),
 		[START, Vector2i(1, 0), Vector2i(2, 0)],
 		'Start tile plus both tiles it stepped onto, in order.')
 
@@ -130,8 +133,85 @@ func test_a_tile_is_never_recorded_twice():
 	# Boost, walk out and back over the same ground. Duplicate voxels would be merged by
 	# add_dynamic_terrain_and_zones_from_unit anyway, but a buffer that grows on every re-crossing
 	# is a slow leak into the save file.
+	#
+	# Task 4 note: two separate SpecFactory.move calls no longer work for this - the first leg alone
+	# already pushes pending past size 1, so the lay reaction fires and disarms before the "back"
+	# half ever happens. Driving one explicit out-and-back path keeps it within a single
+	# ENTIRE_MOVEMENT, the way test_the_all_consuming_tide.gd:476 drives a specific path. read_trail
+	# is what is left standing afterwards, same reasoning as the test above.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await game.execute_event(&'event_unit_move', {
+		unit = nuckelavee,
+		array = [Pathfinder.Step.create(NEIGHBOUR, 1), Pathfinder.Step.create(START, 1)],
+		resource = MovementType.create(nuckelavee, true),
+	})
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR], 'Each tile once.')
+
+# ============================== laying it down ==============================
+#
+# SpecFactory's ChoiceBusResponder answers prompts: chosen_yesnos = true accepts, false declines.
+
+func test_accepting_turns_the_whole_path_into_difficult_terrain():
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, Vector2i(1, 0), Vector2i(2, 0)],
+		'The crossed tiles became the trail.')
+	assert_false(PoisonedSoil.is_armed(trait_gear), 'And the trail disarmed.')
+
+	# The rule, through the pathfinder, from a fresh mover standing next to the trail.
+	var hostile := SpecFactory.create_unit(game.map, Vector2i(1, 1), Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(hostile)
+	await SpecFactory.start_turn(game, hostile)
+	assert_eq(await _cost_to(hostile, Vector2i(1, 0)), 2, 'Stepping onto the laid trail costs double.')
+
+func test_declining_leaves_the_previous_trail_standing():
+	# The old trail is not cleared by a boost the player declines - only replaced by one they accept.
+	PoisonedSoil.write_trail(trait_gear, [Vector2i(4, 4)])
+	_refresh_terrain()
+
+	SpecFactory.current_responder.chosen_yesnos = false
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
-	await SpecFactory.move(game, nuckelavee, START)
-	assert_eq(PoisonedSoil.read_pending(trait_gear), [START, NEIGHBOUR], 'Each tile once.')
+
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [Vector2i(4, 4)], 'The old trail is untouched.')
+	assert_false(PoisonedSoil.is_armed(trait_gear), 'And declining still disarms.')
+
+func test_a_new_trail_replaces_the_old_one_rather_than_adding_to_it():
+	# "This terrain lasts until you create terrain this way again" - the whole lifetime rule.
+	PoisonedSoil.write_trail(trait_gear, [Vector2i(4, 4)])
+	_refresh_terrain()
+
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
+
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR], 'Only the new trail remains.')
+
+	var hostile := SpecFactory.create_unit(game.map, Vector2i(3, 4), Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(hostile)
+	await SpecFactory.start_turn(game, hostile)
+	assert_eq(await _cost_to(hostile, Vector2i(4, 4)), 1, 'The abandoned tile is clean ground again.')
+
+func test_a_second_movement_after_the_trail_is_laid_lays_nothing_more():
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR],
+		'One trail per boost; the second move added nothing.')
+
+func test_spaces_crossed_before_the_boost_are_not_part_of_the_trail():
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [NEIGHBOUR, Vector2i(2, 0)],
+		'Arming happens on the boost, so the first move is not in it.')

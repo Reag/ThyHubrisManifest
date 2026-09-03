@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="5_action"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_arm.tres" id="6_arm"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_track.tres" id="7_track"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_lay.tres" id="8_lay"]
 
 [sub_resource type="Resource" id="Resource_poisoned_soil_terrain"]
 script = ExtResource("3_terrain_data")
@@ -18,7 +19,7 @@ terrain_data = SubResource("Resource_poisoned_soil_terrain")
 
 [resource]
 script = ExtResource("1_kit")
-actions = Array[ExtResource("5_action")]([ExtResource("6_arm"), ExtResource("7_track")])
+actions = Array[ExtResource("5_action")]([ExtResource("6_arm"), ExtResource("7_track"), ExtResource("8_lay")])
 passives = Array[ExtResource("2_passive")]([SubResource("Resource_poisoned_soil_zone")])
 is_trait = true
 metadata/_custom_type_script = "uid://ckrv6mvs5q65e"

@@ -117,3 +117,6 @@ gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.effect,"Fo
 • Hostile characters take |1d6 AP KINETIC| when knocked |PRONE| in |difficult terrain|, and must make a |HULL save| or become |IMMOBILIZED| until the end of their next turn.
 • Hostile characters must spend two movement to exit |difficult terrain|.
 • Caustic Earth loses its 1/round limit for hostile characters and applies to all |difficult terrain|."
+
+gear.mt_poisoned_soil.action_poisoned_soil_lay.name,Poisoned Soil
+gear.mt_poisoned_soil.action_poisoned_soil_lay.effect,"Turn the spaces you moved through into |difficult terrain|, replacing any terrain you created this way before."
