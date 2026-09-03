@@ -376,6 +376,8 @@ func test_the_undertow_still_drags_while_the_kraken_is_itself_grappled():
 # with - so the trigger tests the Kraken's own footprint. Collisions here are forced-movement stops,
 # per the trigger's own comment, which is what "collides with you" means.
 
+const SEIZE_ACTION := &'action_tide_seize'
+
 ## DEVIATION FROM THE BRIEF: event_unit_collide.gd declares `event` (the move event that caused the
 ## collision) as required context (get_required_context, content/events/event_unit_collide.gd) and
 ## the engine enforces that before the event ever runs (event_block.gd:118, "invalid context! |
@@ -537,6 +539,41 @@ func test_the_tide_takes_nothing_new_from_a_prisoner_it_throws_at_itself():
 	assert_true(_is_held(prey), 'It never got loose, so there was nothing to re-take.')
 	assert_eq(kraken.core.current.reactions, reactions_before,
 		'And the Kraken kept its reaction rather than grabbing at what it already had.')
+
+func test_the_tide_does_not_offer_to_grapple_a_character_it_already_holds():
+	# The rule: the Tide never asks about taking something it already has. Found in playtest - a
+	# prisoner thrown into the Kraken by Drag collides with it, and the seize put a grapple prompt on
+	# screen for a character that could not be grappled, because action_grapple refuses anyone in the
+	# grappler's own katamari.
+	#
+	# Asserted at the trigger, which is the only place "was it OFFERED" is visible: once the reaction
+	# activates, a grapple that cannot land and a grapple that was declined look identical from the
+	# board - same reactions, same holds - which is exactly how this survived a suite that already
+	# covered the outcome.
+	var prey := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	var loose := SpecFactory.create_unit(game.map, Vector2i(0, 1), Faction.AI_ENEMY)
+	await _raise_the_tide()
+	_hold(prey)
+
+	assert_true(_is_held(prey), 'setup: the Kraken is holding it.')
+	assert_true(Katamari.create(kraken).all_units.has(prey), 'setup: and it is in the katamari.')
+
+	var seize:Action = ContentLibrary.get_kit(CORE_POWER_ID).get_action(SEIZE_ACTION)
+	if not Action.is_valid(seize): return fail_test('%s is on the kit.' % SEIZE_ACTION)
+
+	assert_false(_seize_offers_itself_for(seize, prey),
+		'It does not reach for a character it is already holding.')
+	assert_true(_seize_offers_itself_for(seize, loose),
+		'But it still reaches for one it is not.')
+
+## Would the seize answer a collision brought about by this character?
+func _seize_offers_itself_for(seize:Action, mover:Unit) -> bool:
+	var collision := EventCore.create(&'event_unit_collide', {
+		unit = mover,
+		target_tiles = [KRAKEN_TILE] as Array[Vector2i],
+		event = SpecFactory.dummy_event(),
+	})
+	return seize.triggers_on_event(kraken, gear, collision)
 
 # ============================== the reach cap ==============================
 # "Hostile characters within your SENSORS treat movement away from you as difficult terrain."

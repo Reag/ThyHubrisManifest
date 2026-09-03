@@ -34,7 +34,15 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	if not collided_with_us(unit, triggering_event): return false
 	var mover:Unit = triggering_event.context.unit
 	if not UnitRelation.can_affect(unit, mover): return false
-	return SpecificAction.is_valid(grapple_for(unit))
+
+	var grapple := grapple_for(unit)
+	if not SpecificAction.is_valid(grapple): return false
+	# Ask the Grapple's OWN target filter rather than restating it. action_grapple.can_target_unit
+	# refuses anyone already in our katamari (action_grapple.gd:17) and anyone immune to GRAPPLED
+	# (:15), so a reaction that offers itself without this check is offering a grapple that cannot
+	# land. That is not hypothetical: throwing a prisoner into ourselves with Drag's Reposition
+	# collides with us, and the prisoner is by definition already held.
+	return grapple.action.can_target_unit(mover, grapple)
 
 ## Did this collision happen against one of our own tiles?
 func collided_with_us(unit:Unit, triggering_event:EventCore) -> bool:
