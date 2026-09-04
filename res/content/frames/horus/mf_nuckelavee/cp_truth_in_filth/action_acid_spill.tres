@@ -1,10 +1,28 @@
-[gd_resource type="Resource" script_class="ActionSystem" format=3]
+[gd_resource type="Resource" format=3]
 
-[ext_resource type="Script" uid="uid://cvvlk0g0af1lk" path="res://engine/character/gear_action/action_system.gd" id="1_action_system"]
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_acid_spill.gd" id="1_action_script"]
+[ext_resource type="Script" uid="uid://c0yv6pnw2be6l" path="res://engine/character/gear_action/resources/range_pattern.gd" id="2_range_pattern"]
+[ext_resource type="Script" uid="uid://df1yicp7kbf3x" path="res://engine/character/gear_action/resources/target_requirements.gd" id="3_target_requirements"]
+
+[sub_resource type="Resource" id="Resource_acid_spill_burst"]
+script = ExtResource("2_range_pattern")
+pattern = 4
+value = 1
+
+[sub_resource type="Resource" id="Resource_acid_spill_targeting"]
+script = ExtResource("3_target_requirements")
+range_pattern = SubResource("Resource_acid_spill_burst")
+can_target_empty_tiles = true
+can_target_units = false
 
 [resource]
-script = ExtResource("1_action_system")
-action_type = 3
-consumes_cp = false
+script = ExtResource("1_action_script")
+damage_type = 1
+weapon_size = 1
+weapon_type = 2
+aim_range = 0
+threat = 1
+range_pattern = SubResource("Resource_acid_spill_burst")
+target_requirements_override = SubResource("Resource_acid_spill_targeting")
+self_heat_dice = "1"
 usage_group = &"action_acid_spill"
-metadata/_custom_type_script = "uid://cvvlk0g0af1lk"

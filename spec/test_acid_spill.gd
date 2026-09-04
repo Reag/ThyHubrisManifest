@@ -205,3 +205,62 @@ func test_ending_the_turn_disarms():
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.end_turn(game, nuckelavee)
 	assert_false(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count), 'The arm did not outlive the turn.')
+
+# ============================== the weapon ==============================
+
+func _spill_action() -> SpecificAction:
+	return SpecificAction.create(nuckelavee, cp_gear, cp_gear.kit.get_action(&'action_acid_spill'))
+
+func test_the_weapon_is_unavailable_with_no_boost():
+	# DISABLED, not merely unoffered. is_available_to_activate is the single chokepoint behind
+	# UnitAction.is_gear_available, which is what the action bar, the AI, the followup-attack path
+	# and UnitRelation.is_weapon_available_as_a_rxn all consult. A free-action weapon that advertises
+	# itself as available is exactly what an unexamined third-party reaction would pick up.
+	await SpecFactory.start_turn(game, nuckelavee)
+	assert_false(UnitAction.is_gear_available(_spill_action()), 'No boost, no weapon.')
+
+func test_the_weapon_is_unavailable_after_a_one_tile_charge():
+	# floor(1/2) == 0. A weapon that cannot deal damage must not be available to anything.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0)] as Array[Vector2i])
+	assert_false(UnitAction.is_gear_available(_spill_action()), 'Zero damage means unavailable.')
+
+func test_the_weapon_is_available_after_a_two_tile_charge():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0)] as Array[Vector2i])
+	assert_true(UnitAction.is_gear_available(_spill_action()), 'Armed with two tiles behind it, the weapon is live.')
+
+func test_the_weapon_is_unavailable_once_disarmed():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0)] as Array[Vector2i])
+	AcidSpill.set_armed(cp_gear, false)
+	assert_false(UnitAction.is_gear_available(_spill_action()), 'Disarming closes the window.')
+
+func test_damage_dice_track_the_distance_charged():
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0), Vector2i(3,0), Vector2i(4,0)] as Array[Vector2i])
+	var weapon:ActionAttackWeapon = cp_gear.kit.get_action(&'action_acid_spill')
+	assert_eq(weapon.get_damage_dice(cp_gear), '2', 'Four tiles charged is 2 damage.')
+
+func test_the_weapon_is_a_main_melee():
+	var weapon:ActionAttackWeapon = cp_gear.kit.get_action(&'action_acid_spill')
+	assert_eq(weapon.weapon_size, Lancer.WEAPON_SIZE.MAIN, 'MAIN size.')
+	assert_eq(weapon.weapon_type, Lancer.WEAPON_TYPE.MELEE, 'MELEE type.')
+	# MELEE is load-bearing: is_difficulty_when_engaged() is `weapon_type != MELEE`, and a BURST 1
+	# centred on the frame is always engaged with everything it hits.
+	assert_false(weapon.is_difficulty_when_engaged(), 'A self-centred burst must not be permanently at difficulty.')
+
+func test_the_weapon_is_a_self_centred_burst_1():
+	var weapon:ActionAttackWeapon = cp_gear.kit.get_action(&'action_acid_spill')
+	assert_eq(weapon.range_pattern.pattern, Lancer.AOE_TYPE.BURST, 'BURST pattern.')
+	assert_eq(weapon.range_pattern.value, 1, 'Burst 1.')
+	assert_eq(weapon.damage_type, Lancer.DAMAGE_TYPE.ENERGY, 'ENERGY damage.')
+
+func test_the_core_power_counts_as_an_integrated_weapon():
+	# get_integrated_weapons collects attacks + systems + traits and keeps anything with a weapon
+	# action. cp_truth_in_filth is is_trait, so the INTEGRATED tag needs no wiring - but it only
+	# appears once the kit actually carries an ActionAttackWeapon.
+	var integrated:Array[GearCore] = nuckelavee.core.loadout.get_integrated_weapons()
+	assert_true(integrated.has(cp_gear), 'Truth in Filth is an integrated weapon.')
