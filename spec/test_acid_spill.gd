@@ -146,6 +146,38 @@ func test_moving_after_a_boost_records_every_step():
 	assert_eq(AcidSpill.read_pending(cp_gear), [Vector2i(1,0), Vector2i(2,0), Vector2i(3,0)],
 		'Three steps east, in order, origin excluded.')
 
+func test_a_boosted_move_is_a_single_event_and_every_tile_is_post_boost():
+	# The test above drives a boost and a move as two SEPARATE SpecFactory calls, which is NOT how the
+	# game actually boosts: target_action_util.gd:446-458 never runs action_boost first - it appends
+	# FLAG.USE_BOOST onto the flags of ONE move event covering the whole path. event_unit_move.gd:80-84
+	# then executes event_unit_boost BEFORE the step loop, whose STEP reactions fire later at :196/:281.
+	# So every tile of a USE_BOOST move is necessarily post-boost; no base-speed tile can leak in. This
+	# pins that with the real flag, closing the open design question from the acid spill design doc.
+	#
+	# The spec fixture's default speed already reaches every tile of the small test map (5x5, so at
+	# most 4 tiles from a corner), which would make ANY move boost-free and the flag inert - so shrink
+	# speed first. Everything that follows is still derived at runtime, not hardcoded, so a change to
+	# the fixture's frame or map size cannot silently turn this back into a vacuous test.
+	var max_reach:int = game.map.size.x - 1 - START.x # farthest tile east of START that is still on the map
+	nuckelavee.core.frame.stat.speed = maxi(1, max_reach / 2)
+
+	await SpecFactory.start_turn(game, nuckelavee)
+	var base_speed:int = nuckelavee.core.current.speed
+	var boost_speed:int = UnitAction.get_boost_speed(nuckelavee)
+	assert_gt(boost_speed, 0, 'Need an actual boost available, or this proves nothing.')
+
+	var distance:int = base_speed + 1
+	assert_lte(distance, base_speed + boost_speed, 'Chosen distance must be reachable with the boost applied.')
+	assert_lte(distance, max_reach, 'Chosen distance must stay on the map.')
+	assert_gt(distance, base_speed, 'Vacuity guard: if this move did not exceed base speed, USE_BOOST would be inert and the test would prove nothing.')
+
+	var target := START + Vector2i(distance, 0)
+	await SpecFactory.move(game, nuckelavee, target, null, [EventUnitMove.FLAG.USE_BOOST])
+
+	assert_eq(AcidSpill.read_pending(cp_gear).size(), distance,
+		'Every tile of the boosted move was recorded - none dropped as "before the boost".')
+	assert_eq(AcidSpill.read_origin(cp_gear), START, 'Recorded the tile the move actually began from.')
+
 func test_a_second_boost_reseeds_rather_than_banking_two_charges():
 	# Speed is a pool, so a player can boost twice before moving - action_boost.gd only adds to
 	# current.speed. One charge per boost: the second arm must RESET the buffer.
