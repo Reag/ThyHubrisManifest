@@ -140,17 +140,11 @@ func test_boosting_records_the_boost_speed():
 	assert_eq(AcidSpill.read_boost_speed(cp_gear), expected, 'Stored the boost speed the engine would grant.')
 
 func test_moving_after_a_boost_records_every_step():
-	# UPDATED by the fire reaction (this file's "firing" section, task 4): three steps also clears
-	# action_acid_spill_fire.gd's own gate (armed + damage_for >= 1 at pending.size() == 3), and that
-	# reaction shares this exact event and its unconditional tail consumes pending the instant the
-	# charge resolves - see that file's header. So by the time this await returns the buffer is
-	# already back to empty; per-step, in-order recording is still pinned directly, just one layer
-	# down - at the state-contract level (test_pending_preserves_duplicates) and by
-	# action_acid_spill_track.gd's own single-purpose logic.
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
-	assert_true(AcidSpill.read_pending(cp_gear).is_empty(), 'The charge fired and consumed the recorded path.')
+	assert_eq(AcidSpill.read_pending(cp_gear), [Vector2i(1,0), Vector2i(2,0), Vector2i(3,0)],
+		'Three steps east, in order, origin excluded.')
 
 func test_a_boosted_move_is_a_single_event_and_every_tile_is_post_boost():
 	# The test above drives a boost and a move as two SEPARATE SpecFactory calls, which is NOT how the
@@ -180,14 +174,14 @@ func test_a_boosted_move_is_a_single_event_and_every_tile_is_post_boost():
 	var target := START + Vector2i(distance, 0)
 	await SpecFactory.move(game, nuckelavee, target, null, [EventUnitMove.FLAG.USE_BOOST])
 
-	# UPDATED by the fire reaction (task 4): distance was chosen only to exceed base_speed, but that
-	# is >= 2 whenever a boost is needed at all - which always also clears damage_for's >= 1 gate. So
-	# this move, same as the one above, fires and its unconditional tail consumes pending before this
-	# assertion runs; see test_moving_after_a_boost_records_every_step for the same note in full. What
-	# survives past firing is origin, so that is what still pins "this was recognised as a real
-	# post-boost move" - the "none dropped" guarantee this used to read off pending.size() is no
-	# longer independently observable from outside the event once firing is wired in.
-	assert_true(AcidSpill.read_pending(cp_gear).is_empty(), 'The boosted charge fired and consumed the path.')
+	# Built from the same runtime-derived `distance` above, not hardcoded - one tile per step east of
+	# START, in order. Asserting only .size() would let a bug that records the right COUNT of wrong
+	# tiles pass; this pins the actual sequence.
+	var expected_path:Array[Vector2i] = []
+	for step in range(1, distance + 1):
+		expected_path.append(START + Vector2i(step, 0))
+	assert_eq(AcidSpill.read_pending(cp_gear), expected_path,
+		'Every tile of the boosted move was recorded, in order - none dropped as "before the boost".')
 	assert_eq(AcidSpill.read_origin(cp_gear), START, 'Recorded the tile the move actually began from.')
 
 func test_a_second_boost_reseeds_rather_than_banking_two_charges():
@@ -313,21 +307,38 @@ func test_firing_disarms():
 	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
 	assert_false(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count), 'One boost, one spill.')
 
-func test_the_spill_does_not_disturb_the_poisoned_soil_trail():
-	# The two patches are independent. This is the assertion that would have caught a shared key.
+func test_the_spill_and_the_trail_each_write_their_own_correct_patch():
+	# The real concurrent case, not a stand-in for it: a boost arms BOTH traits off the same event
+	# (equip_system(mt_poisoned_soil) arms its own trail the same way ours arms), and both fire on the
+	# same entire_movement. Sharing one patch of storage - a live design option the design doc
+	# considered - would fail one of the two assertions below: Poisoned Soil's lay is the PATH the
+	# frame moved through, with the tile it stops on erased (action_poisoned_soil_lay.gd); Acid
+	# Spill's burst is CENTRED on that same stop tile. If the two shared a key, Acid Spill firing
+	# after Poisoned Soil (see test_the_fire_reaction_runs_after_poisoned_soils_lay) would stomp the
+	# path with the burst, and the "stop tile excluded" assertion below would fail.
 	var soil_gear:GearCore = nuckelavee.core.equip_system(&'mt_poisoned_soil')
 	var PoisonedSoil := load('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd')
-	PoisonedSoil.write_trail(soil_gear, [Vector2i(9, 9)] as Array[Vector2i])
+
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
-	# Equipping Poisoned Soil ALSO arms IT off this same boost (its arm reaction fires for any boost
-	# by its own owner, same as ours). Left armed, its OWN lay would legitimately overwrite this
-	# sentinel with the real path on the move below - a confound that has nothing to do with whether
-	# Acid Spill shares a key, and would fail this assertion even against a flawless Acid Spill. One
-	# line strips that confound so the assertion tests only what its comment claims.
-	PoisonedSoil.set_armed(soil_gear, false)
-	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
-	assert_eq(PoisonedSoil.read_trail(soil_gear), [Vector2i(9, 9)], 'Acid Spill wrote its own patch and left the trail alone.')
+	var speed:int = AcidSpill.read_boost_speed(cp_gear)
+	await SpecFactory.move(game, nuckelavee, Vector2i(speed, 0))
+	var stop_tile:Vector2i = START + Vector2i(speed, 0)
+
+	# Derived from the same runtime `speed`, not hardcoded: Poisoned Soil seeds WITH the start tile
+	# (action_poisoned_soil_arm.gd) and erases only the stop tile, so its trail is every tile from
+	# START up to but excluding the stop tile.
+	var expected_soil_path:Array[Vector2i] = []
+	for step in range(speed):
+		expected_soil_path.append(START + Vector2i(step, 0))
+
+	var weapon:ActionAttackWeapon = cp_gear.kit.get_action(&'action_acid_spill')
+	var expected_burst:Array[Vector2i] = weapon.range_pattern.get_tiles(game.map.shape, nuckelavee.get_size(), nuckelavee.occupied_tiles())
+
+	assert_eq(PoisonedSoil.read_trail(soil_gear), expected_soil_path, "Poisoned Soil wrote its own path, unaffected by Acid Spill firing on the same move.")
+	assert_eq(AcidSpill.read_trail(cp_gear), expected_burst, "Acid Spill wrote its own burst, centred on the tile the frame stopped on.")
+	assert_false(PoisonedSoil.read_trail(soil_gear).has(stop_tile), 'The path excludes the stop tile - only the burst covers it.')
+	assert_ne(PoisonedSoil.read_trail(soil_gear), AcidSpill.read_trail(cp_gear), 'The two patches are not the same set of tiles.')
 
 func test_an_involuntary_move_after_a_boost_does_not_fire_it():
 	await SpecFactory.start_turn(game, nuckelavee)

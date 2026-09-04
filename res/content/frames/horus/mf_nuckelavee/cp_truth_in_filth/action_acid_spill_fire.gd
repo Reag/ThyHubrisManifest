@@ -65,5 +65,8 @@ func activate(context:Context, activation:EventCore) -> void:
 			UnitTile.update_tracking_and_statuses(context.map, activation)
 
 	# UNCONDITIONAL TAIL. Whichever way the player answered, this boost is spent. See the header.
+	# The arm is the only thing that gates re-firing - pending is not read by anything once armed
+	# is false (action_acid_spill.gd's gate and this file's own triggers_on_event both check
+	# is_armed first), so there is nothing left to clear here. The next boost reseeds pending from
+	# scratch via action_acid_spill_arm.gd; do not "helpfully" restore a clear of it.
 	AcidSpill.set_armed(gear, false)
-	AcidSpill.write_pending(gear, [] as Array[Vector2i])
