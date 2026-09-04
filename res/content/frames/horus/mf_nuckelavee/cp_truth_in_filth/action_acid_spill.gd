@@ -37,3 +37,16 @@ func is_available_to_activate(unit:Unit, gear:GearCore) -> bool:
 func get_damage_dice(gear:GearCore = null) -> String:
 	if not GearCore.is_valid(gear): return ''
 	return str(AcidSpill.damage_for(gear))
+
+## Acid Spill is designer-specified as a FREE action, usable only in the window after a boost - not
+## an offered choice, a consequence of how it arms. ActionAttackWeapon.get_action_type
+## (action_attack_weapon.gd:87-91) computes the type from weapon_size instead, returning QUICK for
+## anything short of SUPERHEAVY, and exposes no field to pin it - so the scaffold stub's
+## `action_type = 3` (Lancer.ACTION.FREE) pin was silently lost when the stub was replaced with this
+## real ActionAttackWeapon. Restored here by override.
+##
+## This is load-bearing past the tooltip and the 0-vs-1 action cost: Action.can_be_used_while_dazed
+## (action.gd:114) keys directly off get_action_type() == Lancer.ACTION.QUICK, so leaving this unset
+## would let a DAZED mech fire Acid Spill when a genuine free action must not be usable.
+func get_action_type(specific:SpecificAction) -> Lancer.ACTION:
+	return Lancer.ACTION.FREE
