@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_acid_spill_track.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+triggers_on = Array[StringName]([&"step"])
+consumes_rxn = false
+usage_group = &"action_acid_spill_track"
+suppress_logging = true

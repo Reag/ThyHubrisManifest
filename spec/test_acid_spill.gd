@@ -122,3 +122,54 @@ func test_a_diagonal_charge_qualifies():
 	AcidSpill.write_boost_speed(cp_gear, 3)
 	AcidSpill.write_pending(cp_gear, [Vector2i(1,1), Vector2i(2,2), Vector2i(3,3)] as Array[Vector2i])
 	assert_true(AcidSpill.is_straight_full_speed(cp_gear, game.map.shape), 'A diagonal run is a straight line.')
+
+# ============================== arming and tracking ==============================
+
+func test_boosting_arms_the_spill_and_records_the_origin():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_true(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count), 'The boost armed the spill.')
+	assert_eq(AcidSpill.read_origin(cp_gear), START, 'Recorded the tile it boosted out of.')
+	assert_eq(AcidSpill.read_pending(cp_gear), [], 'Nothing stepped yet - the origin is NOT in the path.')
+
+func test_boosting_records_the_boost_speed():
+	# Recorded at arm time so Ramjet's +2 is honoured and cannot expire out from under the charge.
+	await SpecFactory.start_turn(game, nuckelavee)
+	var expected:int = UnitAction.get_boost_speed(nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_eq(AcidSpill.read_boost_speed(cp_gear), expected, 'Stored the boost speed the engine would grant.')
+
+func test_moving_after_a_boost_records_every_step():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
+	assert_eq(AcidSpill.read_pending(cp_gear), [Vector2i(1,0), Vector2i(2,0), Vector2i(3,0)],
+		'Three steps east, in order, origin excluded.')
+
+func test_a_second_boost_reseeds_rather_than_banking_two_charges():
+	# Speed is a pool, so a player can boost twice before moving - action_boost.gd only adds to
+	# current.speed. One charge per boost: the second arm must RESET the buffer.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	nuckelavee.state.has_normal_boost = true # a second boost would really come from Overcharge
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_eq(AcidSpill.read_pending(cp_gear), [], 'Re-seeded empty by the second boost.')
+
+func test_another_units_boost_does_not_arm_ours():
+	var other:Unit = SpecFactory.create_unit(game.map, Vector2i(4, 4))
+	await SpecFactory.start_turn(game, other)
+	await SpecFactory.use_solo(game, other, &'ms_boost')
+	assert_false(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count), 'Somebody else boosting is not our trigger.')
+
+func test_moving_without_a_boost_records_nothing():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	assert_eq(AcidSpill.read_pending(cp_gear), [], 'An ordinary move is not a charge.')
+
+func test_ending_the_turn_disarms():
+	# The round stamp alone is one level too coarse: a Goblin's cp_instinct_rig can grant a second
+	# LINKED turn inside the same round, and a stale arm would then fire with no boost behind it.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.end_turn(game, nuckelavee)
+	assert_false(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count), 'The arm did not outlive the turn.')
