@@ -236,3 +236,55 @@ func test_a_character_knocked_into_the_acid_still_takes_it():
 		resource = MovementType.create_for_involuntary(victim),
 	})
 	assert_eq(_health(victim), before - 1, 'Thrown in is still in.')
+
+# ============================== deliberate, and it looks like a bug ==============================
+
+func test_the_nuckelavee_takes_its_own_damage():
+	# Nothing in the trait text exempts the frame, and nothing in the code does either -
+	# ActionReactionOnComingWithin hard-excludes its own owner at :49, which is the main reason
+	# triggers_on_event is overridden wholesale rather than calling super.
+	#
+	# It is not the constant self-harm it looks like: Poisoned Soil no longer fouls the space the
+	# frame stops in, so this only bites when it walks back over an old trail - and Bulwark Mods is
+	# the license's answer, exactly as for everyone else.
+	_foul([Vector2i(1, 0)])
+	await SpecFactory.start_turn(game, nuckelavee)
+	var before:int = _health(nuckelavee)
+	await SpecFactory.move(game, nuckelavee, Vector2i(1, 0))
+	assert_eq(_health(nuckelavee), before - 1, 'Its own filth burns it too.')
+
+func test_an_exiled_nuckelavees_ground_bites_nobody():
+	# MapState.add_dynamic_terrain_and_zones_from_unit returns before collecting any terrain zone
+	# for an EXILED or INTANGIBLE owner (map_state.gd:423-425), so that frame's terrain does not
+	# exist on the map - the behaviour Poisoned Soil's design chose ("the living mech fouling the
+	# ground, not a crater").
+	#
+	# EXILED costs us nothing: ReactionBus.does_reaction_trigger:120 calls
+	# UnitAction.can_activate_gear, whose first check is REASON.EXILED at unit_action.gd:139. Pinned
+	# anyway, because "correctly guarded" and "silently dead" look identical from outside.
+	_foul([ACID])
+	SpecFactory.apply(nuckelavee, Lancer.STATUS.EXILED)
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), before, 'No frame on the board, no acid on the ground.')
+
+func test_an_intangible_nuckelavees_ground_bites_nobody():
+	# The half that DOES need code. Nothing in the can_activate_gear chain checks INTANGIBLE, and
+	# get_caustic_tiles calls get_voxels_to_apply_terrain directly, bypassing map_state's guard - so
+	# without an explicit check the acid keeps biting from a frame that is not really there.
+	_foul([ACID])
+	SpecFactory.apply(nuckelavee, Lancer.STATUS.INTANGIBLE)
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), before, 'An intangible frame projects no terrain.')
+
+func test_the_same_acid_bites_when_the_nuckelavee_is_present_and_solid():
+	# Vacuity guard for both tests above: identical fixture, no status applied. Without it, a
+	# reaction broken in any way at all would make both guards pass.
+	_foul([ACID])
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), before - 1, 'Present and solid, the acid bites.')

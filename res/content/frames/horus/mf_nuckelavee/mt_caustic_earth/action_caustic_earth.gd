@@ -16,7 +16,11 @@
 # Nuckelavee DOES take its own damage.
 #
 # Consequence: triggers_on_coming_within_range, triggers_on_allies, triggers_on_enemies,
-# triggers_regardless_of_elevation and trigger_blocked_by_skeleton_key are INERT on our .tres.
+# triggers_regardless_of_elevation and trigger_blocked_by_skeleton_key are INERT on our .tres. So is
+# the base class's own intangibility-status-matching gate (:66, "intangibility status must match") -
+# dropped deliberately, since this effect is terrain-mediated rather than proximity-mediated, and an
+# intangible Nuckelavee's terrain should not exist for intangible units either. get_caustic_tiles'
+# own EXILED/INTANGIBLE guard is what enforces that instead.
 #
 # Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-04-caustic-earth-design.md
 extends ActionReactionOnComingWithin
@@ -38,6 +42,17 @@ const DAMAGE_TYPE:Lancer.DAMAGE_TYPE = Lancer.DAMAGE_TYPE.ENERGY
 ## a PassiveTerrainZone. The core power widens this to "ask the map".
 func get_caustic_tiles(nuckelavee:Unit) -> Array[Vector2i]:
 	var tiles:Array[Vector2i] = []
+	# MapState.add_dynamic_terrain_and_zones_from_unit (map_state.gd:423-425) returns BEFORE
+	# collecting any terrain zone for an exiled or intangible owner, so that frame contributes no
+	# terrain to the map. We call get_voxels_to_apply_terrain directly and bypass that guard, so it
+	# has to be repeated here or the acid outlives the frame.
+	#
+	# EXILED is belt and braces - UnitAction.get_gear_unavailable_reason:139 already stops the
+	# reaction dead - but it costs one comparison and keeps this method's answer true on its own
+	# terms rather than true only because of a gate somewhere else. A DEAD Nuckelavee needs neither:
+	# ReactionBus.trigger_occurred iterates map.get_all_units(), which no longer contains it.
+	if nuckelavee.has_status(Lancer.STATUS.EXILED): return tiles
+	if nuckelavee.has_status(Lancer.STATUS.INTANGIBLE): return tiles
 	for gear:GearCore in nuckelavee.core.loadout.get_all_gear(false):
 		for passive:PassiveTerrainZone in gear.kit.get_passives(PassiveTerrainZone):
 			if not is_instance_valid(passive.terrain_data): continue
@@ -53,7 +68,7 @@ func get_caustic_tiles(nuckelavee:Unit) -> Array[Vector2i]:
 ## this asks the victim's own inherent MovementType and never the movement that brought them in.
 ## ignores_difficult_terrain() is `ignore_difficult or teleport or flying or not voluntary`, and
 ## MovementType.create sets voluntary = true, so in practice this is FLYING, INTANGIBLE
-## (movement_type.gd:53), or a Buff.TO.MOVEMENT_TYPE with ignore_difficult - i.e. Bulwark Mods.
+## (movement_type.gd:47), or a Buff.TO.MOVEMENT_TYPE with ignore_difficult - i.e. Bulwark Mods.
 ##
 ## Because the step's own MovementType is not consulted, knocking or pulling a character across the
 ## acid DOES hurt them. That is deliberate and is designed play, not a side effect.
