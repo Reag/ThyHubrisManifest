@@ -254,12 +254,18 @@ static func is_footing_fouled(unit:Unit) -> bool:
 	if not is_instance_valid(unit.map): return false
 	# A hovering watcher is not standing in anything. The engine's own answer to "is this
 	# character affected by difficult terrain" says so outright - MovementType.ignores_difficult_terrain()
-	# (movement_type.gd:107-108) returns true when flying, and pathfinder.gd:83 skips the extra cost
-	# for the same reason.
+	# (movement_type.gd:107-108) returns true when flying, and pathfinder.gd:97-98 skips difficult
+	# terrain's extra cost on exactly that predicate.
 	#
 	# Load-bearing beyond the obvious case: MovementType.create sets `flying` from STATUS.FLYING OR
 	# UnitCondition.is_in_zero_g (movement_type.gd:46), so without this a zero-g map would foul EVERY
 	# watcher and turn Earthstep into map-wide overwatch immunity.
+	#
+	# unit.state.is_flying() is deliberately BROADER than the `flying` the pathfinder consults: it
+	# also covers is_swimming (unit_battle_state.gd:251), which MovementType.create pointedly does
+	# not use (movement_type.gd:45 says why). So a swimming watcher is exempt here where the
+	# pathfinder would still charge it. That is the right answer for this rule - a swimmer is not
+	# standing on anything either - but it is a divergence, not an accident.
 	if unit.state.is_flying(): return false
 	for tile:Vector2i in unit.occupied_tiles():
 		if unit.map.get_surface_terrain_at(tile).difficult_terrain: return true

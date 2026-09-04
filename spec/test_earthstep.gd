@@ -133,6 +133,9 @@ func test_a_flying_watcher_over_difficult_terrain_still_overwatches():
 	# UnitRelation.get_weapons_that_can_react_against(watcher, nuckelavee, false) is empty here purely
 	# from the elevation check in can_units_touch_elevationwise, even with is_footing_fouled false.
 	_make_rough([WATCHER_TILE])
+	# Without this the test passes for the wrong reason if _make_rough ever silently stops working.
+	assert_true(game.map.get_surface_terrain_at(WATCHER_TILE).difficult_terrain,
+		'Fixture check: the ground under the watcher really is difficult.')
 	SpecFactory.apply(watcher, Lancer.STATUS.FLYING)
 
 	assert_false(UnitRelation.is_footing_fouled(watcher), 'A hovering watcher is not standing in the muck.')
