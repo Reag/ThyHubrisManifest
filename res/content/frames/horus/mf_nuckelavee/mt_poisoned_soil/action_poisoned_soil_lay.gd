@@ -14,6 +14,18 @@
 # Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-03-poisoned-soil-design.md
 extends ActionReaction
 
+## Bookkeeping, not an ability the pilot uses - keep it out of the trait's tooltip.
+##
+## Action.show_in_tooltip returns TRUE for any trait reaction whose KIT carries a trigger row
+## (action.gd:343-344), and mt_poisoned_soil has one ("On |Boost|"). Without this override all four
+## of the trait's reactions list themselves separately in the tooltip, which is four lines of
+## internal machinery the player can neither see nor act on. The trait's own name, effect and
+## trigger text still render - they come from the kit, not from these.
+##
+## Same move as vanilla's action_system_clear_buff.gd:21.
+func show_in_tooltip(_kit:Kit) -> bool: return false
+
+
 const PoisonedSoil := preload('./passive_poisoned_soil.gd')
 
 func get_required_triggering_context() -> Array[Context.PROP]:

@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://bhirgicgi66th" path="res://engine/gamemaster/map/terrain/terrain_data.gd" id="3_terrain_data"]
 [ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd" id="4_passive_poisoned_soil"]
 [ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="5_action"]
+[ext_resource type="PackedScene" path="res://unpacked/Reag-ThyHubris/res/content/fx_endless/gear/fxe_poisoned_soil.tscn" id="10_fxe_poisoned_soil"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_arm.tres" id="6_arm"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_track.tres" id="7_track"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_lay.tres" id="8_lay"]
@@ -17,6 +18,7 @@ difficult_terrain = true
 [sub_resource type="Resource" id="Resource_poisoned_soil_zone"]
 script = ExtResource("4_passive_poisoned_soil")
 terrain_data = SubResource("Resource_poisoned_soil_terrain")
+fxe = ExtResource("10_fxe_poisoned_soil")
 
 [resource]
 script = ExtResource("1_kit")

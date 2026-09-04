@@ -501,3 +501,24 @@ func test_the_poisoned_soil_reactions_do_not_share_a_round_allowance():
 	for action:Action in kit.actions: groups[action.usage_group] = true
 	assert_eq(groups.size(), kit.actions.size(), 'Every reaction has its own usage_group.')
 	assert_false(groups.has(&''), 'And none fell back to the shared default.')
+
+func test_the_poisoned_soil_reactions_are_hidden_from_the_tooltip():
+	# All four are internal bookkeeping - the player never chooses any of them, and the trait's own
+	# effect and trigger text already say what it does. Action.show_in_tooltip returns TRUE for any
+	# trait reaction whose KIT carries a trigger row (action.gd:343-344), and mt_poisoned_soil has
+	# one, so without an explicit override all four list themselves in the tooltip. Found in play.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+	for action:Action in kit.actions:
+		assert_false(action.show_in_tooltip(kit), '%s stays out of the tooltip.' % action.get_id())
+
+func test_poisoned_soil_terrain_is_visible():
+	# Dynamic difficult terrain draws NOTHING on its own - confirmed in play, the trail was
+	# completely invisible. PassiveTerrainZone.get_attached_fx returns no tickets unless the passive
+	# carries an fxe, so this assertion is the difference between a trait that works and a trait
+	# nobody can see working. Asserting the resolved id also proves the scene actually loaded.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+	var zones:Array = kit.get_passives(PassiveTerrainZone)
+	if zones.is_empty(): return fail_test('mt_poisoned_soil carries a terrain zone.')
+	assert_eq(zones[0].get_fxe_id(), &'fxe_poisoned_soil', 'The trail draws an effect on every fouled tile.')
