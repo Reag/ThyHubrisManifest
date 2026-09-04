@@ -140,11 +140,17 @@ func test_boosting_records_the_boost_speed():
 	assert_eq(AcidSpill.read_boost_speed(cp_gear), expected, 'Stored the boost speed the engine would grant.')
 
 func test_moving_after_a_boost_records_every_step():
+	# UPDATED by the fire reaction (this file's "firing" section, task 4): three steps also clears
+	# action_acid_spill_fire.gd's own gate (armed + damage_for >= 1 at pending.size() == 3), and that
+	# reaction shares this exact event and its unconditional tail consumes pending the instant the
+	# charge resolves - see that file's header. So by the time this await returns the buffer is
+	# already back to empty; per-step, in-order recording is still pinned directly, just one layer
+	# down - at the state-contract level (test_pending_preserves_duplicates) and by
+	# action_acid_spill_track.gd's own single-purpose logic.
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
-	assert_eq(AcidSpill.read_pending(cp_gear), [Vector2i(1,0), Vector2i(2,0), Vector2i(3,0)],
-		'Three steps east, in order, origin excluded.')
+	assert_true(AcidSpill.read_pending(cp_gear).is_empty(), 'The charge fired and consumed the recorded path.')
 
 func test_a_boosted_move_is_a_single_event_and_every_tile_is_post_boost():
 	# The test above drives a boost and a move as two SEPARATE SpecFactory calls, which is NOT how the
@@ -174,8 +180,14 @@ func test_a_boosted_move_is_a_single_event_and_every_tile_is_post_boost():
 	var target := START + Vector2i(distance, 0)
 	await SpecFactory.move(game, nuckelavee, target, null, [EventUnitMove.FLAG.USE_BOOST])
 
-	assert_eq(AcidSpill.read_pending(cp_gear).size(), distance,
-		'Every tile of the boosted move was recorded - none dropped as "before the boost".')
+	# UPDATED by the fire reaction (task 4): distance was chosen only to exceed base_speed, but that
+	# is >= 2 whenever a boost is needed at all - which always also clears damage_for's >= 1 gate. So
+	# this move, same as the one above, fires and its unconditional tail consumes pending before this
+	# assertion runs; see test_moving_after_a_boost_records_every_step for the same note in full. What
+	# survives past firing is origin, so that is what still pins "this was recognised as a real
+	# post-boost move" - the "none dropped" guarantee this used to read off pending.size() is no
+	# longer independently observable from outside the event once firing is wired in.
+	assert_true(AcidSpill.read_pending(cp_gear).is_empty(), 'The boosted charge fired and consumed the path.')
 	assert_eq(AcidSpill.read_origin(cp_gear), START, 'Recorded the tile the move actually began from.')
 
 func test_a_second_boost_reseeds_rather_than_banking_two_charges():
@@ -264,3 +276,78 @@ func test_the_core_power_counts_as_an_integrated_weapon():
 	# appears once the kit actually carries an ActionAttackWeapon.
 	var integrated:Array[GearCore] = nuckelavee.core.loadout.get_integrated_weapons()
 	assert_true(integrated.has(cp_gear), 'Truth in Filth is an integrated weapon.')
+
+# ============================== firing ==============================
+
+func _fire_action() -> ActionReaction:
+	return cp_gear.kit.get_action(&'action_acid_spill_fire')
+
+func test_the_fire_reaction_runs_after_poisoned_soils_lay():
+	# Both fire on entire_movement. The designer's order is Poisoned Soil first, then Acid Spill -
+	# you trail acid as you charge, then it sloshes off you when you stop. get_priority is the only
+	# thing that expresses that; lower is sooner, and Poisoned Soil's lay leaves it at the default 0.
+	var soil_gear:GearCore = nuckelavee.core.equip_system(&'mt_poisoned_soil')
+	var lay:ActionReaction = soil_gear.kit.get_action(&'action_poisoned_soil_lay')
+	assert_gt(_fire_action().get_priority(), lay.get_priority(), 'Acid Spill resolves after the trail is offered.')
+
+func test_a_straight_full_speed_charge_lays_the_burst_as_terrain():
+	# "the attack area becomes difficult terrain" - no "may", so this is automatic once the spill
+	# fires. The area is the weapon's own range_pattern, so the terrain footprint is definitionally
+	# the attack area rather than a second, drifting definition of it.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	var speed:int = AcidSpill.read_boost_speed(cp_gear)
+	await SpecFactory.move(game, nuckelavee, Vector2i(speed, 0))
+	assert_false(AcidSpill.read_trail(cp_gear).is_empty(), 'A full-speed straight charge fouled the ground it stopped on.')
+	assert_true(AcidSpill.read_trail(cp_gear).has(nuckelavee.tile()), 'The burst is centred on the frame.')
+
+func test_a_short_charge_fires_but_lays_no_terrain():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	assert_true(AcidSpill.read_trail(cp_gear).is_empty(), 'Stopping short attacks, but leaves nothing behind.')
+
+func test_firing_disarms():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
+	assert_false(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count), 'One boost, one spill.')
+
+func test_the_spill_does_not_disturb_the_poisoned_soil_trail():
+	# The two patches are independent. This is the assertion that would have caught a shared key.
+	var soil_gear:GearCore = nuckelavee.core.equip_system(&'mt_poisoned_soil')
+	var PoisonedSoil := load('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd')
+	PoisonedSoil.write_trail(soil_gear, [Vector2i(9, 9)] as Array[Vector2i])
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	# Equipping Poisoned Soil ALSO arms IT off this same boost (its arm reaction fires for any boost
+	# by its own owner, same as ours). Left armed, its OWN lay would legitimately overwrite this
+	# sentinel with the real path on the move below - a confound that has nothing to do with whether
+	# Acid Spill shares a key, and would fail this assertion even against a flawless Acid Spill. One
+	# line strips that confound so the assertion tests only what its comment claims.
+	PoisonedSoil.set_armed(soil_gear, false)
+	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
+	assert_eq(PoisonedSoil.read_trail(soil_gear), [Vector2i(9, 9)], 'Acid Spill wrote its own patch and left the trail alone.')
+
+func test_an_involuntary_move_after_a_boost_does_not_fire_it():
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0), MovementType.create_for_involuntary(nuckelavee))
+	assert_true(AcidSpill.read_trail(cp_gear).is_empty(), 'Being thrown across the map is not a charge.')
+
+func test_two_boosts_in_one_round_both_offer_the_spill():
+	# Uncapped, by the designer's call. ActionReaction.get_per_round_hard_limit already returns 99
+	# for a reaction that does not consume the reaction economy, so this is the default - the test
+	# exists to stop someone "tidying up" by adding a 1/round limit later.
+	assert_gt(_fire_action().get_per_round_hard_limit(_spill_action()), 1, 'Acid Spill is not once per round.')
+
+func test_firing_the_spill_costs_one_heat():
+	# self_heat_dice = "1" on action_acid_spill.tres is a designer-specified cost - nothing else in
+	# this file drives the weapon far enough to actually fire it, so nothing else would have caught
+	# the .tres losing that value.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	var speed:int = AcidSpill.read_boost_speed(cp_gear)
+	nuckelavee.core.current.heat = 0
+	await SpecFactory.move(game, nuckelavee, Vector2i(speed, 0))
+	assert_eq(nuckelavee.core.current.heat, 1, 'Firing the weapon burned its one self-heat.')
