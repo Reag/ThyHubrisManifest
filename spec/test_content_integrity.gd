@@ -6,6 +6,7 @@
 extends GutTest
 
 const ModContentAudit := preload('res://testkit/mod_content_audit.gd')
+const PassiveEarthstep := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_earthstep/passive_earthstep.gd')
 
 const MOD_ID := 'Reag-ThyHubris'
 
@@ -455,6 +456,18 @@ func test_caustic_earth_carries_one_correctly_configured_reaction():
 		'"1/round" is unqualified - two Nuckelavees still only bite a character once.')
 	assert_true(rxn.triggers_only_on_characters, 'The text says "Characters", so deployables are spared.')
 	assert_false(rxn.show_in_tooltip(kit), 'Bookkeeping stays out of the trait tooltip.')
+
+func test_earthstep_carries_its_marker_passive_and_nothing_else():
+	# Earthstep has no actions and no behaviour of its own: the rule lives in
+	# res/engine/character/unit/service/unit_relation.gd_ext.gd, which finds the frame by looking for
+	# THIS PASSIVE TYPE rather than for the id mt_earthstep. Delete the passive and the extension
+	# stops recognising the Nuckelavee - silently, since an override that never matches looks exactly
+	# like an override that never runs. This is what notices.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_earthstep')
+	if not Kit.is_valid(kit): return fail_test('mt_earthstep loaded.')
+
+	assert_eq(kit.get_passives(PassiveEarthstep).size(), 1, 'Exactly one Earthstep marker.')
+	assert_true(kit.actions.is_empty(), 'And no actions - the trait is entirely passive.')
 
 func test_nuckelavee_names_are_localized():
 	var keys:Array[String] = ['frame.mf_nuckelavee.name']
