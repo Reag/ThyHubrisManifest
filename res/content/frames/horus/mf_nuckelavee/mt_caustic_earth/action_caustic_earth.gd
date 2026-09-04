@@ -19,8 +19,9 @@
 # triggers_regardless_of_elevation and trigger_blocked_by_skeleton_key are INERT on our .tres. So is
 # the base class's own intangibility-status-matching gate (:66, "intangibility status must match") -
 # dropped deliberately, since this effect is terrain-mediated rather than proximity-mediated, and an
-# intangible Nuckelavee's terrain should not exist for intangible units either. get_caustic_tiles'
-# own EXILED/INTANGIBLE guard is what enforces that instead.
+# intangible Nuckelavee's terrain should not exist for intangible units either. With the core power up,
+# get_caustic_tiles is never called at all, so the EXILED/INTANGIBLE guard that enforces this now lives
+# at the top of is_victim_on_caustic_ground instead, and is repeated there for exactly that reason.
 #
 # Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-04-caustic-earth-design.md
 extends ActionReactionOnComingWithin
@@ -54,7 +55,8 @@ func is_clawing_hands_active(nuckelavee:Unit) -> bool:
 # limit for hostile characters and applies to all |difficult terrain|". Both halves now ship, and they
 # are scoped DIFFERENTLY on purpose - see is_victim_on_caustic_ground and is_capped_for.
 #
-# The widening lands on SEAM 1/1b. The uncapping lands on neither: it has to touch BOTH places the
+# The widening lands on SEAM 1b only - SEAM 1 (get_caustic_tiles) is unmodified and simply goes
+# unconsulted while the power is up. The uncapping lands on neither: it has to touch BOTH places the
 # limiter is enforced - the has_unit_already_been_affected gate in triggers_on_event, and the
 # record_unit_affected_and_abort_if_already_affected call in activate. Those two are not redundant -
 # see activate's own comment for why - so relaxing one and not the other would leave the limit in
@@ -63,7 +65,8 @@ func is_clawing_hands_active(nuckelavee:Unit) -> bool:
 ## SEAM 1 - which tiles are caustic. Today: difficult terrain this unit's own gear projects.
 ##
 ## Names no specific trait, so Acid Spill's future patch is picked up for free the moment it carries
-## a PassiveTerrainZone. The core power widens this to "ask the map".
+## a PassiveTerrainZone. The core power does not widen this method - it bypasses it entirely; see
+## is_victim_on_caustic_ground's own branch for the map-wide question instead.
 func get_caustic_tiles(nuckelavee:Unit) -> Array[Vector2i]:
 	var tiles:Array[Vector2i] = []
 	# MapState.add_dynamic_terrain_and_zones_from_unit (map_state.gd:423-425) returns BEFORE
@@ -160,7 +163,9 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	# "Characters can take this damage 1/round." The base class stores this as a hidden
 	# buff_track_affection on the VICTIM, stamped with our kit's compcon_id and expiring at
 	# UNTIL.START_OF_TURN. once_per_round_is_specific_to_gear stays false, matching vanilla and the
-	# text's unqualified "1/round" - two Nuckelavees' acid still bites a given character only once.
+	# text's unqualified "1/round" - two Nuckelavees' acid still bites a CAPPED character only once.
+	# That cap is exactly what is_capped_for's hostile-only exception below lifts: with the core power
+	# up, a hostile is bitten once per tile instead.
 	if is_capped_for(unit, victim) and has_unit_already_been_affected(gear, victim): return false
 	if is_exempt(victim): return false
 
@@ -175,8 +180,17 @@ func activate(context:Context, activation:EventCore) -> void:
 	# both pass the gate before either activates.
 	#
 	# Only stamp the victim when the cap actually binds them. An uncapped hostile takes the damage
-	# every tile, and recording it each time would apply a tracking buff nothing ever reads.
-	if is_capped_for(context.unit, victim) and record_unit_affected_and_abort_if_already_affected(activation, victim): return
+	# every tile, and recording it each time would apply a tracking buff nothing ever reads. Skipping
+	# the stamp also skips the two revalidation checks record_unit_affected_and_abort_if_already_affected
+	# folds in (action_reaction_on_coming_within.gd:98-100): GearCore.is_valid(gear) and
+	# abort_without_unit(affected_unit). The event framework re-derives similar validity downstream
+	# (event_block.gd:95,103 checks is_context_valid, and event_unit_damage requires a unit in its
+	# context), so this is not unsafe - but this path fires once per tile and is therefore the one most
+	# likely to resolve after the victim has died, so the unit-validity guard is reinstated here
+	# explicitly rather than left entirely to the framework.
+	if is_capped_for(context.unit, victim):
+		if record_unit_affected_and_abort_if_already_affected(activation, victim): return
+	elif activation.abort_without_unit(victim): return
 
 	activation.queue_events([build_damage_event(specific, victim)] as Array[EventCore])
 

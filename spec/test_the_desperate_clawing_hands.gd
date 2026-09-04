@@ -313,10 +313,11 @@ func _damage_taken_crossing(mover:Unit, count:int) -> int:
 	for i:int in count:
 		_make_difficult(Vector2i(lane_start + i, mover.state.tile.y))
 	var before:int = mover.core.current.health
-	await SpecFactory.move(
-		game, mover, Vector2i(lane_start + count - 1, mover.state.tile.y),
-		MovementType.create_for_involuntary(mover)
-	)
+	var destination := Vector2i(lane_start + count - 1, mover.state.tile.y)
+	await SpecFactory.move(game, mover, destination, MovementType.create_for_involuntary(mover))
+	# A move that silently fails reads as 0 damage, which would pass every assert_eq(..., 0) in this
+	# section vacuously - so the arrival itself has to be checked, not just the health delta.
+	assert_eq(mover.state.tile, destination, 'The mover has to actually arrive, or this proves nothing.')
 	return before - mover.core.current.health
 
 func test_caustic_earth_reaches_terrain_the_nuckelavee_did_not_make():
@@ -328,7 +329,10 @@ func test_caustic_earth_reaches_terrain_the_nuckelavee_did_not_make():
 
 	var second:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 3), Faction.AI_ENEMY)
 	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
-	assert_gt(await _damage_taken_crossing(second, 1), 0, 'Now every bad tile on the map is ours.')
+	# Exact value, not just >0: a single-tile crossing deals exactly 1 (DAMAGE in action_caustic_earth.gd).
+	# A widening that also uncapped allies at this point (rather than only later, where the asymmetry
+	# test checks it) would still pass a bare assert_gt.
+	assert_eq(await _damage_taken_crossing(second, 1), 1, 'Now every bad tile on the map is ours - one tile, one hit.')
 
 func test_a_hostile_pays_per_tile_and_an_ally_pays_once():
 	# THE ASYMMETRY, and the reason this power pairs with other frames: drag a prisoner across broken
@@ -358,3 +362,34 @@ func test_clearing_the_power_restores_both_the_cap_and_the_scope():
 	UnitCondition.clear_buff_id(SpecFactory.dummy_event(), nuckelavee, BUFF_ID)
 	var second:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 3), Faction.AI_ENEMY)
 	assert_eq(await _damage_taken_crossing(second, 3), 0, 'And map rubble goes back to being harmless.')
+
+func test_the_nuckelavees_own_acid_still_bites_with_the_power_up():
+	# is_victim_on_caustic_ground's two branches read DIFFERENT sources of truth. The narrow branch
+	# (power down) computes tiles live from get_voxels_to_apply_terrain, deliberately bypassing the map
+	# (action_caustic_earth.gd:69-72 explains why). The widened branch (power up) instead reads
+	# map.get_surface_terrain_at, which map_state.gd:24 documents as only "selectively updated" - and
+	# this file's own _make_difficult docstring already demonstrates the two can diverge, since writing
+	# gear state does not refresh the map without a manual sweep.
+	#
+	# Every OTHER test in this file sources its difficult ground from the bystander at BYSTANDER_TILE,
+	# and test_caustic_earth.gd never applies the core-power buff at all - so nothing anywhere covered
+	# the one case where waking the power could silently stop working for the frame's OWN acid: its own
+	# Poisoned Soil trail, now read through the widened, map-based branch instead of the narrow one that
+	# used to reach it directly. This is the case where the two sources of truth could diverge.
+	nuckelavee.core.equip_system(&'mt_caustic_earth')
+	var own_soil:GearCore = nuckelavee.core.equip_system(&'mt_poisoned_soil')
+	var lane:Array[Vector2i] = [Vector2i(1, 4), Vector2i(2, 4), Vector2i(3, 4)]
+	PoisonedSoil.write_trail(own_soil, lane)
+	UnitTile.update_tracking_and_statuses(game.map)
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+
+	# NOT _damage_taken_crossing - that helper builds its lane through _make_difficult, which writes to
+	# the BYSTANDER's soil_gear. This test's whole point is terrain sourced from the Nuckelavee's own
+	# gear instead, so the crossing is done by hand against the `lane` written above.
+	var victim:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 4), Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(victim)
+	var before:int = victim.core.current.health
+	var destination:Vector2i = lane[lane.size() - 1]
+	await SpecFactory.move(game, victim, destination, MovementType.create_for_involuntary(victim))
+	assert_eq(victim.state.tile, destination, 'The mover has to actually arrive, or this proves nothing.')
+	assert_lt(victim.core.current.health, before, "The frame's own acid still bites, read through the widened branch.")
