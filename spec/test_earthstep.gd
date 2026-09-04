@@ -10,9 +10,14 @@
 # watchers whose own footing is fouled".
 #
 # ANY difficult terrain counts, not only the Nuckelavee's own. That is the opposite of Caustic
-# Earth, deliberately - this trait is about the watcher's footing, whoever fouled it. These tests
-# therefore use SpecFactory.set_terrain to lay real vanilla difficult terrain, with no Poisoned Soil
-# involved at all.
+# Earth, deliberately - this trait is about the watcher's footing, whoever fouled it. So these tests
+# lay their own terrain rather than using Poisoned Soil.
+#
+# NOT via SpecFactory.set_terrain: that writes map.ground_terrain, and get_surface_terrain_at - the
+# accessor the pathfinder uses to charge for difficult terrain (pathfinder.gd:79,93) - never reads
+# it. surface_terrain is merged from ground_surface_terrain plus dynamic terrain
+# (map_state.gd:474-478). Measured: with set_terrain the same tile reports ground=true,
+# surface=false, and this trait's test could never pass. See _make_rough.
 #
 # Modelled on vanilla's own test/gear/test_ms_overwatch.gd: spec units already carry ms_overwatch
 # from the basic loadout, the watcher only needs a weapon, and "did overwatch fire" reads off
@@ -20,7 +25,6 @@
 extends GutTest
 
 const EARTHSTEP_ID := &'mt_earthstep'
-const PoisonedSoil := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd')
 
 ## Geometry copied from vanilla's test/gear/test_ms_overwatch.gd, which is known to produce an
 ## overwatch: the watcher sits at the origin and the mover starts ADJACENT to it before walking away.

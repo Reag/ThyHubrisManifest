@@ -251,8 +251,10 @@ static func is_footing_fouled(unit:Unit) -> bool:
 ## AI's threat model (ai_npc.gd:76) - while every caller passing TRUE is triggered by an ATTACK and
 ## must keep working: Punishment, Cover Me, Reflexive Blow, Flank, Fix and Flank, Instinct Mode.
 ##
-## test_earthstep.gd pins that a `true` call still returns weapons, so the day a vanilla addition
-## breaks the split, something goes red rather than a talent silently dying.
+## NOTHING PINS THIS YET. No test here exercises a `true` call - both go through
+## SpecFactory.move, which always passes the default `false`. Until one does, a vanilla addition
+## that broke the split would silently kill Punishment, Cover Me and Reflexive Blow rather than
+## turning something red.
 ##
 ## Suppressing the AI's threat model is a FEATURE, not collateral: NPCs stop routing around an
 ## overwatch that cannot fire.
