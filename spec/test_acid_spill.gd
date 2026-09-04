@@ -477,6 +477,13 @@ func test_declining_the_prompt_still_disarms_and_leaves_the_previous_patch_intac
 	# unconditional disarm tail - "whichever way the player answered, the boost is spent" - but only
 	# the ACCEPT branch was ever driven by this suite, so that warning was unenforced. This drives the
 	# DECLINE branch instead.
+	#
+	# The decline now lands on the WEAPON's own confirm rather than an outer one: the reaction's
+	# confirm_use was removed because it made the player press OK twice to fire once. That makes the
+	# trail assertion below load-bearing rather than incidental - choose_and_use returns true even
+	# when the player cancelled at that step (it swallows choose_to_use_event.aborted), so without
+	# the usage-counter check in the reaction, declining would still foul the ground for an attack
+	# that never happened.
 	AcidSpill.write_trail(cp_gear, [Vector2i(4, 4)] as Array[Vector2i])
 	_refresh_terrain()
 

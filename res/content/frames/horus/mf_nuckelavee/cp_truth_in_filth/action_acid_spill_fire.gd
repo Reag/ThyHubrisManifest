@@ -55,21 +55,36 @@ func activate(context:Context, activation:EventCore) -> void:
 		context.map.shape, unit.get_size(), unit.occupied_tiles()
 	)
 
-	# Free action, so the player gets to decline. CommonActionUtil.choose_and_use auto-picks when
-	# there is exactly one option and would give no chance to say no, so the confirm is explicit.
-	if await CommonActionUtil.confirm_use(context, [], burst_tiles):
-		await CommonActionUtil.choose_and_use(
-			activation,
-			SpecificAction.from_context(context),
-			[SpecificAction.create(unit, gear, weapon)] as Array[SpecificAction],
-			CommonActionUtil.choose_and_use_no_spend, # a free action spends no action economy
-			[unit.tile()], # a BURST centres on the attacker; this only satisfies the target count
-		)
-		if qualifies:
-			AcidSpill.write_trail(gear, burst_tiles)
-			# set_state does not refresh the map - only set_aura_active does - so the new terrain
-			# would not exist until something unrelated triggered a sweep. Ask for one.
-			UnitTile.update_tracking_and_statuses(context.map, activation)
+	# NO confirm_use here, deliberately. The weapon's own activation raises its own confirm/targeting
+	# step, so an outer prompt made the player press OK twice to fire once. Declining happens at the
+	# weapon's step instead, and choose_and_use auto-picks when there is exactly one option, so it
+	# goes straight there.
+	#
+	# But choose_and_use returns SpecificAction.is_valid(chosen) (common_action_util.gd:736), NOT
+	# whether the attack resolved - it swallows choose_to_use_event.aborted. So a cancel at the
+	# weapon's own step is indistinguishable from a hit as far as the return value goes, and fouling
+	# the ground off it would hand the player free terrain for an attack they never made. That
+	# mattered less when the outer confirm existed; now that it is gone, this IS the decline path.
+	#
+	# The engine's own usage counter is the honest signal: UnitAction.spend calls
+	# gear.increment_action_usage_for_action unconditionally (unit_action.gd:279) - freebies included,
+	# they only skip the per-TURN half - so it moves if and only if the weapon really spent.
+	var usage_group:StringName = gear.get_usage_group_for_action(weapon)
+	var uses_before:int = gear.get_uses_this_round_alt(usage_group)
+
+	await CommonActionUtil.choose_and_use(
+		activation,
+		SpecificAction.from_context(context),
+		[SpecificAction.create(unit, gear, weapon)] as Array[SpecificAction],
+		CommonActionUtil.choose_and_use_no_spend, # a free action spends no action economy
+		[unit.tile()], # a BURST centres on the attacker; this only satisfies the target count
+	)
+
+	if qualifies and gear.get_uses_this_round_alt(usage_group) > uses_before:
+		AcidSpill.write_trail(gear, burst_tiles)
+		# set_state does not refresh the map - only set_aura_active does - so the new terrain
+		# would not exist until something unrelated triggered a sweep. Ask for one.
+		UnitTile.update_tracking_and_statuses(context.map, activation)
 
 	# UNCONDITIONAL TAIL. Whichever way the player answered, this boost is spent. See the header.
 	# The arm is the only thing that gates re-firing - pending is not read by anything once armed
