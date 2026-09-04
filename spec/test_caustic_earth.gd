@@ -260,7 +260,7 @@ func test_an_exiled_nuckelavees_ground_bites_nobody():
 	# ground, not a crater").
 	#
 	# EXILED costs us nothing: ReactionBus.does_reaction_trigger:120 calls
-	# UnitAction.can_activate_gear, whose first check is REASON.EXILED at unit_action.gd:139. Pinned
+	# UnitAction.can_activate_gear, whose first check is REASON.EXILED at unit_action.gd:138. Pinned
 	# anyway, because "correctly guarded" and "silently dead" look identical from outside.
 	_foul([ACID])
 	SpecFactory.apply(nuckelavee, Lancer.STATUS.EXILED)

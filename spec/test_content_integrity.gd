@@ -404,6 +404,54 @@ func test_the_nuckelavee_core_power_parts_do_not_share_a_round_allowance():
 	assert_eq(groups.size(), kit.actions.size(), 'Both parts have their own usage_group.')
 	assert_false(groups.has(&''), 'And neither fell back to the shared default.')
 
+func test_caustic_earth_carries_one_correctly_configured_reaction():
+	# Four exports, three of which fail silently and one of which fails invisibly.
+	#
+	# can_trigger_any_number_of_times_per_round is the load-bearing one: ActionReactionOnComingWithin
+	# overrides get_per_round_hard_limit off it and IGNORES consumes_rxn, so at the default the trait
+	# damages one character per ROUND in total - the text's 1/round-per-CHARACTER rule collapsed into
+	# 1/round-per-Nuckelavee. Vanilla's own action_apocalypse_burn.tres omits it.
+	#
+	# show_in_tooltip is the invisible one: Action.show_in_tooltip returns TRUE for any trait
+	# reaction whose KIT carries a trigger row (action.gd:341-342). mt_caustic_earth's is empty
+	# today, so nothing leaks - but one localization row later would advertise this bookkeeping as a
+	# separate ability, exactly as happened to all four Poisoned Soil actions.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_caustic_earth')
+	if not Kit.is_valid(kit): return fail_test('mt_caustic_earth loaded.')
+
+	var reactions:Array = kit.get_reactions()
+	assert_eq(reactions.size(), 1, 'Caustic Earth is one reaction, not several.')
+	if reactions.is_empty(): return
+
+	# Deliberately UNTYPED. can_trigger_any_number_of_times_per_round, when_enter_within, DAMAGE and
+	# DAMAGE_TYPE all live on ActionReactionOnComingWithin or on our own script, not on
+	# ActionReaction - so a typed `var rxn:ActionReaction` makes every one of them a PARSE error,
+	# and GUT responds to a parse error by SKIPPING the whole file with "Ignoring script ... because
+	# it does not extend GutTest". The suite would still read green, just fifty tests shorter.
+	var rxn = reactions[0]
+	assert_eq(rxn.triggers_on, [&'step', &'new_turn'] as Array[StringName],
+		'It reacts to entering and to starting a turn.')
+	assert_true(rxn.when_enter_within, 'The entering half of the clause is on.')
+	assert_true(rxn.when_start_turn_within, 'And the starting-a-turn half.')
+	assert_eq(rxn.trigger_timing, ReactionBus.TIMING.POST, 'After the fact, so the unit is on the tile.')
+	assert_false(rxn.consumes_rxn, 'A trait does not spend the pilot reaction.')
+
+	# "1 AP ENERGY". The AP half is asserted behaviourally in test_caustic_earth.gd, against a
+	# victim with 1 armour. The damage TYPE cannot be: test_caustic_earth.gd already proves it is
+	# neither HEAT (which would raise heat and not touch health) nor BURN (which would apply burn),
+	# but nothing in the engine distinguishes ENERGY from KINETIC or EXPLOSIVE at 1 point of AP
+	# damage - resistance halves, and Util.half(1) is ceili(0.5) = 1, so even a resistant target
+	# still loses exactly 1. Pinning the constant is the whole of the achievable coverage, and it is
+	# a source-level assertion on purpose rather than by omission.
+	assert_eq(rxn.DAMAGE, 1, 'One point.')
+	assert_eq(rxn.DAMAGE_TYPE, Lancer.DAMAGE_TYPE.ENERGY, 'Of ENERGY.')
+	assert_true(rxn.can_trigger_any_number_of_times_per_round,
+		'Or the per-round hard limit caps the whole trait at one character per round.')
+	assert_true(rxn.can_only_affect_a_unit_once_per_round, 'Characters take it 1/round.')
+	assert_false(rxn.once_per_round_is_specific_to_gear,
+		'"1/round" is unqualified - two Nuckelavees still only bite a character once.')
+	assert_false(rxn.show_in_tooltip(kit), 'Bookkeeping stays out of the trait tooltip.')
+
 func test_nuckelavee_names_are_localized():
 	var keys:Array[String] = ['frame.mf_nuckelavee.name']
 	for kit_id:StringName in NUCKELAVEE_TRAITS + [NUCKELAVEE_CORE_POWER]:

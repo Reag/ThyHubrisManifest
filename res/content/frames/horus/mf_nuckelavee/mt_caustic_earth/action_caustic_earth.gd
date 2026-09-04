@@ -25,6 +25,17 @@
 # Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-04-caustic-earth-design.md
 extends ActionReactionOnComingWithin
 
+## Bookkeeping, not an ability the pilot uses - keep it out of the trait's tooltip.
+##
+## Action.show_in_tooltip returns TRUE for any trait reaction whose KIT carries a trigger row
+## (action.gd:341-342). mt_caustic_earth's trigger row is empty today, so this changes nothing right
+## now - it stops one future localization row from silently advertising this reaction as a separate
+## ability, which is exactly what happened to all four Poisoned Soil actions and had to be fixed
+## after playtest. The kit's own name and effect text are unaffected; they do not come from here.
+##
+## Same move as vanilla's action_system_clear_buff.gd:21.
+func show_in_tooltip(_kit:Kit) -> bool: return false
+
 const DAMAGE:int = 1
 ## Hoisted to a constant so test_content_integrity.gd can pin it. See that test for why a
 ## behavioural assertion cannot distinguish ENERGY from KINETIC at 1 damage.
@@ -47,7 +58,7 @@ func get_caustic_tiles(nuckelavee:Unit) -> Array[Vector2i]:
 	# terrain to the map. We call get_voxels_to_apply_terrain directly and bypass that guard, so it
 	# has to be repeated here or the acid outlives the frame.
 	#
-	# EXILED is belt and braces - UnitAction.get_gear_unavailable_reason:139 already stops the
+	# EXILED is belt and braces - UnitAction.get_gear_unavailable_reason:138 already stops the
 	# reaction dead - but it costs one comparison and keeps this method's answer true on its own
 	# terms rather than true only because of a gate somewhere else. A DEAD Nuckelavee needs neither:
 	# ReactionBus.trigger_occurred iterates map.get_all_units(), which no longer contains it.
