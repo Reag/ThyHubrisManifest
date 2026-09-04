@@ -41,18 +41,24 @@ const DAMAGE:int = 1
 ## behavioural assertion cannot distinguish ENERGY from KINETIC at 1 damage.
 const DAMAGE_TYPE:Lancer.DAMAGE_TYPE = Lancer.DAMAGE_TYPE.ENERGY
 
-# ============================== the two seams ==============================
+const ClawingHands := preload('../cp_truth_in_filth/buff_the_desperate_clawing_hands.gd')
+const CLAWING_HANDS_BUFF:StringName = &'buff_the_desperate_clawing_hands'
+
+## Is the core power's protocol half awake on this frame?
+func is_clawing_hands_active(nuckelavee:Unit) -> bool:
+	return UnitCondition.has_buff(nuckelavee, CLAWING_HANDS_BUFF)
+
+# ============================== the seams ==============================
 #
 # The core power (The Desperate Clawing Hands Of The Dead) promises "Caustic Earth loses its 1/round
-# limit for hostile characters and applies to all |difficult terrain|". The "applies to all difficult
-# terrain" half is a change to exactly these two methods and nothing else.
+# limit for hostile characters and applies to all |difficult terrain|". Both halves now ship, and they
+# are scoped DIFFERENTLY on purpose - see is_victim_on_caustic_ground and is_capped_for.
 #
-# The "loses its 1/round limit for hostile characters" half lands on NEITHER seam. It has to touch
-# BOTH places the limiter is enforced: the has_unit_already_been_affected gate in triggers_on_event,
-# and the record_unit_affected_and_abort_if_already_affected call in activate. Those two are not
-# redundant - see activate's own comment for why - so relaxing one and not the other would leave the
-# limit in force. Not extracted into a seam of its own, deliberately: no flag and no state until the
-# core power exists to need them.
+# The widening lands on SEAM 1/1b. The uncapping lands on neither: it has to touch BOTH places the
+# limiter is enforced - the has_unit_already_been_affected gate in triggers_on_event, and the
+# record_unit_affected_and_abort_if_already_affected call in activate. Those two are not redundant -
+# see activate's own comment for why - so relaxing one and not the other would leave the limit in
+# force, with no error. is_capped_for is the one predicate both consult.
 
 ## SEAM 1 - which tiles are caustic. Today: difficult terrain this unit's own gear projects.
 ##
@@ -79,6 +85,51 @@ func get_caustic_tiles(nuckelavee:Unit) -> Array[Vector2i]:
 				var tile := Tile.from_voxel(voxel)
 				if not tiles.has(tile): tiles.append(tile)
 	return tiles
+
+## SEAM 1b - is this victim standing on caustic ground? Wraps get_caustic_tiles so the core power can
+## widen the question without the trait having to enumerate anything.
+##
+##   "Caustic Earth ... applies to all |difficult terrain|"
+##
+## The widening is UNIVERSAL - allies and the Nuckelavee itself included. Only the 1/round uncapping
+## below is hostile-only, and that asymmetry is the whole point of the core power: a dragged prisoner
+## takes a hit per tile while your own team takes one.
+##
+## The map-wide branch is a per-tile predicate rather than an enumeration, so widening does not mean
+## scanning the map on every step of every character.
+##
+## The EXILED/INTANGIBLE guard is repeated here because the widened branch never calls
+## get_caustic_tiles - a frame that is not there still projects nothing, power or no power.
+func is_victim_on_caustic_ground(nuckelavee:Unit, victim:Unit) -> bool:
+	if nuckelavee.has_status(Lancer.STATUS.EXILED): return false
+	if nuckelavee.has_status(Lancer.STATUS.INTANGIBLE): return false
+
+	if is_clawing_hands_active(nuckelavee):
+		for tile:Vector2i in victim.occupied_tiles():
+			if ClawingHands.is_difficult_ground(nuckelavee.map, tile): return true
+		return false
+
+	var caustic:Array[Vector2i] = get_caustic_tiles(nuckelavee)
+	if caustic.is_empty(): return false
+	for tile:Vector2i in victim.occupied_tiles():
+		if caustic.has(tile): return true
+	return false
+
+## Does the 1/round limit still bind for this victim?
+##
+##   "Caustic Earth loses its 1/round limit for hostile characters"
+##
+## Hostile-only, deliberately: allies and the Nuckelavee keep the cap, so crossing the widened ground
+## costs the player's own team once per round rather than once per tile.
+##
+## Consulted in BOTH places the limiter is enforced - see the calls in triggers_on_event and activate.
+## It cannot be collapsed into an override of has_unit_already_been_affected(gear, check_unit),
+## because that signature carries no reference to the Nuckelavee and so cannot tell whether the power
+## is up. Relaxing one place and not the other leaves the cap in force with no error.
+func is_capped_for(nuckelavee:Unit, victim:Unit) -> bool:
+	if not can_only_affect_a_unit_once_per_round: return false
+	if is_clawing_hands_active(nuckelavee) and UnitRelation.are_enemies(nuckelavee, victim): return false
+	return true
 
 ## SEAM 2 - who walks over it untouched.
 ##
@@ -110,14 +161,10 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	# buff_track_affection on the VICTIM, stamped with our kit's compcon_id and expiring at
 	# UNTIL.START_OF_TURN. once_per_round_is_specific_to_gear stays false, matching vanilla and the
 	# text's unqualified "1/round" - two Nuckelavees' acid still bites a given character only once.
-	if can_only_affect_a_unit_once_per_round and has_unit_already_been_affected(gear, victim): return false
+	if is_capped_for(unit, victim) and has_unit_already_been_affected(gear, victim): return false
 	if is_exempt(victim): return false
 
-	var caustic:Array[Vector2i] = get_caustic_tiles(unit)
-	if caustic.is_empty(): return false
-	for tile:Vector2i in victim.occupied_tiles():
-		if caustic.has(tile): return true
-	return false
+	return is_victim_on_caustic_ground(unit, victim)
 
 func activate(context:Context, activation:EventCore) -> void:
 	var victim:Unit = activation.context.event.context.unit
@@ -126,7 +173,10 @@ func activate(context:Context, activation:EventCore) -> void:
 	# Stamps the victim and bails if someone else already did this round. Checked here as well as in
 	# triggers_on_event because reactions are queued as a block and resolved later: two units can
 	# both pass the gate before either activates.
-	if record_unit_affected_and_abort_if_already_affected(activation, victim): return
+	#
+	# Only stamp the victim when the cap actually binds them. An uncapped hostile takes the damage
+	# every tile, and recording it each time would apply a tracking buff nothing ever reads.
+	if is_capped_for(context.unit, victim) and record_unit_affected_and_abort_if_already_affected(activation, victim): return
 
 	activation.queue_events([build_damage_event(specific, victim)] as Array[EventCore])
 

@@ -302,3 +302,59 @@ func test_involuntary_movement_is_not_taxed():
 	)
 	assert_gt(pathfinder.valid_destinations.size(), voluntary.valid_destinations.size(),
 		'A character being thrown is not paying a toll for its own footing.')
+
+# ============================== bullet 3: the ground turns on everyone ==============================
+
+## Walks `mover` east across `count` tiles of difficult ground, and reports the health it lost.
+## Uses involuntary movement so this reads as the drag the power is designed around - and so it also
+## proves bullet 2's boundary is not quietly interfering.
+func _damage_taken_crossing(mover:Unit, count:int) -> int:
+	var lane_start:int = mover.state.tile.x + 1
+	for i:int in count:
+		_make_difficult(Vector2i(lane_start + i, mover.state.tile.y))
+	var before:int = mover.core.current.health
+	await SpecFactory.move(
+		game, mover, Vector2i(lane_start + count - 1, mover.state.tile.y),
+		MovementType.create_for_involuntary(mover)
+	)
+	return before - mover.core.current.health
+
+func test_caustic_earth_reaches_terrain_the_nuckelavee_did_not_make():
+	# The widening. Without the power up, Caustic Earth only bites on the frame's own acid, so plain
+	# map rubble must do nothing.
+	nuckelavee.core.equip_system(&'mt_caustic_earth')
+	var victim:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 2), Faction.AI_ENEMY)
+	assert_eq(await _damage_taken_crossing(victim, 1), 0, 'Rubble is just rubble until the hands wake.')
+
+	var second:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 3), Faction.AI_ENEMY)
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	assert_gt(await _damage_taken_crossing(second, 1), 0, 'Now every bad tile on the map is ours.')
+
+func test_a_hostile_pays_per_tile_and_an_ally_pays_once():
+	# THE ASYMMETRY, and the reason this power pairs with other frames: drag a prisoner across broken
+	# ground and it takes a hit per tile, while your own team crossing the same ground takes one.
+	# Testing either half alone would miss the point of the ability.
+	nuckelavee.core.equip_system(&'mt_caustic_earth')
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+
+	var enemy:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 2), Faction.AI_ENEMY)
+	var enemy_damage:int = await _damage_taken_crossing(enemy, 3)
+
+	var friend:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 3), Faction.PLAYER)
+	var friend_damage:int = await _damage_taken_crossing(friend, 3)
+
+	assert_gt(enemy_damage, friend_damage, 'The enemy pays per tile; the ally does not.')
+	assert_eq(friend_damage, 1, 'The ally still pays once - the widening is universal.')
+	assert_eq(enemy_damage, 3, 'Three tiles, three hits.')
+
+func test_clearing_the_power_restores_both_the_cap_and_the_scope():
+	# Vacuity guard for the whole bullet: everything above must be the buff's doing, not something
+	# permanent this task broke.
+	nuckelavee.core.equip_system(&'mt_caustic_earth')
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var enemy:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 2), Faction.AI_ENEMY)
+	assert_eq(await _damage_taken_crossing(enemy, 3), 3, 'Uncapped while the power is up.')
+
+	UnitCondition.clear_buff_id(SpecFactory.dummy_event(), nuckelavee, BUFF_ID)
+	var second:Unit = SpecFactory.create_unit(game.map, Vector2i(0, 3), Faction.AI_ENEMY)
+	assert_eq(await _damage_taken_crossing(second, 3), 0, 'And map rubble goes back to being harmless.')
