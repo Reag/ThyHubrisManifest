@@ -114,3 +114,119 @@ func test_difficult_ground_does_not_key_off_the_victim_being_prone():
 	assert_true(victim.has_status(Lancer.STATUS.PRONE), 'The victim really is prone.')
 	assert_false(ClawingHands.is_difficult_ground(game.map, tile),
 		'Being prone does not make the ground under you difficult.')
+
+# ============================== bullet 1: knocked prone in the muck ==============================
+
+## The lane the prone tests use: row 0 east of the Nuckelavee, all of it difficult. It has to be a
+## LANE rather than a tile, because RAM knocks the victim back one space and the clause is about the
+## ground it lands on as much as the ground it left.
+const BAD_LANE:Array[Vector2i] = [Vector2i(1,0), Vector2i(2,0), Vector2i(3,0), Vector2i(4,0)]
+const VICTIM_TILE := Vector2i(2, 0)
+
+## An enemy standing in the fouled lane, with the power already up.
+func _hostile_on_bad_ground() -> Unit:
+	for tile:Vector2i in BAD_LANE: _make_difficult(tile)
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var victim:Unit = SpecFactory.create_unit(game.map, VICTIM_TILE, Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(victim)
+	return victim
+
+## Knocks `victim` prone the way the GAME does, from `from_tile` immediately west of it.
+##
+## SpecFactory.apply cannot be used here: it passes dummy_event(), so the reaction events
+## UnitCondition.on_status_apply queues onto that event are never executed, and a statuses_changed
+## reaction never fires. It sets the status and nothing else.
+##
+## Vanilla RAM applies PRONE through the real pipeline. The dice are forced because RAM is an attack
+## and a miss would make this a coin flip. Verified: a victim at (3,3) rammed from (2,3) ends prone
+## at (4,3) - so the victim MOVES one tile east, which is why BAD_LANE covers where it lands.
+## `rolls` seeds Dice.CHEAT_ROLL_QUEUE for the whole sequence - the ram's own attack roll FIRST, then
+## whatever the reaction asks for. **The exact number of rolls a ram consumes is not pinned here.**
+## If a save test comes out the wrong way, print the queue length before and after and adjust; a 20
+## padding a queue that is already empty is harmless, so err long rather than short.
+func _ram_prone(victim:Unit, from_tile:Vector2i, rolls:Array = [20, 20, 20, 20]) -> void:
+	var rammer:Unit = SpecFactory.create_unit(game.map, from_tile, Faction.PLAYER)
+	SpecFactory.apply_passive_buffs(rammer)
+	await SpecFactory.start_turn(game, rammer)
+	# Not `Dice.CHEAT_ROLL_QUEUE = rolls.duplicate()`: CHEAT_ROLL_QUEUE is Array[int] (dice.gd:9) and
+	# `rolls` is a plain untyped Array, so a direct `=` throws "Invalid assignment of property or key
+	# 'CHEAT_ROLL_QUEUE' with value of type 'Array'" - reproduced on every _ram_prone call. clear()
+	# + append_array() is the same seeding vanilla's own specs use everywhere else.
+	Dice.CHEAT_ROLL_QUEUE.clear()
+	Dice.CHEAT_ROLL_QUEUE.append_array(rolls)
+	await SpecFactory.use(game, rammer, &'mw_ram', &'action_ram', [victim])
+
+func test_a_hostile_knocked_prone_in_difficult_terrain_takes_damage():
+	# RAM itself deals no damage - action_ram.tres carries knockback and an on-hit PRONE and no
+	# damage_dice at all - so any health lost here is the hands, not the ram.
+	var victim := _hostile_on_bad_ground()
+	var before:int = victim.core.current.health
+	await _ram_prone(victim, Vector2i(1, 0))
+	assert_true(victim.has_status(Lancer.STATUS.PRONE), 'The ram landed, or this test proves nothing.')
+	assert_lt(victim.core.current.health, before, 'The hands took hold.')
+
+func test_a_hostile_knocked_prone_on_clean_ground_takes_nothing():
+	# The vacuity guard. Without it the test above cannot tell "prone in difficult terrain hurts"
+	# from "being knocked prone hurts".
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var victim:Unit = SpecFactory.create_unit(game.map, VICTIM_TILE, Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(victim)
+	var before:int = victim.core.current.health
+	await _ram_prone(victim, Vector2i(1, 0))
+	assert_true(victim.has_status(Lancer.STATUS.PRONE), 'The ram landed here too.')
+	assert_eq(victim.core.current.health, before, 'Clean ground, nothing lurking in it.')
+
+func test_nothing_happens_without_the_power_up():
+	# The whole bullet is gated on the buff; this is what proves the gate rather than the reaction.
+	for tile:Vector2i in BAD_LANE: _make_difficult(tile)
+	var victim:Unit = SpecFactory.create_unit(game.map, VICTIM_TILE, Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(victim)
+	var before:int = victim.core.current.health
+	await _ram_prone(victim, Vector2i(1, 0))
+	assert_eq(victim.core.current.health, before, 'The hands are not awake yet.')
+
+func test_an_ally_knocked_prone_in_difficult_terrain_is_spared():
+	# "Hostile characters take..." - bullet 1 is hostile-only, unlike bullet 3's widening.
+	for tile:Vector2i in BAD_LANE: _make_difficult(tile)
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var friend:Unit = SpecFactory.create_unit(game.map, VICTIM_TILE, Faction.PLAYER)
+	SpecFactory.apply_passive_buffs(friend)
+	var before:int = friend.core.current.health
+	await _ram_prone(friend, Vector2i(1, 0))
+	assert_true(friend.has_status(Lancer.STATUS.PRONE), 'The ally really did go down.')
+	assert_eq(friend.core.current.health, before, 'The hands know whose side they are on.')
+
+func test_the_damage_repeats_on_a_second_knockdown_in_one_round():
+	# Uncapped, by the designer's call: every knockdown pays. Consistent with a power whose theme is
+	# removing limits - and knocking the same target prone twice in a round costs the player real work.
+	#
+	# Each ram uses a FRESH rammer: RAM is a real action and the first rammer has spent its turn. The
+	# victim walks east one tile per ram, which is why BAD_LANE runs to the map edge.
+	#
+	# Explicit rolls, not the [20,20,20,20] default: CHEAT_ROLL_QUEUE hands back whatever it is fed
+	# with no regard for the die it is standing in for (dice.gd:33-35 pops unconditionally), so a
+	# queued 20 answering the reaction's 1d6 becomes 20 damage, not a capped 6 - enough to structure
+	# and destroy an 8 HP Everest on the FIRST knockdown and leave nothing for a second. A small,
+	# survivable damage roll (2) keeps the victim alive to be knocked down twice, which is the only
+	# thing this test is checking.
+	var victim := _hostile_on_bad_ground()
+	await _ram_prone(victim, Vector2i(1, 0), [20, 2, 20, 20])
+	var after_first:int = victim.core.current.health
+	UnitCondition.clear_status(SpecFactory.dummy_event(), victim, Lancer.STATUS.PRONE)
+	await _ram_prone(victim, Vector2i(2, 0), [20, 2, 20, 20])
+	assert_lt(victim.core.current.health, after_first, 'The second knockdown pays too.')
+
+func test_a_failed_hull_save_immobilizes():
+	# The save gates ONLY the IMMOBILIZED - the damage is unconditional. The queue has to carry the
+	# ram's own attack roll first; the trailing 1 is the save, and 1 fails against any target.
+	var victim := _hostile_on_bad_ground()
+	# Ram hits on the leading 20s; the trailing 1s are the HULL save, and 1 fails any target.
+	await _ram_prone(victim, Vector2i(1, 0), [20, 20, 1, 1])
+	assert_true(victim.has_status(Lancer.STATUS.IMMOBILIZED), 'Failed the save, held fast.')
+
+func test_a_passed_hull_save_leaves_them_free_but_still_hurt():
+	var victim := _hostile_on_bad_ground()
+	var before:int = victim.core.current.health
+	await _ram_prone(victim, Vector2i(1, 0), [20, 20, 20, 20])
+	assert_false(victim.has_status(Lancer.STATUS.IMMOBILIZED), 'Made the save, still standing free.')
+	assert_lt(victim.core.current.health, before, 'But the damage was never in question.')

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_clawing_hands_prone.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+triggers_on = Array[StringName]([&"statuses_changed"])
+trigger_timing = 0
+consumes_rxn = false
+usage_group = &"action_clawing_hands_prone"
+emit_text_popcorn_on_use = true
