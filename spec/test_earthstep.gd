@@ -115,6 +115,28 @@ func test_the_nuckelavee_still_overwatches_from_difficult_terrain_itself():
 	assert_eq(prey.tile(), Vector2i(4, 1), 'It actually moved.')
 	assert_gt(prey.current_damage(), 0, 'The Nuckelavee shot it from the muck.')
 
+func test_a_flying_watcher_over_difficult_terrain_still_overwatches():
+	# It is hovering, not standing - there is nothing under its feet to foul. The engine agrees:
+	# MovementType.ignores_difficult_terrain() (movement_type.gd:107-108) returns true outright for a
+	# flying unit, and the pathfinder skips difficult terrain's extra cost for the same reason.
+	#
+	# This also stops a zero-g map handing the Nuckelavee blanket immunity, since MovementType.create
+	# sets `flying` from STATUS.FLYING OR is_in_zero_g (movement_type.gd:46).
+	#
+	# Asserted white-box on is_footing_fouled, like test_attack_triggered_reactions_are_not_suppressed
+	# below, rather than through a real move-and-shoot. FLYING also lifts the watcher's effective
+	# floor by Lancer.FLYING_HEIGHT (unit_tile.gd:230, +3) - a real engine mechanic completely
+	# separate from Earthstep, and it puts the watcher out of vertical reach of this fixture's
+	# threat-1 assault rifle regardless of what is_footing_fouled returns. Routing through
+	# SpecFactory.move and reading current_damage() would therefore read 0 whether or not the guard
+	# is there, proving nothing about Earthstep either way. Confirmed by direct measurement:
+	# UnitRelation.get_weapons_that_can_react_against(watcher, nuckelavee, false) is empty here purely
+	# from the elevation check in can_units_touch_elevationwise, even with is_footing_fouled false.
+	_make_rough([WATCHER_TILE])
+	SpecFactory.apply(watcher, Lancer.STATUS.FLYING)
+
+	assert_false(UnitRelation.is_footing_fouled(watcher), 'A hovering watcher is not standing in the muck.')
+
 func test_attack_triggered_reactions_are_not_suppressed():
 	# The one assumption in this trait worth distrusting, asserted directly.
 	#

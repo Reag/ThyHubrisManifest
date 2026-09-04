@@ -1,3 +1,13 @@
+# Script extension on the UnitRelation autoload. It carries TWO UNRELATED RULES, because a
+# .gd_ext.gd's path IS its declaration - there is nowhere else either of them can live.
+#
+#   1. KRAKEN (mf_kraken)     - grappled characters count as adjacent; plus a tangibility workaround
+#                               that is explicitly temporary. Both below, down to the EARTHSTEP banner.
+#   2. NUCKELAVEE (Earthstep) - watchers standing in difficult terrain cannot OVERWATCH it.
+#                               The last section of this file. NOT part of the workaround.
+#
+# Keep them fenced. Anything added later gets its own banner too.
+#
 # Makes characters the Kraken has grappled count as adjacent to it.
 #
 #   "Characters grappled this way count as though they are |adjacent| and within |Range 1| of the
@@ -52,8 +62,9 @@ static func _append_valid(units:Array[Unit], unit:Unit) -> void:
 	units.append(unit)
 
 # ============================================================================================
-# TANGIBILITY. Everything below this line is a WORKAROUND for a limitation of modkit 1.3.3 and is
-# meant to be deleted, not maintained.
+# TANGIBILITY. Everything from here down to the EARTHSTEP banner at the bottom of this file is a
+# WORKAROUND for a limitation of modkit 1.3.3 and is meant to be deleted, not maintained. The
+# Earthstep section below it is NOT part of this and must survive the removal.
 #
 # The faithful reading is that the Kraken genuinely holds both tangibility states, and that a
 # character it has grappled genuinely gains INTANGIBLE for its turn. Neither can be expressed today,
@@ -200,6 +211,8 @@ static func tangibility_is_the_only_objection(origin_unit:Unit, target_unit:Unit
 		return origin_unit.state.in_effect_shards.any(target_unit.state.in_effect_shards.has)
 	return true
 
+# ================= END OF THE TANGIBILITY WORKAROUND. Everything below this line stays. ==========
+
 # ============================================================================================
 # EARTHSTEP (Nuckelavee). Characters standing in difficult terrain cannot OVERWATCH it.
 #
@@ -221,6 +234,9 @@ const PassiveEarthstep := preload('res://unpacked/Reag-ThyHubris/res/content/fra
 
 ## Does this unit move like the Nuckelavee? Asked by type rather than by kit id so this engine-level
 ## file stays ignorant of any particular mod's content.
+##
+## get_all_gear(false) skips BASIC gear (loadout_core.gd:511-518), so the "any future gear" promise
+## does not extend to a basic-loadout item. Nothing needs it to today.
 static func has_earthstep(unit:Unit) -> bool:
 	if not Unit.is_valid(unit): return false
 	for gear:GearCore in unit.core.loadout.get_all_gear(false):
@@ -236,6 +252,15 @@ static func has_earthstep(unit:Unit) -> bool:
 static func is_footing_fouled(unit:Unit) -> bool:
 	if not Unit.is_valid(unit): return false
 	if not is_instance_valid(unit.map): return false
+	# A hovering watcher is not standing in anything. The engine's own answer to "is this
+	# character affected by difficult terrain" says so outright - MovementType.ignores_difficult_terrain()
+	# (movement_type.gd:107-108) returns true when flying, and pathfinder.gd:83 skips the extra cost
+	# for the same reason.
+	#
+	# Load-bearing beyond the obvious case: MovementType.create sets `flying` from STATUS.FLYING OR
+	# UnitCondition.is_in_zero_g (movement_type.gd:46), so without this a zero-g map would foul EVERY
+	# watcher and turn Earthstep into map-wide overwatch immunity.
+	if unit.state.is_flying(): return false
 	for tile:Vector2i in unit.occupied_tiles():
 		if unit.map.get_surface_terrain_at(tile).difficult_terrain: return true
 	return false
@@ -251,6 +276,11 @@ static func is_footing_fouled(unit:Unit) -> bool:
 ## AI's threat model (ai_npc.gd:76) - while every caller passing TRUE is triggered by an ATTACK and
 ## must keep working: Punishment, Cover Me, Reflexive Blow, Flank, Fix and Flank, Instinct Mode.
 ##
+## That the flag does not MEAN "is an overwatch" is not hypothetical: the sibling function
+## get_weapons_that_can_react_against has movement-triggered callers passing `true`
+## (action_covering_fire_attack.gd:41, action_moving_target.gd:48,61). They are correctly outside the
+## overwatch family, but they are why this is an assumption rather than a fact.
+##
 ## test_earthstep.gd's test_attack_triggered_reactions_are_not_suppressed pins this: a `true` call
 ## still returns weapons where a `false` call returns none. The day a vanilla addition breaks the
 ## split, that goes red rather than Punishment, Cover Me and Reflexive Blow silently dying.
@@ -258,8 +288,9 @@ static func is_footing_fouled(unit:Unit) -> bool:
 ## Suppressing the AI's threat model is a FEATURE, not collateral: NPCs stop routing around an
 ## overwatch that cannot fire.
 ##
-## Conditions ordered cheapest-first. The flag is a free bool; has_earthstep short-circuits nearly
-## every call on a map with one Nuckelavee; the terrain scan runs last.
+## Conditions ordered cheapest-first: the flag is a free bool, is_footing_fouled is one to four
+## dictionary lookups, and has_earthstep - which allocates an array per gear item via
+## get_passives_of_type - runs only for a mover standing in someone's fouled ground.
 static func get_weapons_that_can_overwatch(
 	from_unit:Unit,
 	target_unit:Unit,
@@ -267,8 +298,8 @@ static func get_weapons_that_can_overwatch(
 ) -> Array[SpecificAction]:
 	if (
 		not use_normal_range_instead_of_threat
-		and has_earthstep(target_unit)
 		and is_footing_fouled(from_unit)
+		and has_earthstep(target_unit)
 	):
 		return [] as Array[SpecificAction]
 	return super.get_weapons_that_can_overwatch(from_unit, target_unit, use_normal_range_instead_of_threat)
