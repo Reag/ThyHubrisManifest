@@ -405,3 +405,40 @@ func test_a_second_qualifying_charge_replaces_the_first_patch_end_to_end():
 
 	for tile in first_trail:
 		assert_false(second_trail.has(tile), 'The first patch is gone, replaced rather than merged with the second.')
+
+# ============================== the qualifying-endpoint highlight ==============================
+
+const Highlight := preload('res://unpacked/Reag-ThyHubris/res/ui/choice_controller/acid_spill_highlight.gd')
+
+func test_qualifying_endpoints_are_straight_runs_of_at_least_boost_speed():
+	# The geometry, tested without any UI. Whether the highlight actually PAINTS is an in-game
+	# check - a dead scene extension looks exactly like "the engine does not do that".
+	await SpecFactory.start_turn(game, nuckelavee)
+	var pathfinder:Pathfinder = await Pathfinder.generate_for_standard_move(
+		nuckelavee, MovementType.create_for_standard_move(nuckelavee), true
+	)
+	var qualifying:Array[Vector2i] = Highlight.qualifying_endpoints(nuckelavee, pathfinder)
+	var speed:int = UnitAction.get_boost_speed(nuckelavee)
+
+	assert_false(qualifying.is_empty(), 'Some endpoint on an open map is reachable in a straight line.')
+	for tile:Vector2i in qualifying:
+		assert_gte(Tile.distance(START, tile), speed,
+			'Every highlighted tile is at least a full boost away: %s' % tile)
+
+func test_a_tile_short_of_boost_speed_is_not_highlighted():
+	await SpecFactory.start_turn(game, nuckelavee)
+	var pathfinder:Pathfinder = await Pathfinder.generate_for_standard_move(
+		nuckelavee, MovementType.create_for_standard_move(nuckelavee), true
+	)
+	var qualifying:Array[Vector2i] = Highlight.qualifying_endpoints(nuckelavee, pathfinder)
+	assert_false(qualifying.has(NEIGHBOUR), 'One tile east is not a charge.')
+
+func test_a_unit_without_the_core_power_qualifies_nothing():
+	# The listener paints for every movement pick on the map; the gate is holding the core power.
+	var other:Unit = SpecFactory.create_unit(game.map, Vector2i(8, 8))
+	await SpecFactory.start_turn(game, other)
+	var pathfinder:Pathfinder = await Pathfinder.generate_for_standard_move(
+		other, MovementType.create_for_standard_move(other), true
+	)
+	assert_eq(Highlight.qualifying_endpoints(other, pathfinder), [],
+		'No Truth in Filth, nothing to highlight.')
