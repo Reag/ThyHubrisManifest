@@ -5,3 +5,4 @@
 [resource]
 script = ExtResource("1_buff_script")
 log_on_application = true
+to = &"movement_restriction"

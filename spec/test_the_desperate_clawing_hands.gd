@@ -230,3 +230,75 @@ func test_a_passed_hull_save_leaves_them_free_but_still_hurt():
 	await _ram_prone(victim, Vector2i(1, 0), [20, 20, 20, 20])
 	assert_false(victim.has_status(Lancer.STATUS.IMMOBILIZED), 'Made the save, still standing free.')
 	assert_lt(victim.core.current.health, before, 'But the damage was never in question.')
+
+# ============================== bullet 2: the cost of leaving ==============================
+
+## A free corner, diagonally opposite the Nuckelavee at (0,0) and clear of the bystander at (4,4).
+## A CORNER matters: on a 5x5 map a mover standing centrally can already reach every tile, so trimming
+## its reach by one would change nothing and these tests would pass vacuously. From a corner there
+## really are tiles at maximum distance for the penalty to take away.
+const MOVER_CORNER := Vector2i(0, 4)
+
+## Every tile the mover may still END on, under whatever restriction buffs are in play.
+func _reachable(mover:Unit) -> int:
+	var pathfinder:Pathfinder = await Pathfinder.generate_for_standard_move(
+		mover, MovementType.create_for_standard_move(mover), false
+	)
+	return pathfinder.valid_destinations.size()
+
+func test_a_hostile_starting_on_clean_ground_is_unrestricted():
+	# The control. Without it the next test cannot tell "the penalty applied" from "this mover was
+	# always restricted".
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var victim:Unit = SpecFactory.create_unit(game.map, MOVER_CORNER, Faction.AI_ENEMY)
+	await SpecFactory.start_turn(game, victim)
+	var free:int = await _reachable(victim)
+	assert_gt(free, 0, 'A mover on clean ground can go somewhere.')
+
+func test_a_hostile_starting_in_difficult_terrain_reaches_less():
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var victim:Unit = SpecFactory.create_unit(game.map, MOVER_CORNER, Faction.AI_ENEMY)
+	await SpecFactory.start_turn(game, victim)
+	var free:int = await _reachable(victim)
+
+	_make_difficult(MOVER_CORNER)
+	var taxed:int = await _reachable(victim)
+	assert_lt(taxed, free, 'Leaving the muck costs it reach.')
+
+func test_the_penalty_needs_the_power_to_be_up():
+	# Vacuity guard on the whole bullet: with no buff, standing in difficult terrain must cost nothing
+	# beyond what vanilla difficult terrain already charges.
+	var victim:Unit = SpecFactory.create_unit(game.map, MOVER_CORNER, Faction.AI_ENEMY)
+	await SpecFactory.start_turn(game, victim)
+	var free:int = await _reachable(victim)
+	_make_difficult(MOVER_CORNER)
+	var still_free:int = await _reachable(victim)
+	assert_eq(still_free, free, 'No power up, no extra toll.')
+
+func test_an_ally_starting_in_difficult_terrain_is_not_taxed():
+	# "Hostile characters must spend two movement..." - the frame's own team pays nothing here.
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var friend:Unit = SpecFactory.create_unit(game.map, MOVER_CORNER, Faction.PLAYER)
+	await SpecFactory.start_turn(game, friend)
+	var free:int = await _reachable(friend)
+	_make_difficult(MOVER_CORNER)
+	var still_free:int = await _reachable(friend)
+	assert_eq(still_free, free, 'Allies walk out of the muck at the usual price.')
+
+func test_involuntary_movement_is_not_taxed():
+	# THE DECLARED BOUNDARY, and it is load-bearing rather than pedantic: the restriction loop runs for
+	# EVERY movement type, while vanilla difficult terrain is skipped outright for forced, flying,
+	# teleporting and INTANGIBLE movement. Binding those would be broader than the clause - and it
+	# would silently nerf the Kraken drag this power is specifically designed to combo with.
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var victim:Unit = SpecFactory.create_unit(game.map, MOVER_CORNER, Faction.AI_ENEMY)
+	_make_difficult(MOVER_CORNER)
+	await SpecFactory.start_turn(game, victim)
+
+	var forced := MovementType.create_for_involuntary(victim)
+	var pathfinder:Pathfinder = await Pathfinder.generate_for_standard_move(victim, forced, false)
+	var voluntary:Pathfinder = await Pathfinder.generate_for_standard_move(
+		victim, MovementType.create_for_standard_move(victim), false
+	)
+	assert_gt(pathfinder.valid_destinations.size(), voluntary.valid_destinations.size(),
+		'A character being thrown is not paying a toll for its own footing.')
