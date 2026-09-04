@@ -199,3 +199,75 @@ static func tangibility_is_the_only_objection(origin_unit:Unit, target_unit:Unit
 	if origin_unit.state.in_global_shard != target_unit.state.in_global_shard:
 		return origin_unit.state.in_effect_shards.any(target_unit.state.in_effect_shards.has)
 	return true
+
+# ============================================================================================
+# EARTHSTEP (Nuckelavee). Characters standing in difficult terrain cannot OVERWATCH it.
+#
+#   "The Nuckelavee does not trigger |OVERWATCH| from characters in difficult terrain."
+#
+# The characters in the terrain are the WATCHERS. That is why this cannot be a MovementType flag:
+# ignore_rxns is a property of the MOVER and cannot say "except from watchers whose footing is
+# fouled". It is also why Buff.TO.ACTION_FORBIDDEN cannot do it - at that gate
+# (reaction_bus.gd:120 -> can_activate_gear -> unit_action.gd:157) the SpecificAction carries the
+# watcher, gear and action and NOT the mover, so a buff could only forbid overwatch outright.
+#
+# The seam has to see both units, and get_weapons_that_can_overwatch's signature already does:
+# from_unit is the watcher, target_unit is the mover. action_overwatch.gd:21 gates on it being empty.
+#
+# Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-04-earthstep-design.md
+# ============================================================================================
+
+const PassiveEarthstep := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_earthstep/passive_earthstep.gd')
+
+## Does this unit move like the Nuckelavee? Asked by type rather than by kit id so this engine-level
+## file stays ignorant of any particular mod's content.
+static func has_earthstep(unit:Unit) -> bool:
+	if not Unit.is_valid(unit): return false
+	for gear:GearCore in unit.core.loadout.get_all_gear(false):
+		if not gear.get_passives_of_type(PassiveEarthstep).is_empty(): return true
+	return false
+
+## Is this unit standing in difficult terrain? ANY occupied tile counts, matching Caustic Earth's
+## occupied_tiles scan and vanilla's own dangerous-terrain loops (event_turn_end.gd:82,
+## event_unit_move.gd:269). Only reachable by size-2+ units.
+##
+## Reads the MAP, not any particular gear's terrain zone - the rule is about the watcher's footing,
+## whoever fouled it, so vanilla map terrain blinds exactly as Poisoned Soil's trail does.
+static func is_footing_fouled(unit:Unit) -> bool:
+	if not Unit.is_valid(unit): return false
+	if not is_instance_valid(unit.map): return false
+	for tile:Vector2i in unit.occupied_tiles():
+		if unit.map.get_surface_terrain_at(tile).difficult_terrain: return true
+	return false
+
+## Returns nothing when the watcher's footing is fouled and the mover has Earthstep.
+##
+## `use_normal_range_instead_of_threat` is the discriminator, and this is the ONE ASSUMPTION in the
+## whole trait worth distrusting. The flag means "measure with normal weapon range rather than
+## threat"; it does NOT mean "this is an overwatch". Using it as a proxy is a coincidence that holds
+## across all fifteen call sites today: every caller passing the default FALSE is an overwatch-family
+## reaction triggered by MOVEMENT - ms_overwatch (action_overwatch.gd:21,31), Semper Vigilo
+## (action_semper_vigilo.gd:44), Eye of Midnight (action_eye_of_midnight_overwatch.gd:27,37) and the
+## AI's threat model (ai_npc.gd:76) - while every caller passing TRUE is triggered by an ATTACK and
+## must keep working: Punishment, Cover Me, Reflexive Blow, Flank, Fix and Flank, Instinct Mode.
+##
+## test_earthstep.gd pins that a `true` call still returns weapons, so the day a vanilla addition
+## breaks the split, something goes red rather than a talent silently dying.
+##
+## Suppressing the AI's threat model is a FEATURE, not collateral: NPCs stop routing around an
+## overwatch that cannot fire.
+##
+## Conditions ordered cheapest-first. The flag is a free bool; has_earthstep short-circuits nearly
+## every call on a map with one Nuckelavee; the terrain scan runs last.
+static func get_weapons_that_can_overwatch(
+	from_unit:Unit,
+	target_unit:Unit,
+	use_normal_range_instead_of_threat:bool = false
+) -> Array[SpecificAction]:
+	if (
+		not use_normal_range_instead_of_threat
+		and has_earthstep(target_unit)
+		and is_footing_fouled(from_unit)
+	):
+		return [] as Array[SpecificAction]
+	return super.get_weapons_that_can_overwatch(from_unit, target_unit, use_normal_range_instead_of_threat)
