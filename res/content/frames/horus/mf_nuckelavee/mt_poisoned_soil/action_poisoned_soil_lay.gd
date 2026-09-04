@@ -45,6 +45,19 @@ func activate(context:Context, activation:EventCore) -> void:
 	var gear:GearCore = context.gear
 	var trail:Array[Vector2i] = PoisonedSoil.read_pending(gear)
 
+	# "the spaces it moves THROUGH" - the frame never moves through the space it stops in, it moves
+	# TO it. Removed BEFORE the prompt so the highlighted tiles are the ones actually about to be
+	# fouled.
+	#
+	# Erase by POSITION, never "drop the last entry": action_poisoned_soil_track.gd de-dupes
+	# revisited tiles, so on a path A -> B -> C -> B the buffer is [A, B, C] while the frame stands
+	# on B. Dropping the last entry would erase C and leave the frame in its own acid. Array.erase
+	# removes the first match, and the de-dupe guarantees there is at most one.
+	#
+	# This cannot empty the trail: triggers_on_event only fires when pending holds more than the one
+	# seeded tile, so at least one tile always survives the erase.
+	trail.erase(context.unit.tile())
+
 	# Disarm first and unconditionally: whichever way the player answers, this boost is spent. An
 	# early return past the disarm would leave the trail armed into the next movement.
 	PoisonedSoil.set_armed(gear, false)

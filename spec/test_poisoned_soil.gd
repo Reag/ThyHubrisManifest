@@ -119,7 +119,7 @@ func test_boosting_twice_reseeds_rather_than_banking_two_trails():
 		'Re-seeded from the second boost - still just the one entry, not two.')
 
 	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
-	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR, Vector2i(2, 0)],
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR],
 		'One trail for the whole move - no leftover duplicate from the first boost.')
 
 func test_another_units_boost_does_not_arm_our_trail():
@@ -222,7 +222,7 @@ func test_a_tile_is_never_recorded_twice():
 		array = [Pathfinder.Step.create(NEIGHBOUR, 1), Pathfinder.Step.create(START, 1)],
 		resource = MovementType.create(nuckelavee, true),
 	})
-	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR], 'Each tile once.')
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [NEIGHBOUR], 'Each tile once, and not the one it stopped on.')
 
 # ============================== laying it down ==============================
 #
@@ -234,7 +234,7 @@ func test_accepting_turns_the_whole_path_into_difficult_terrain():
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
 
-	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, Vector2i(1, 0), Vector2i(2, 0)],
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, Vector2i(1, 0)],
 		'The crossed tiles became the trail.')
 	assert_false(PoisonedSoil.is_armed(trait_gear, game.map.game_core.round_count), 'And the trail disarmed.')
 
@@ -276,7 +276,7 @@ func test_a_new_trail_replaces_the_old_one_rather_than_adding_to_it():
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
 
-	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR], 'Only the new trail remains.')
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START], 'Only the new trail remains.')
 
 	var hostile := SpecFactory.create_unit(game.map, Vector2i(3, 4), Faction.AI_ENEMY)
 	SpecFactory.apply_passive_buffs(hostile)
@@ -294,7 +294,7 @@ func test_a_second_movement_after_the_trail_is_laid_lays_nothing_more():
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
 	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0))
-	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR],
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START],
 		'One trail per boost; the second move added nothing.')
 
 func test_spaces_crossed_before_the_boost_are_not_part_of_the_trail():
@@ -303,8 +303,52 @@ func test_spaces_crossed_before_the_boost_are_not_part_of_the_trail():
 	await SpecFactory.move(game, nuckelavee, NEIGHBOUR)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
-	assert_eq(PoisonedSoil.read_trail(trait_gear), [NEIGHBOUR, Vector2i(2, 0)],
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [NEIGHBOUR],
 		'Arming happens on the boost, so the first move is not in it.')
+
+func test_the_space_the_frame_stops_in_is_not_fouled():
+	# "the spaces it moves THROUGH" - the frame never moves through its final space, it moves TO it.
+	# Corrected 2026-09-04: the original build fouled it, which left a bare Nuckelavee standing in
+	# its own acid after every boost. Harmless while Poisoned Soil was alone; once Caustic Earth
+	# exists it is 1 AP ENERGY at the start of every turn unless the pilot bought Bulwark Mods, and
+	# that system is optional. See 2026-09-04-caustic-earth-design.md.
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR],
+		'Start and the space crossed, but not the space it stopped in.')
+
+	# Through the pathfinder, so this cannot pass against a trail that simply failed to apply.
+	var hostile := SpecFactory.create_unit(game.map, Vector2i(1, 1), Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(hostile)
+	await SpecFactory.start_turn(game, hostile)
+	assert_eq(await _cost_to(hostile, NEIGHBOUR), 2, 'The crossed tile really is difficult.')
+	assert_eq(await _cost_to(hostile, Vector2i(2, 1)), 1,
+		'Control: an untouched tile the same distance away still costs 1.')
+
+func test_the_stopping_tile_is_removed_by_position_not_by_array_order():
+	# The de-dupe in action_poisoned_soil_track.gd means the frame's final tile is NOT necessarily
+	# the last entry in the buffer. Out and back: A -> B -> C -> B leaves pending [A, B, C] with the
+	# frame standing on B. Dropping "the last entry" would erase C and strand the frame in its own
+	# acid - both halves wrong. Driven as one explicit path so it stays inside a single
+	# ENTIRE_MOVEMENT, the way test_a_tile_is_never_recorded_twice does.
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await game.execute_event(&'event_unit_move', {
+		unit = nuckelavee,
+		array = [
+			Pathfinder.Step.create(NEIGHBOUR, 1),
+			Pathfinder.Step.create(Vector2i(2, 0), 1),
+			Pathfinder.Step.create(NEIGHBOUR, 1),
+		],
+		resource = MovementType.create(nuckelavee, true),
+	})
+
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, Vector2i(2, 0)],
+		'A and C fouled; B, where it stopped, is clean.')
 
 # ============================== isolation from other units ==============================
 
@@ -363,7 +407,7 @@ func test_ordinary_voluntary_movement_still_lays_a_trail():
 		resource = MovementType.create(nuckelavee, true),
 	})
 
-	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR, Vector2i(2, 0)],
+	assert_eq(PoisonedSoil.read_trail(trait_gear), [START, NEIGHBOUR],
 		'Voluntary movement still tracks and lays the whole path.')
 
 # ============================== deliberate, and it looks like a bug ==============================
