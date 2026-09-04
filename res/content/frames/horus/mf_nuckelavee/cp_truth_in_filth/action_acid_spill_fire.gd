@@ -27,13 +27,15 @@ func get_required_triggering_context() -> Array[Context.PROP]:
 	return [Context.PROP.unit]
 
 func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> bool:
-	if not AcidSpill.is_armed(gear, triggering_event.context.map.game_core.round_count): return false
 	if triggering_event.context.unit != unit: return false
 	# A knockback or pull must not fire the frame's weapon mid-enemy-turn.
 	if not AcidSpill.is_voluntary_movement(triggering_event): return false
-	# Nothing to offer if it cannot deal damage. The weapon's own gate says the same thing; this
-	# keeps the prompt from appearing at all.
-	return AcidSpill.damage_for(gear) >= 1
+	# Delegate to the weapon's own gate (armed + can deal damage) rather than re-deriving it here -
+	# one source of truth that cannot drift out of sync with action_acid_spill.gd, and it also runs
+	# that gate's super.is_available_to_activate half, which this file knows nothing about (e.g. a
+	# JAMMED Nuckelavee) and a hand-copied condition here would silently have skipped.
+	var weapon:ActionAttackWeapon = gear.kit.get_action(&'action_acid_spill')
+	return weapon.is_available_to_activate(unit, gear)
 
 func activate(context:Context, activation:EventCore) -> void:
 	var gear:GearCore = context.gear

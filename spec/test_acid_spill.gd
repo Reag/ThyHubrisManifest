@@ -298,8 +298,12 @@ func test_a_straight_full_speed_charge_lays_the_burst_as_terrain():
 func test_a_short_charge_fires_but_lays_no_terrain():
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_gt(AcidSpill.read_boost_speed(cp_gear), 2,
+		'Vacuity guard: a 2-tile charge must actually fall short of a full-speed one.')
 	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
 	assert_true(AcidSpill.read_trail(cp_gear).is_empty(), 'Stopping short attacks, but leaves nothing behind.')
+	assert_false(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count),
+		'The reaction ran and disarmed - "fires" - even though the charge fell short of laying terrain.')
 
 func test_firing_disarms():
 	await SpecFactory.start_turn(game, nuckelavee)
@@ -310,12 +314,14 @@ func test_firing_disarms():
 func test_the_spill_and_the_trail_each_write_their_own_correct_patch():
 	# The real concurrent case, not a stand-in for it: a boost arms BOTH traits off the same event
 	# (equip_system(mt_poisoned_soil) arms its own trail the same way ours arms), and both fire on the
-	# same entire_movement. Sharing one patch of storage - a live design option the design doc
-	# considered - would fail one of the two assertions below: Poisoned Soil's lay is the PATH the
-	# frame moved through, with the tile it stops on erased (action_poisoned_soil_lay.gd); Acid
-	# Spill's burst is CENTRED on that same stop tile. If the two shared a key, Acid Spill firing
-	# after Poisoned Soil (see test_the_fire_reaction_runs_after_poisoned_soils_lay) would stomp the
-	# path with the burst, and the "stop tile excluded" assertion below would fail.
+	# same entire_movement. What this proves is that each reaction writes its OWN correct, distinct
+	# tile set despite running back to back on one move - Poisoned Soil's lay is the PATH the frame
+	# moved through, with the tile it stops on erased (action_poisoned_soil_lay.gd); Acid Spill's
+	# burst is CENTRED on that same stop tile. It would catch Acid Spill writing to the wrong gear
+	# (e.g. soil_gear instead of cp_gear), or one trait's write stomping the other's map contribution.
+	# It would NOT catch the two traits sharing a state key - write_trail is gear.set_state(TRAIL_KEY,
+	# ...), and cp_gear and soil_gear are separate GearCore instances with separate state
+	# dictionaries, so identical key strings can never collide across them.
 	var soil_gear:GearCore = nuckelavee.core.equip_system(&'mt_poisoned_soil')
 	var PoisonedSoil := load('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd')
 
@@ -338,13 +344,20 @@ func test_the_spill_and_the_trail_each_write_their_own_correct_patch():
 	assert_eq(PoisonedSoil.read_trail(soil_gear), expected_soil_path, "Poisoned Soil wrote its own path, unaffected by Acid Spill firing on the same move.")
 	assert_eq(AcidSpill.read_trail(cp_gear), expected_burst, "Acid Spill wrote its own burst, centred on the tile the frame stopped on.")
 	assert_false(PoisonedSoil.read_trail(soil_gear).has(stop_tile), 'The path excludes the stop tile - only the burst covers it.')
-	assert_ne(PoisonedSoil.read_trail(soil_gear), AcidSpill.read_trail(cp_gear), 'The two patches are not the same set of tiles.')
 
 func test_an_involuntary_move_after_a_boost_does_not_fire_it():
+	# An empty trail alone does NOT prove the reaction never ran - test_a_short_charge_fires_but_lays_no_terrain
+	# shows a VOLUNTARY charge that merely falls short of full speed also leaves the trail empty. So if
+	# triggers_on_event wrongly let an involuntary move through, this test would still read green. The
+	# is_armed check below is the one property that only holds if the reaction never fired at all: its
+	# unconditional tail disarms unconditionally, on both branches, whenever it runs - so a surviving
+	# arm is proof of no run, regardless of how far the move went.
 	await SpecFactory.start_turn(game, nuckelavee)
 	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
 	await SpecFactory.move(game, nuckelavee, Vector2i(3, 0), MovementType.create_for_involuntary(nuckelavee))
 	assert_true(AcidSpill.read_trail(cp_gear).is_empty(), 'Being thrown across the map is not a charge.')
+	assert_true(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count),
+		'The reaction never ran, so the arm survived the involuntary move.')
 
 func test_two_boosts_in_one_round_both_offer_the_spill():
 	# Uncapped, by the designer's call. ActionReaction.get_per_round_hard_limit already returns 99
@@ -362,3 +375,33 @@ func test_firing_the_spill_costs_one_heat():
 	nuckelavee.core.current.heat = 0
 	await SpecFactory.move(game, nuckelavee, Vector2i(speed, 0))
 	assert_eq(nuckelavee.core.current.heat, 1, 'Firing the weapon burned its one self-heat.')
+
+func test_a_second_qualifying_charge_replaces_the_first_patch_end_to_end():
+	# test_a_new_spill_replaces_the_old_one proves "lasts until you create terrain this way again" at
+	# the storage layer, by calling write_trail directly twice. This drives two REAL qualifying
+	# charges through the reaction itself, so the expiry clause is exercised end to end rather than
+	# only as a property of write_trail in isolation.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	var first_speed:int = AcidSpill.read_boost_speed(cp_gear)
+	await SpecFactory.move(game, nuckelavee, START + Vector2i(first_speed, 0))
+	var first_trail:Array[Vector2i] = AcidSpill.read_trail(cp_gear)
+	assert_false(first_trail.is_empty(), 'First charge must actually lay terrain, or this test proves nothing.')
+
+	# Same trick as test_a_second_boost_reseeds_rather_than_banking_two_charges: a second boost in one
+	# turn would really come from Overcharge, but the state flag is all SpecFactory needs to offer it
+	# again.
+	nuckelavee.state.has_normal_boost = true
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	var second_speed:int = AcidSpill.read_boost_speed(cp_gear)
+	var second_origin:Vector2i = nuckelavee.tile()
+	# Perpendicular to the first charge, not a continuation of it - Fix 3's vacuity guard already pins
+	# boost speed > 2, so the two bursts (radius 1 each) can never touch regardless of the fixture's
+	# actual speed, and turning the corner keeps the whole path on the map instead of running the
+	# second charge off the far edge the way continuing east would.
+	await SpecFactory.move(game, nuckelavee, second_origin + Vector2i(0, second_speed))
+	var second_trail:Array[Vector2i] = AcidSpill.read_trail(cp_gear)
+	assert_false(second_trail.is_empty(), 'Second charge must also actually lay terrain, or this test proves nothing.')
+
+	for tile in first_trail:
+		assert_false(second_trail.has(tile), 'The first patch is gone, replaced rather than merged with the second.')
