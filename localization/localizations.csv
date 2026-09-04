@@ -12,7 +12,7 @@ If an action would clear BURN, such as stabilize, it also clears INFECTION"
 gear.mt_spreading_stain.name,The Spreading Stain
 gear.mt_spreading_stain.effect,
 gear.mt_spreading_stain.trigger,
-gear.mt_raging_plague.name,The Raging Plauge
+gear.mt_raging_plague.name,The Raging Plague
 gear.mt_raging_plague.effect,
 gear.mt_raging_plague.trigger,
 gear.mt_seeping_rot.name,The Seeping Rot
