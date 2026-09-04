@@ -413,7 +413,7 @@ func test_caustic_earth_carries_one_correctly_configured_reaction():
 	# 1/round-per-Nuckelavee. Vanilla's own action_apocalypse_burn.tres omits it.
 	#
 	# show_in_tooltip is the invisible one: Action.show_in_tooltip returns TRUE for any trait
-	# reaction whose KIT carries a trigger row (action.gd:341-342). mt_caustic_earth's is empty
+	# reaction whose KIT carries a trigger row (action.gd:343-344). mt_caustic_earth's is empty
 	# today, so nothing leaks - but one localization row later would advertise this bookkeeping as a
 	# separate ability, exactly as happened to all four Poisoned Soil actions.
 	var kit:Kit = ContentLibrary.get_kit(&'mt_caustic_earth')
@@ -437,9 +437,12 @@ func test_caustic_earth_carries_one_correctly_configured_reaction():
 	assert_false(rxn.consumes_rxn, 'A trait does not spend the pilot reaction.')
 
 	# "1 AP ENERGY". The AP half is asserted behaviourally in test_caustic_earth.gd, against a
-	# victim with 1 armour. The damage TYPE cannot be: test_caustic_earth.gd already proves it is
-	# neither HEAT (which would raise heat and not touch health) nor BURN (which would apply burn),
-	# but nothing in the engine distinguishes ENERGY from KINETIC or EXPLOSIVE at 1 point of AP
+	# victim with 1 armour. The damage TYPE cannot be fully pinned that way: test_caustic_earth.gd's
+	# before-1 assertions already prove it is not HEAT, which routes to heat() and never touches
+	# health. They do NOT prove it is not BURN - event_unit_damage.gd calls damage() and THEN adds
+	# burn, so a BURN-typed trait would pass every before-1 assertion unchanged; that half is instead
+	# pinned by test_the_damage_is_armour_piercing's separate assert on victim.state.burn. Beyond
+	# that, nothing in the engine distinguishes ENERGY from KINETIC or EXPLOSIVE at 1 point of AP
 	# damage - resistance halves, and Util.half(1) is ceili(0.5) = 1, so even a resistant target
 	# still loses exactly 1. Pinning the constant is the whole of the achievable coverage, and it is
 	# a source-level assertion on purpose rather than by omission.
@@ -450,6 +453,7 @@ func test_caustic_earth_carries_one_correctly_configured_reaction():
 	assert_true(rxn.can_only_affect_a_unit_once_per_round, 'Characters take it 1/round.')
 	assert_false(rxn.once_per_round_is_specific_to_gear,
 		'"1/round" is unqualified - two Nuckelavees still only bite a character once.')
+	assert_true(rxn.triggers_only_on_characters, 'The text says "Characters", so deployables are spared.')
 	assert_false(rxn.show_in_tooltip(kit), 'Bookkeeping stays out of the trait tooltip.')
 
 func test_nuckelavee_names_are_localized():

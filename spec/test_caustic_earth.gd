@@ -82,6 +82,7 @@ func test_the_damage_is_armour_piercing():
 	var before:int = _health(victim)
 	await SpecFactory.move(game, victim, ACID)
 	assert_eq(_health(victim), before - 1, 'Armour does not reduce it.')
+	assert_eq(victim.state.burn, 0, 'And it is not BURN, which would deal the damage AND stack burn.')
 
 func test_the_armour_in_that_fixture_really_does_absorb_ordinary_damage():
 	# Pairs with the test above: proves the armour was actually applied, so "AP works" cannot pass
@@ -121,7 +122,7 @@ func test_two_different_characters_both_take_it_in_one_round():
 	# GearCore.uses_this_round, and NOTHING increments that for this action: the only writer is
 	# increment_action_usage_for_action at unit_action.gd:279, reached only via
 	# UnitAction.spend_actions_gain_heat, which an action reaches only by calling
-	# Action.spend_actions(activation) from its own activate (action.gd:143-146). That call is
+	# Action.spend_actions(activation) from its own activate (action.gd:144-147). That call is
 	# opt-in, and neither we nor vanilla's action_apocalypse_burn.gd make it.
 	#
 	# So the cap is LATENT, not active - the trait is one added spend_actions call away from
@@ -163,21 +164,21 @@ func test_the_same_character_only_takes_it_once_in_a_round():
 func test_the_limit_lifts_on_the_characters_next_turn():
 	# buff_track_affection expires at Lancer.UNTIL.START_OF_TURN, cleared by
 	# UnitCondition.new_turn_for_statuses inside event_turn_start's handle_starting_unit - which runs
-	# BEFORE the NEW_TURN POST reactions are queued, so a character that walks out and comes back
-	# next round takes it again.
+	# BEFORE the NEW_TURN POST reactions are queued, so a character that starts its turn on the
+	# fouled tile takes it again next round. That ordering only matters on the start-turn path, so
+	# round 2 stays put rather than re-entering - walking out and back would exercise the entering
+	# path twice and never prove the start-of-turn clear runs before the reaction queue.
 	_foul([ACID])
 	await SpecFactory.start_turn(game, victim)
 	var before:int = _health(victim)
 	await SpecFactory.move(game, victim, ACID)
 	assert_eq(_health(victim), before - 1, 'Taken this round.')
-	await SpecFactory.move(game, victim, VICTIM_TILE)
 	await SpecFactory.end_turn(game, victim)
 
 	# A round boundary the cheap way, as test_poisoned_soil.gd and test_dhiyed_observation.gd do it.
 	game.map.game_core.round_count += 1
 	await SpecFactory.start_turn(game, victim)
-	await SpecFactory.move(game, victim, ACID)
-	assert_eq(_health(victim), before - 2, 'And again the next round.')
+	assert_eq(_health(victim), before - 2, 'Still standing in it, and bitten again next round.')
 
 # ============================== who walks over it untouched ==============================
 
@@ -187,6 +188,7 @@ func test_a_flying_character_crosses_free():
 	await SpecFactory.start_turn(game, victim)
 	var before:int = _health(victim)
 	await SpecFactory.move(game, victim, ACID)
+	assert_eq(victim.tile(), ACID, 'It actually crossed - "no damage" must not mean "no movement".')
 	assert_eq(_health(victim), before, 'It is over the ground, not in it.')
 
 func test_bulwark_mods_carries_its_wearer_over_the_acid_free():
@@ -207,6 +209,7 @@ func test_bulwark_mods_carries_its_wearer_over_the_acid_free():
 	await SpecFactory.start_turn(game, bare)
 	var bare_before:int = _health(bare)
 	await SpecFactory.move(game, bare, ACID)
+	assert_eq(bare.tile(), ACID, 'It actually crossed - "no damage" must not mean "no movement".')
 	assert_eq(_health(bare), bare_before - 1, 'A mover without the system still takes it.')
 	await SpecFactory.move(game, bare, Vector2i(3, 1))
 	await SpecFactory.end_turn(game, bare)
@@ -216,6 +219,7 @@ func test_bulwark_mods_carries_its_wearer_over_the_acid_free():
 	await SpecFactory.start_turn(game, victim)
 	var before:int = _health(victim)
 	await SpecFactory.move(game, victim, ACID)
+	assert_eq(victim.tile(), ACID, 'It actually crossed - "no damage" must not mean "no movement".')
 	assert_eq(_health(victim), before, 'Bulwark Mods walks over it.')
 
 func test_a_character_knocked_into_the_acid_still_takes_it():
@@ -236,6 +240,22 @@ func test_a_character_knocked_into_the_acid_still_takes_it():
 		resource = MovementType.create_for_involuntary(victim),
 	})
 	assert_eq(_health(victim), before - 1, 'Thrown in is still in.')
+
+func test_another_units_difficult_terrain_is_not_ours_to_punish():
+	# "difficult terrain created by the NUCKELAVEE". get_caustic_tiles is handed the reaction's own
+	# owner, so a second frame's trail must be invisible to us - it is difficult ground, but not our
+	# acid. This becomes load-bearing the moment the core power widens seam 1 to "all difficult
+	# terrain": at that point this test SHOULD start failing, and that is the signal to revisit it.
+	var stranger := SpecFactory.create_unit(game.map, Vector2i(0, 3), Faction.AI_ENEMY)
+	var stranger_soil:GearCore = stranger.core.equip_system(SOIL_ID)
+	SpecFactory.apply_passive_buffs(stranger)
+	PoisonedSoil.write_trail(stranger_soil, [ACID] as Array[Vector2i])
+
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(victim.tile(), ACID, 'It actually crossed.')
+	assert_eq(_health(victim), before, "Somebody else's ground is not our acid.")
 
 # ============================== deliberate, and it looks like a bug ==============================
 
@@ -288,3 +308,46 @@ func test_the_same_acid_bites_when_the_nuckelavee_is_present_and_solid():
 	var before:int = _health(victim)
 	await SpecFactory.move(game, victim, ACID)
 	assert_eq(_health(victim), before - 1, 'Present and solid, the acid bites.')
+
+# ============================== the two traits, composed ==============================
+
+func test_a_bare_nuckelavee_does_not_poison_itself_after_a_boost():
+	# THE POINT OF THE WHOLE BRANCH, and the one thing neither suite proved on its own:
+	# test_poisoned_soil.gd asserts the trail ARRAY excludes the stopping tile, and every other test
+	# in this file writes its trail with _foul(), which never runs action_poisoned_soil_lay.gd. So
+	# the producer and the consumer were each correct in isolation with nothing showing they compose.
+	#
+	# A real boost, a real move, a real lay - then a real turn start on the tile it stopped on.
+	# Bulwark Mods is deliberately NOT equipped: the frame must be safe here without it, because that
+	# system is an optional purchase and needing it was the bug this branch fixed.
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+	assert_eq(nuckelavee.tile(), Vector2i(2, 0), 'It actually moved, so the trail is real.')
+
+	var trail:Array[Vector2i] = PoisonedSoil.read_trail(soil_gear)
+	assert_false(trail.is_empty(), 'A trail was laid - otherwise there is nothing to be safe from.')
+	assert_false(trail.has(nuckelavee.tile()), 'And it does not include the tile it stopped on.')
+
+	await SpecFactory.end_turn(game, nuckelavee)
+	game.map.game_core.round_count += 1
+	var before:int = _health(nuckelavee)
+	await SpecFactory.start_turn(game, nuckelavee)
+	assert_eq(_health(nuckelavee), before, 'Waking up where it stopped costs nothing.')
+
+func test_but_a_nuckelavee_that_walks_back_onto_its_own_fresh_trail_is_bitten():
+	# The paired control. Without it the test above passes just as well against a Caustic Earth that
+	# never fires at all, or a Poisoned Soil that lays nothing.
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	await SpecFactory.move(game, nuckelavee, Vector2i(2, 0))
+
+	var trail:Array[Vector2i] = PoisonedSoil.read_trail(soil_gear)
+	assert_true(trail.has(Vector2i(1, 0)), 'The tile it crossed IS fouled.')
+
+	var before:int = _health(nuckelavee)
+	await SpecFactory.move(game, nuckelavee, Vector2i(1, 0))
+	assert_eq(nuckelavee.tile(), Vector2i(1, 0), 'It actually stepped back onto the trail.')
+	assert_eq(_health(nuckelavee), before - 1, 'Its own filth burns it.')

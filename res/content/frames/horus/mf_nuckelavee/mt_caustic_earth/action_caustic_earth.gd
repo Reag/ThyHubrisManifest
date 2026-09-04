@@ -28,7 +28,7 @@ extends ActionReactionOnComingWithin
 ## Bookkeeping, not an ability the pilot uses - keep it out of the trait's tooltip.
 ##
 ## Action.show_in_tooltip returns TRUE for any trait reaction whose KIT carries a trigger row
-## (action.gd:341-342). mt_caustic_earth's trigger row is empty today, so this changes nothing right
+## (action.gd:343-344). mt_caustic_earth's trigger row is empty today, so this changes nothing right
 ## now - it stops one future localization row from silently advertising this reaction as a separate
 ## ability, which is exactly what happened to all four Poisoned Soil actions and had to be fixed
 ## after playtest. The kit's own name and effect text are unaffected; they do not come from here.
@@ -44,8 +44,11 @@ const DAMAGE_TYPE:Lancer.DAMAGE_TYPE = Lancer.DAMAGE_TYPE.ENERGY
 # ============================== the two seams ==============================
 #
 # The core power (The Desperate Clawing Hands Of The Dead) promises "Caustic Earth loses its 1/round
-# limit for hostile characters and applies to all |difficult terrain|". That is a change to exactly
-# these two methods and nothing else. Deliberately no flag and no state until it exists.
+# limit for hostile characters and applies to all |difficult terrain|". The "applies to all difficult
+# terrain" half is a change to exactly these two methods and nothing else; the "loses its 1/round
+# limit for hostile characters" half lands on the inline limiter in triggers_on_event below (the
+# can_only_affect_a_unit_once_per_round and has_unit_already_been_affected line) - a third place,
+# not extracted into its own method. Deliberately no flag and no state until it exists.
 
 ## SEAM 1 - which tiles are caustic. Today: difficult terrain this unit's own gear projects.
 ##
