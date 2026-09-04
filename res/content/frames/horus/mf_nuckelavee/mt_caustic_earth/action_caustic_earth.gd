@@ -45,10 +45,14 @@ const DAMAGE_TYPE:Lancer.DAMAGE_TYPE = Lancer.DAMAGE_TYPE.ENERGY
 #
 # The core power (The Desperate Clawing Hands Of The Dead) promises "Caustic Earth loses its 1/round
 # limit for hostile characters and applies to all |difficult terrain|". The "applies to all difficult
-# terrain" half is a change to exactly these two methods and nothing else; the "loses its 1/round
-# limit for hostile characters" half lands on the inline limiter in triggers_on_event below (the
-# can_only_affect_a_unit_once_per_round and has_unit_already_been_affected line) - a third place,
-# not extracted into its own method. Deliberately no flag and no state until it exists.
+# terrain" half is a change to exactly these two methods and nothing else.
+#
+# The "loses its 1/round limit for hostile characters" half lands on NEITHER seam. It has to touch
+# BOTH places the limiter is enforced: the has_unit_already_been_affected gate in triggers_on_event,
+# and the record_unit_affected_and_abort_if_already_affected call in activate. Those two are not
+# redundant - see activate's own comment for why - so relaxing one and not the other would leave the
+# limit in force. Not extracted into a seam of its own, deliberately: no flag and no state until the
+# core power exists to need them.
 
 ## SEAM 1 - which tiles are caustic. Today: difficult terrain this unit's own gear projects.
 ##
