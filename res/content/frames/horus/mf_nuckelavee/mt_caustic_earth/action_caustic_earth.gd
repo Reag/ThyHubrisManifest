@@ -73,6 +73,12 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 
 	if triggers_only_on_characters and not victim.is_character(): return false
 
+	# "Characters can take this damage 1/round." The base class stores this as a hidden
+	# buff_track_affection on the VICTIM, stamped with our kit's compcon_id and expiring at
+	# UNTIL.START_OF_TURN. once_per_round_is_specific_to_gear stays false, matching vanilla and the
+	# text's unqualified "1/round" - two Nuckelavees' acid still bites a given character only once.
+	if can_only_affect_a_unit_once_per_round and has_unit_already_been_affected(gear, victim): return false
+
 	var caustic:Array[Vector2i] = get_caustic_tiles(unit)
 	if caustic.is_empty(): return false
 	for tile:Vector2i in victim.occupied_tiles():
@@ -82,6 +88,12 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 func activate(context:Context, activation:EventCore) -> void:
 	var victim:Unit = activation.context.event.context.unit
 	var specific := SpecificAction.from_context(context)
+
+	# Stamps the victim and bails if someone else already did this round. Checked here as well as in
+	# triggers_on_event because reactions are queued as a block and resolved later: two units can
+	# both pass the gate before either activates.
+	if record_unit_affected_and_abort_if_already_affected(activation, victim): return
+
 	CommonActionUtil.queue_damage_events(
 		activation, specific, [victim],
 		DAMAGE, DAMAGE_TYPE, [EventService.DAMAGE_FLAG.AP],

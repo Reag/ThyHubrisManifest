@@ -107,3 +107,74 @@ func test_starting_a_turn_on_clean_ground_costs_nothing():
 	var before:int = _health(victim)
 	await SpecFactory.start_turn(game, victim)
 	assert_eq(_health(victim), before, 'Its own tile is clean, so nothing happens.')
+
+# ============================== 1/round, per CHARACTER ==============================
+
+func test_two_different_characters_both_take_it_in_one_round():
+	# "1/round" is per CHARACTER. This pins that it is not accidentally per NUCKELAVEE.
+	#
+	# It passes without any code change, and that is worth explaining rather than deleting.
+	# ActionReactionOnComingWithin overrides get_per_round_hard_limit to
+	# `99 if can_trigger_any_number_of_times_per_round else 1` (:36-37), ignoring consumes_rxn, and
+	# is_under_per_round_limit really is consulted on every trigger check
+	# (ReactionBus.does_reaction_trigger -> can_activate_gear -> unit_action.gd:170). But it counts
+	# GearCore.uses_this_round, and NOTHING increments that for this action: the only writer is
+	# increment_action_usage_for_action at unit_action.gd:279, reached only via
+	# UnitAction.spend_actions_gain_heat, which an action reaches only by calling
+	# Action.spend_actions(activation) from its own activate (action.gd:143-146). That call is
+	# opt-in, and neither we nor vanilla's action_apocalypse_burn.gd make it.
+	#
+	# So the cap is LATENT, not active - the trait is one added spend_actions call away from
+	# collapsing this rule into 1/round-per-Nuckelavee. can_trigger_any_number_of_times_per_round
+	# closes that door permanently, and this test is what would notice if it ever opened.
+	#
+	# Two fouled tiles, one each: the first character is still standing on its own when the second
+	# moves, so they cannot share one. Both inside the 5x5 default map.
+	const SECOND_ACID := Vector2i(3, 2)
+	_foul([ACID, SECOND_ACID])
+	var second := SpecFactory.create_unit(game.map, Vector2i(4, 2), Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(second)
+
+	await SpecFactory.start_turn(game, victim)
+	var victim_before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), victim_before - 1, 'The first character took it.')
+	await SpecFactory.end_turn(game, victim)
+
+	await SpecFactory.start_turn(game, second)
+	var second_before:int = _health(second)
+	await SpecFactory.move(game, second, SECOND_ACID)
+	assert_eq(_health(second), second_before - 1,
+		'And so did the second - the limit is per character, not per Nuckelavee.')
+
+func test_the_same_character_only_takes_it_once_in_a_round():
+	# "Characters can take this damage 1/round." Two fouled tiles, one continuous walk across both.
+	# Only meaningful now the round cap is lifted - before Task 4 step 3 this passed for the wrong
+	# reason.
+	# ACID is (3,0), so the second fouled tile is (2,0) - one further west, still on the map.
+	_foul([ACID, Vector2i(2, 0)])
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), before - 1, 'The first fouled tile bit.')
+	await SpecFactory.move(game, victim, Vector2i(2, 0))
+	assert_eq(_health(victim), before - 1, 'The second one did not - once per round.')
+
+func test_the_limit_lifts_on_the_characters_next_turn():
+	# buff_track_affection expires at Lancer.UNTIL.START_OF_TURN, cleared by
+	# UnitCondition.new_turn_for_statuses inside event_turn_start's handle_starting_unit - which runs
+	# BEFORE the NEW_TURN POST reactions are queued, so a character that walks out and comes back
+	# next round takes it again.
+	_foul([ACID])
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), before - 1, 'Taken this round.')
+	await SpecFactory.move(game, victim, VICTIM_TILE)
+	await SpecFactory.end_turn(game, victim)
+
+	# A round boundary the cheap way, as test_poisoned_soil.gd and test_dhiyed_observation.gd do it.
+	game.map.game_core.round_count += 1
+	await SpecFactory.start_turn(game, victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), before - 2, 'And again the next round.')

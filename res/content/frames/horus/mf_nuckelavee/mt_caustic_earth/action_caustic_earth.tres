@@ -8,3 +8,5 @@ when_enter_within = true
 when_start_turn_within = true
 triggers_on = Array[StringName]([&"step", &"new_turn"])
 consumes_rxn = false
+can_trigger_any_number_of_times_per_round = true
+can_only_affect_a_unit_once_per_round = true
