@@ -50,3 +50,19 @@ func get_damage_dice(gear:GearCore = null) -> String:
 ## would let a DAZED mech fire Acid Spill when a genuine free action must not be usable.
 func get_action_type(specific:SpecificAction) -> Lancer.ACTION:
 	return Lancer.ACTION.FREE
+
+## Uncapped, on the designer's explicit call: every qualifying boost offers the spill.
+##
+## This override exists BECAUSE of the one above, and the pairing is the whole point.
+## Action.get_per_round_hard_limit (action.gd:156-158) is `if get_action_cost(specific) <=
+## ACTION_COST_FREE: return 1` - a naturally free action defaults to ONCE PER ROUND. So declaring
+## the correct action type silently imposed the wrong usage limit, and a boost/move/boost/move turn
+## fired the spill once and then did nothing at all the second time. Found in play, not by the suite:
+## test_two_boosts_in_one_round_both_offer_the_spill was asserting the FIRE REACTION's limit, which
+## is a different object and was never the one refusing.
+##
+## ActionReaction does the same thing for the same reason and says so at action_reaction.gd:43 -
+## "this will make the cost FREE, which makes the per-round hard limit is 1; can override that if we
+## need more". 99 is the engine's own value for "no natural hard limit".
+func get_per_round_hard_limit(specific:SpecificAction) -> int:
+	return 99

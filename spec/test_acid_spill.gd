@@ -360,10 +360,36 @@ func test_an_involuntary_move_after_a_boost_does_not_fire_it():
 		'The reaction never ran, so the arm survived the involuntary move.')
 
 func test_two_boosts_in_one_round_both_offer_the_spill():
-	# Uncapped, by the designer's call. ActionReaction.get_per_round_hard_limit already returns 99
-	# for a reaction that does not consume the reaction economy, so this is the default - the test
-	# exists to stop someone "tidying up" by adding a 1/round limit later.
-	assert_gt(_fire_action().get_per_round_hard_limit(_spill_action()), 1, 'Acid Spill is not once per round.')
+	# Uncapped, by the designer's call.
+	#
+	# This test used to assert the FIRE REACTION's limit, which is a different object and was never
+	# the one refusing - so it stayed green while the game capped the spill at one per round. The
+	# WEAPON is what gets refused: Action.get_per_round_hard_limit (action.gd:156-158) returns 1 for
+	# any action whose natural cost is free, and Acid Spill declares itself FREE. Assert BOTH, since
+	# either alone would have missed the real bug.
+	assert_gt(_fire_action().get_per_round_hard_limit(_spill_action()), 1, 'The trigger is not once per round.')
+	assert_gt(_spill_action().action.get_per_round_hard_limit(_spill_action()), 1, 'And neither is the weapon.')
+
+func test_a_second_charge_in_one_round_actually_fires():
+	# Found in play, not by this suite: a boost/move/boost/move turn spilled once and then did
+	# nothing. Terrain alone cannot catch it - action_acid_spill_fire.gd writes the trail from
+	# `if qualifies:` whether or not choose_and_use actually resolved an attack, so the ground still
+	# gets fouled by a spill that never fired. Heat is the cheapest proof the ATTACK happened, since
+	# only the weapon's own self_heat_dice spends it.
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	var first_speed:int = AcidSpill.read_boost_speed(cp_gear)
+	await SpecFactory.move(game, nuckelavee, START + Vector2i(first_speed, 0))
+
+	nuckelavee.core.current.heat = 0
+	nuckelavee.state.has_normal_boost = true # a real second boost would come from Overcharge
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	var second_speed:int = AcidSpill.read_boost_speed(cp_gear)
+	var second_origin:Vector2i = nuckelavee.tile()
+	# Perpendicular, so the second charge stays on the map rather than running off the east edge.
+	await SpecFactory.move(game, nuckelavee, second_origin + Vector2i(0, second_speed))
+
+	assert_eq(nuckelavee.core.current.heat, 1, 'The second charge in the same round fired too.')
 
 func test_firing_the_spill_costs_one_heat():
 	# self_heat_dice = "1" on action_acid_spill.tres is a designer-specified cost - nothing else in
