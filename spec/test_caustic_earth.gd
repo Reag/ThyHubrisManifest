@@ -351,3 +351,67 @@ func test_but_a_nuckelavee_that_walks_back_onto_its_own_fresh_trail_is_bitten():
 	await SpecFactory.move(game, nuckelavee, Vector2i(1, 0))
 	assert_eq(nuckelavee.tile(), Vector2i(1, 0), 'It actually stepped back onto the trail.')
 	assert_eq(_health(nuckelavee), before - 1, 'Its own filth burns it.')
+
+# ============================== the acid is terrain, not an attacker ==============================
+
+func test_an_ally_walking_into_the_acid_is_not_treated_as_friendly_fire():
+	# Playtest 2026-09-04: an ally entering the trail set off the friendly-fire barks, as though the
+	# Nuckelavee had shot it. It had not - it laid ground, and somebody walked onto it.
+	#
+	# The cause was attribution. CommonActionUtil.generate_damage_events sets
+	# `target_unit = specific.unit` ("who has done this", common_action_util.gd:96),
+	# event_unit_damage.gd:83 reads that back as `damaging_unit`, and :192 hands it to
+	# UnitBark.handle_damage, which fires friendly_fire_self + friendly_fire_target for any damager
+	# that is an ally of the damaged unit (unit_bark.gd:76-80).
+	#
+	# Vanilla's own environmental damage never does this: event_map_dangerous.gd queues
+	# event_unit_damage with unit, number and category only - no attribution, so no damager, so no
+	# bark. Ours now does the same.
+	var ally := SpecFactory.create_unit(game.map, Vector2i(3, 1), Faction.PLAYER)
+	SpecFactory.apply_passive_buffs(ally)
+	assert_true(UnitRelation.are_allies(nuckelavee, ally), 'Fixture check: it really is an ally.')
+
+	_foul([ACID])
+	await SpecFactory.start_turn(game, ally)
+	var before:int = _health(ally)
+	await SpecFactory.move(game, ally, ACID)
+
+	assert_eq(ally.tile(), ACID, 'It actually crossed.')
+	assert_eq(_health(ally), before - 1, 'The acid does not spare allies - only the DIALOGUE was wrong.')
+
+func test_the_damage_event_names_no_attacker():
+	# The cause of the bark, asserted directly, because the SYMPTOM cannot be reproduced in a spec:
+	# SpecFactory pilots are created by PilotCore.create() with no barkset, so pilot.get_bark_for
+	# never records anything and unit.state.played_barks stays empty however wrong the attribution
+	# is. Measured, not assumed - a version of this test asserting on played_barks passed against
+	# the unfixed code. Same class of invisible-to-specs bug as the trail's missing fx.
+	#
+	# So this is white-box on purpose, and it is the only assertion available that can actually fail.
+	var specific := SpecificAction.from_id(nuckelavee, CAUSTIC_ID)
+	var event:EventCore = specific.action.build_damage_event(specific, victim)
+
+	# event_unit_damage.gd:83 is literally `var damaging_unit:Unit = context.target_unit`, so this is
+	# the exact value that decides whether a bark fires. (Context.PROP has target_uniTS, plural, and
+	# no singular member - is_property_present(PROP.target_unit) is a PARSE error, which GUT answers
+	# by skipping this entire file while the suite still reads green. Found that way.)
+	assert_false(Unit.is_valid(event.context.target_unit),
+		'No damaging unit - terrain is not an attacker, and a named one triggers friendly-fire barks.')
+	assert_eq(event.context.number, 1, 'Still one point.')
+	assert_eq(event.context.category_int, Lancer.DAMAGE_TYPE.ENERGY, 'Still ENERGY.')
+	assert_true(event.context.flags.has(EventService.DAMAGE_FLAG.AP), 'Still armour-piercing.')
+	assert_false(event.context.flags.has(EventService.DAMAGE_FLAG.SELF_INFLICTED),
+		'And damage to somebody else is not self-inflicted.')
+
+func test_the_frame_burning_itself_is_still_flagged_self_inflicted():
+	# The one thing worth keeping from CommonActionUtil.generate_damage_events, which set this by
+	# comparing the target against specific.unit. Real gear keys on it - buff_flash_aegis.gd:7 and
+	# action_weak_grunt.gd:20 skip self-inflicted damage, cb_armory_sculpted_chassis only fires on
+	# it, and buff_resist_damage.gd:44 gates on resist_self_inflicted - so dropping it while dropping
+	# the attribution would have been a silent second change riding along with the first.
+	var specific := SpecificAction.from_id(nuckelavee, CAUSTIC_ID)
+	var event:EventCore = specific.action.build_damage_event(specific, nuckelavee)
+
+	assert_true(event.context.flags.has(EventService.DAMAGE_FLAG.SELF_INFLICTED),
+		'Walking into your own acid is self-inflicted.')
+	assert_false(Unit.is_valid(event.context.target_unit),
+		'But still nobody attacked anybody.')

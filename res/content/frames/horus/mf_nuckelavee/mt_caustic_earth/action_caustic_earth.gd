@@ -128,7 +128,38 @@ func activate(context:Context, activation:EventCore) -> void:
 	# both pass the gate before either activates.
 	if record_unit_affected_and_abort_if_already_affected(activation, victim): return
 
-	CommonActionUtil.queue_damage_events(
-		activation, specific, [victim],
-		DAMAGE, DAMAGE_TYPE, [EventService.DAMAGE_FLAG.AP],
-	)
+	activation.queue_events([build_damage_event(specific, victim)] as Array[EventCore])
+
+## The acid is TERRAIN, not an attacker, and the damage event has to say so.
+##
+## Built by hand rather than through CommonActionUtil.queue_damage_events, which always sets
+## `target_unit = specific.unit` - "let the damage event know WHO has done this"
+## (common_action_util.gd:96). event_unit_damage.gd:83 reads that back as `damaging_unit` and :192
+## hands it to UnitBark.handle_damage, which fires friendly_fire_self + friendly_fire_target whenever
+## the damager is an ALLY of the damaged unit (unit_bark.gd:76-80). Playtest 2026-09-04: an ally
+## stepping into the trail set off the whole apology exchange, as though the Nuckelavee had shot it.
+##
+## Vanilla's own environmental damage omits the attribution for exactly this reason -
+## event_map_dangerous.gd queues event_unit_damage with unit, number and category and nothing else.
+## We follow it. No damager means no friendly-fire bark BY CONSTRUCTION, rather than by suppressing a
+## symptom.
+##
+## It also, deliberately, means a DAMAGE-triggered reaction cannot retaliate against the Nuckelavee
+## for acid damage, and the acid finishing an enemy earns no destroy_target bark. Both are right:
+## there is nothing to shoot back at, and dangerous terrain behaves the same way.
+##
+## `gear` and `action` are kept - they feed the battle log and damage modifications, and neither
+## reaches UnitBark. The one thing worth preserving from the helper is SELF_INFLICTED, which real
+## gear keys on (buff_flash_aegis.gd:7, cb_armory_sculpted_chassis, action_weak_grunt.gd:20, and
+## buff_resist_damage.gd:44's resist_self_inflicted), so it is re-added by hand.
+func build_damage_event(specific:SpecificAction, victim:Unit) -> EventCore:
+	var flags:Array = [EventService.DAMAGE_FLAG.AP]
+	if victim == specific.unit: flags.append(EventService.DAMAGE_FLAG.SELF_INFLICTED)
+	return EventCore.create(&'event_unit_damage', {
+		unit = victim,
+		number = DAMAGE,
+		category = DAMAGE_TYPE,
+		gear = specific.gear,
+		action = specific.action,
+		flags = flags,
+	})
