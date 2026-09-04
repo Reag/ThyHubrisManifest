@@ -9,15 +9,22 @@ gear.buff_infection.name,Infection
 gear.buff_infection.effect,"Infection works similarly to Burn, but applies Heat instead of damage.
 When characters take Infection, they immediately take an equal amount of Heat, and mark down how much Infection they received. If a character already has Infection, additional Infection is added on top of what they already had. At the end of their turn, Infected characters must roll a Systems check. On a success, they clear all Infection; otherwise, they take Heat equal to the amount of Infection currently marked.
 If an action would clear BURN, such as stabilize, it also clears INFECTION"
-gear.mt_spreading_stain.name,
+gear.mt_spreading_stain.name,The Spreading Stain
 gear.mt_spreading_stain.effect,
 gear.mt_spreading_stain.trigger,
-gear.mt_raging_plague.name,
+gear.mt_raging_plague.name,The Raging Plauge
 gear.mt_raging_plague.effect,
 gear.mt_raging_plague.trigger,
-gear.mt_seeping_rot.name,
+gear.mt_seeping_rot.name,The Seeping Rot
 gear.mt_seeping_rot.effect,
 gear.mt_seeping_rot.trigger,
+gear.cp_cupiditas_vitae.name,CUPIDITAS VITAE
+gear.cp_cupiditas_vitae.flavor,"TO YOU ABOVE: if you will not grant us life, then we have no choice but to take it."
+gear.cp_cupiditas_vitae.action_ceaseless_death.name,The Ceaseless Death
+gear.cp_cupiditas_vitae.action_ceaseless_death.effect,
+gear.cp_cupiditas_vitae.action_plague_vent_disperal.name,Plague-Vent Dispersal
+gear.cp_cupiditas_vitae.action_plague_vent_disperal.effect,
+,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)
 LOCATION: Himalaya-Annapurna, Agni-Cabalia1
