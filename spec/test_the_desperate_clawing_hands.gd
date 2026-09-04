@@ -68,8 +68,13 @@ func test_the_protocol_applies_the_buff_and_spends_the_core():
 	assert_false(nuckelavee.core.has_core_power, 'And spent the core doing it.')
 
 func test_the_buff_does_not_stack():
-	# can_reapply = false. Two activations must not leave two buffs behind, or every "is it on" check
-	# still works while anything counting them silently doubles.
+	# Two activations must not leave two buffs behind, or every "is it on" check still works while
+	# anything counting them silently doubles.
+	#
+	# The lever is Buff.multiple_copies_can_stack (buff.gd:131, default false), consulted at
+	# unit_condition.gd:740 - NOT the action's can_reapply, which only gates whether the protocol can
+	# be clicked again. This test applies the buff directly and never touches the action, so
+	# can_reapply is not what it is measuring.
 	await SpecFactory.start_turn(game, nuckelavee)
 	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
 	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
