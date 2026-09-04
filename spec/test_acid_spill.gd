@@ -1,0 +1,124 @@
+# Acid Spill - the free half of Truth in Filth, the Nuckelavee's core power.
+#
+#   "This weapon may only be used as a |free action| after you |BOOST|, and deals damage equal to
+#    half the distance moved. If you |BOOST| your full speed in a straight line, the attack area
+#    becomes difficult terrain which lasts until you create terrain this way again"
+#
+# Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-04-acid-spill-design.md
+#
+# Acid Spill keeps its OWN trail, separate from Poisoned Soil's. Several tests below exist only to
+# pin that separation, because sharing storage was a live design option and the two traits fire on
+# the same event.
+extends GutTest
+
+const AcidSpill := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/passive_acid_spill.gd')
+
+const CP_ID := &'cp_truth_in_filth'
+const START := Vector2i(0, 0)
+## Directly east of START, so a clean move onto it costs exactly 1 and a fouled one exactly 2.
+const NEIGHBOUR := Vector2i(1, 0)
+
+var game:Gamemaster
+var nuckelavee:Unit
+var cp_gear:GearCore
+
+func before_each():
+	game = SpecFactory.setup_gamemaster(self)
+	nuckelavee = SpecFactory.create_unit(game.map, START)
+	cp_gear = nuckelavee.core.equip_system(CP_ID)
+	SpecFactory.apply_passive_buffs(nuckelavee)
+
+## Writing gear state does NOT refresh the map - GearCore.set_state only touches the dictionary.
+func _refresh_terrain() -> void:
+	UnitTile.update_tracking_and_statuses(game.map)
+
+func _move_options(mover:Unit) -> Pathfinder:
+	return await Pathfinder.generate_for_standard_move(mover, MovementType.create_for_standard_move(mover), false)
+
+func _cost_to(mover:Unit, tile:Vector2i) -> int:
+	var options := await _move_options(mover)
+	var path:Array[Pathfinder.Step] = options.path_to(tile)
+	if path.is_empty(): return -1
+	return path.back().cost
+
+# ============================== the terrain patch ==============================
+
+func test_a_clean_neighbouring_tile_costs_one():
+	# The control. Without it the next test cannot tell "difficult terrain works" from "every tile
+	# around here costs 2".
+	await SpecFactory.start_turn(game, nuckelavee)
+	assert_eq(await _cost_to(nuckelavee, NEIGHBOUR), 1, 'Stepping one space onto clean ground costs 1.')
+
+func test_a_tile_in_the_spill_costs_two():
+	# The whole mechanism in one assertion: a trail written onto the core power's gear reaches the
+	# pathfinder as real difficult terrain.
+	AcidSpill.write_trail(cp_gear, [NEIGHBOUR] as Array[Vector2i])
+	_refresh_terrain()
+	await SpecFactory.start_turn(game, nuckelavee)
+	assert_eq(await _cost_to(nuckelavee, NEIGHBOUR), 2, 'Stepping into the spill costs double.')
+
+func test_clearing_the_spill_puts_the_cost_back():
+	# Vacuity guard: proves the spill is what made it difficult, not something pre-existing.
+	AcidSpill.write_trail(cp_gear, [NEIGHBOUR] as Array[Vector2i])
+	_refresh_terrain()
+	AcidSpill.write_trail(cp_gear, [] as Array[Vector2i])
+	_refresh_terrain()
+	await SpecFactory.start_turn(game, nuckelavee)
+	assert_eq(await _cost_to(nuckelavee, NEIGHBOUR), 1, 'Clearing the spill makes the ground clean again.')
+
+func test_a_new_spill_replaces_the_old_one():
+	# "lasts until you create terrain this way again" - replacing the array IS the expiry.
+	AcidSpill.write_trail(cp_gear, [NEIGHBOUR] as Array[Vector2i])
+	AcidSpill.write_trail(cp_gear, [Vector2i(2, 2)] as Array[Vector2i])
+	assert_eq(AcidSpill.read_trail(cp_gear), [Vector2i(2, 2)], 'The second spill replaced the first, it did not add to it.')
+
+# ============================== the state contract ==============================
+
+func test_pending_preserves_duplicates():
+	# THE difference from Poisoned Soil, which de-dupes because it is building a set of tiles for
+	# terrain. Acid Spill needs a COUNT of steps, so a path that crosses itself must count twice.
+	AcidSpill.write_pending(cp_gear, [NEIGHBOUR, START, NEIGHBOUR] as Array[Vector2i])
+	assert_eq(AcidSpill.read_pending(cp_gear).size(), 3, 'Revisiting a tile is two steps, not one.')
+
+func test_damage_is_half_the_steps_rounded_down():
+	AcidSpill.write_pending(cp_gear, [] as Array[Vector2i])
+	assert_eq(AcidSpill.damage_for(cp_gear), 0, 'No movement, no damage.')
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0)] as Array[Vector2i])
+	assert_eq(AcidSpill.damage_for(cp_gear), 0, 'One tile halves to zero.')
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0)] as Array[Vector2i])
+	assert_eq(AcidSpill.damage_for(cp_gear), 1, 'Two tiles is 1 damage.')
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0), Vector2i(3,0), Vector2i(4,0), Vector2i(5,0)] as Array[Vector2i])
+	assert_eq(AcidSpill.damage_for(cp_gear), 2, 'Five tiles rounds DOWN to 2, not up to 3.')
+
+func test_the_origin_tile_is_not_in_the_pending_buffer():
+	# AoeCalculator.line returns rings 1..length and excludes its own origin, so the buffer must too
+	# or is_straight_full_speed can never match. Poisoned Soil seeds WITH the start tile; we must not.
+	AcidSpill.write_origin(cp_gear, START)
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0)] as Array[Vector2i])
+	assert_false(AcidSpill.read_pending(cp_gear).has(START), 'The origin is stored separately, not in the path.')
+
+func test_a_straight_run_of_full_boost_speed_qualifies():
+	AcidSpill.write_origin(cp_gear, START)
+	AcidSpill.write_boost_speed(cp_gear, 3)
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0), Vector2i(3,0)] as Array[Vector2i])
+	assert_true(AcidSpill.is_straight_full_speed(cp_gear, game.map.shape), 'Three straight tiles at boost speed 3 qualifies.')
+
+func test_a_bent_path_does_not_qualify():
+	AcidSpill.write_origin(cp_gear, START)
+	AcidSpill.write_boost_speed(cp_gear, 3)
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0), Vector2i(2,1)] as Array[Vector2i])
+	assert_false(AcidSpill.is_straight_full_speed(cp_gear, game.map.shape), 'Turning a corner is not a straight line.')
+
+func test_a_short_run_does_not_qualify():
+	AcidSpill.write_origin(cp_gear, START)
+	AcidSpill.write_boost_speed(cp_gear, 3)
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,0), Vector2i(2,0)] as Array[Vector2i])
+	assert_false(AcidSpill.is_straight_full_speed(cp_gear, game.map.shape), 'Stopping short of boost speed is not a full-speed charge.')
+
+func test_a_diagonal_charge_qualifies():
+	# Ramjet's own math (AoeCalculator.line) is angle-based, not cardinal-only. A diagonal charge is
+	# as straight as an orthogonal one, and the intended pairing must not disagree with the frame.
+	AcidSpill.write_origin(cp_gear, START)
+	AcidSpill.write_boost_speed(cp_gear, 3)
+	AcidSpill.write_pending(cp_gear, [Vector2i(1,1), Vector2i(2,2), Vector2i(3,3)] as Array[Vector2i])
+	assert_true(AcidSpill.is_straight_full_speed(cp_gear, game.map.shape), 'A diagonal run is a straight line.')
