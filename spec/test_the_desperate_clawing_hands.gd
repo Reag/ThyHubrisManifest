@@ -233,7 +233,7 @@ func test_a_passed_hull_save_leaves_them_free_but_still_hurt():
 
 # ============================== bullet 2: the cost of leaving ==============================
 
-## A free corner, diagonally opposite the Nuckelavee at (0,0) and clear of the bystander at (4,4).
+## A free corner - the Nuckelavee holds (0,0) and the bystander (4,4), so this one is unoccupied.
 ## A CORNER matters: on a 5x5 map a mover standing centrally can already reach every tile, so trimming
 ## its reach by one would change nothing and these tests would pass vacuously. From a corner there
 ## really are tiles at maximum distance for the penalty to take away.
