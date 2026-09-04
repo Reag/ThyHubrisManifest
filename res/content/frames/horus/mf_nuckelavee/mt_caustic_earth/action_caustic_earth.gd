@@ -57,8 +57,8 @@ func get_caustic_tiles(nuckelavee:Unit) -> Array[Vector2i]:
 ##
 ## Because the step's own MovementType is not consulted, knocking or pulling a character across the
 ## acid DOES hurt them. That is deliberate and is designed play, not a side effect.
-func is_exempt(_victim:Unit) -> bool:
-	return false
+func is_exempt(victim:Unit) -> bool:
+	return MovementType.create(victim).ignores_difficult_terrain()
 
 # ============================== the trigger ==============================
 
@@ -78,6 +78,7 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	# UNTIL.START_OF_TURN. once_per_round_is_specific_to_gear stays false, matching vanilla and the
 	# text's unqualified "1/round" - two Nuckelavees' acid still bites a given character only once.
 	if can_only_affect_a_unit_once_per_round and has_unit_already_been_affected(gear, victim): return false
+	if is_exempt(victim): return false
 
 	var caustic:Array[Vector2i] = get_caustic_tiles(unit)
 	if caustic.is_empty(): return false

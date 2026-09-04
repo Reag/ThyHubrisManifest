@@ -178,3 +178,61 @@ func test_the_limit_lifts_on_the_characters_next_turn():
 	await SpecFactory.start_turn(game, victim)
 	await SpecFactory.move(game, victim, ACID)
 	assert_eq(_health(victim), before - 2, 'And again the next round.')
+
+# ============================== who walks over it untouched ==============================
+
+func test_a_flying_character_crosses_free():
+	_foul([ACID])
+	SpecFactory.apply(victim, Lancer.STATUS.FLYING)
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), before, 'It is over the ground, not in it.')
+
+func test_bulwark_mods_carries_its_wearer_over_the_acid_free():
+	# The designed pair. ms_bulwark_mods is RANK 1 of the license the Nuckelavee clones - a 1 SP
+	# always-on BuffMovementType with ignore_difficult = true - and
+	# MovementType.ignores_difficult_terrain() consumes exactly that flag. The license's first
+	# unlock is the answer to the frame's own ground. Asserted so nobody later "fixes" the
+	# self-damage test by exempting the owner instead.
+	#
+	# Both halves run against the SAME fouled tile in this one test on purpose: run it alone with
+	# --gut-test= and it still has to show the acid bites somebody before "Bulwark Mods is exempt"
+	# means anything. Without that, a completely dead reaction passes this.
+	_foul([ACID])
+
+	# Starts directly south of ACID (3,0), so one step reaches it and one step retreats.
+	var bare := SpecFactory.create_unit(game.map, Vector2i(3, 1), Faction.AI_ENEMY)
+	SpecFactory.apply_passive_buffs(bare)
+	await SpecFactory.start_turn(game, bare)
+	var bare_before:int = _health(bare)
+	await SpecFactory.move(game, bare, ACID)
+	assert_eq(_health(bare), bare_before - 1, 'A mover without the system still takes it.')
+	await SpecFactory.move(game, bare, Vector2i(3, 1))
+	await SpecFactory.end_turn(game, bare)
+
+	victim.core.equip_system(&'ms_bulwark_mods')
+	SpecFactory.apply_passive_buffs(victim)
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await SpecFactory.move(game, victim, ACID)
+	assert_eq(_health(victim), before, 'Bulwark Mods walks over it.')
+
+func test_a_character_knocked_into_the_acid_still_takes_it():
+	# The designer's ruling, and DESIGNED PLAY: several frames carry substantial knockback, and
+	# throwing a target onto the Nuckelavee's ground is intended emergent strategy.
+	#
+	# This is a deliberate asymmetry with Poisoned Soil, where forced movement crosses the trail
+	# free - that was an engine fact inherited from the pathfinder's own
+	# ignores_difficult_terrain(), not a ruling. Here the clause is read as a property of the
+	# CHARACTER, so is_exempt asks MovementType.create(victim) and never the movement that brought
+	# them in. Pinned so nobody later "restores consistency" and deletes the play.
+	_foul([ACID])
+	await SpecFactory.start_turn(game, victim)
+	var before:int = _health(victim)
+	await game.execute_event(&'event_unit_move', {
+		unit = victim,
+		array = [Pathfinder.Step.create(ACID, 1)],
+		resource = MovementType.create_for_involuntary(victim),
+	})
+	assert_eq(_health(victim), before - 1, 'Thrown in is still in.')
