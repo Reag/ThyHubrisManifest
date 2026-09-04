@@ -15,14 +15,13 @@ func show_in_tooltip(_kit:Kit) -> bool: return false
 
 
 const ClawingHands := preload('./buff_the_desperate_clawing_hands.gd')
-const BUFF_ID:StringName = &'buff_the_desperate_clawing_hands'
 const DAMAGE_DICE:String = '1d6'
 
 func get_required_triggering_context() -> Array[Context.PROP]:
 	return [Context.PROP.unit, Context.PROP.category]
 
 func triggers_on_event(unit:Unit, _gear:GearCore, triggering_event:EventCore) -> bool:
-	if not UnitCondition.has_buff(unit, BUFF_ID): return false
+	if not ClawingHands.is_active(unit): return false
 	if triggering_event.context.category != Lancer.STATUS.PRONE: return false
 
 	var victim:Unit = triggering_event.context.unit
@@ -46,8 +45,15 @@ func activate(context:Context, activation:EventCore) -> void:
 	# The save gates the IMMOBILIZED and nothing else - the damage above is unconditional.
 	var made_save:bool = await UnitHasecheck.make_save(activation, victim, specific, Lancer.HASE.HULL)
 	if made_save: return
-	if not Unit.is_valid(victim): return # the damage may have finished it
-	await UnitCondition.apply_status(activation, victim, Lancer.STATUS.IMMOBILIZED, Lancer.UNTIL.END_OF_NEXT_TURN)
+	# NOT "the damage may have finished it" - the damage above is only QUEUED as a child block and
+	# resolves after this method returns. The guard is still worth having for a different reason: the
+	# save is a real awaited event, and anything reacting to it could have removed the victim while we
+	# were suspended.
+	if not Unit.is_valid(victim): return
+	# `source` = the gear's persistent_id, as all four vanilla IMMOBILIZED applications pass
+	# (action_omni_harpoon.gd:57 and friends). Without it the status is unattributed in the battle log
+	# and invisible to any source-keyed clear. No await: UnitCondition.apply_status contains none.
+	UnitCondition.apply_status(activation, victim, Lancer.STATUS.IMMOBILIZED, Lancer.UNTIL.END_OF_NEXT_TURN, specific.gear.persistent_id)
 
 ## The hands are TERRAIN, not an attacker - the same reasoning as Caustic Earth's own damage event,
 ## whose header explains it at length. No damager attributed, so no friendly-fire bark and nothing to

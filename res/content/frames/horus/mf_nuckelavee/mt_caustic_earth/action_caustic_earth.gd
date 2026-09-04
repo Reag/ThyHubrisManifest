@@ -43,11 +43,13 @@ const DAMAGE:int = 1
 const DAMAGE_TYPE:Lancer.DAMAGE_TYPE = Lancer.DAMAGE_TYPE.ENERGY
 
 const ClawingHands := preload('../cp_truth_in_filth/buff_the_desperate_clawing_hands.gd')
-const CLAWING_HANDS_BUFF:StringName = &'buff_the_desperate_clawing_hands'
 
 ## Is the core power's protocol half awake on this frame?
+##
+## Delegates rather than re-asking: the buff id is declared once, on the buff script, and both
+## consumers go through it - a rename of the .tres cannot leave a stale literal behind here.
 func is_clawing_hands_active(nuckelavee:Unit) -> bool:
-	return UnitCondition.has_buff(nuckelavee, CLAWING_HANDS_BUFF)
+	return ClawingHands.is_active(nuckelavee)
 
 # ============================== the seams ==============================
 #

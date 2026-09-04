@@ -13,7 +13,10 @@ const ClawingHands := preload('res://unpacked/Reag-ThyHubris/res/content/frames/
 const PoisonedSoil := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd')
 
 const CP_ID := &'cp_truth_in_filth'
-const BUFF_ID := &'buff_the_desperate_clawing_hands'
+## Taken from the buff script rather than retyped: the id is derived from the .tres FILENAME, and a
+## spec carrying its own copy of the literal would keep passing against a rename that had already
+## disconnected the shipped content.
+const BUFF_ID:StringName = ClawingHands.ID
 const PROTOCOL := &'action_the_desperate_clawing_hands_of_the_dead'
 const START := Vector2i(0, 0)
 ## The map is 5x5. Only the trail this unit projects matters, never where it stands, so it sits in
@@ -60,12 +63,24 @@ func _make_difficult(tile:Vector2i) -> void:
 
 # ============================== the protocol and the switch ==============================
 
+## The protocol as the action bar, the AI and every reaction path see it.
+## ActionSystemApplyBuff.is_available_to_activate:36 is where can_reapply is enforced, and it consults
+## the buff rather than the core power - so this isolates the no-second-activation gate from the
+## separate fact that the core has been spent.
+func _protocol_available() -> bool:
+	return cp_gear.kit.get_action(PROTOCOL).is_available_to_activate(nuckelavee, cp_gear)
+
 func test_the_protocol_applies_the_buff_and_spends_the_core():
 	await SpecFactory.start_turn(game, nuckelavee)
 	assert_true(nuckelavee.core.has_core_power, 'Starts with the core power available.')
+	assert_true(_protocol_available(), 'And the protocol is there to be clicked.')
 	await SpecFactory.use(game, nuckelavee, CP_ID, PROTOCOL)
 	assert_true(UnitCondition.has_buff(nuckelavee, BUFF_ID), 'The protocol woke the hands.')
 	assert_false(nuckelavee.core.has_core_power, 'And spent the core doing it.')
+	# can_reapply = false on the .tres, pinned here through the real availability gate. The test below
+	# measures Buff.multiple_copies_can_stack instead and says so; this is the other half - a protocol
+	# that stayed clickable would re-run the whole activation, popcorn text and all, for nothing.
+	assert_false(_protocol_available(), 'And it cannot be activated a second time.')
 
 func test_the_buff_does_not_stack():
 	# Two activations must not leave two buffs behind, or every "is it on" check still works while
@@ -217,17 +232,32 @@ func test_the_damage_repeats_on_a_second_knockdown_in_one_round():
 	assert_lt(victim.core.current.health, after_first, 'The second knockdown pays too.')
 
 func test_a_failed_hull_save_immobilizes():
-	# The save gates ONLY the IMMOBILIZED - the damage is unconditional. The queue has to carry the
-	# ram's own attack roll first; the trailing 1 is the save, and 1 fails against any target.
+	# The save gates ONLY the IMMOBILIZED - the damage is unconditional.
+	#
+	# THE SLOT ORDER IS [ram attack, hands 1d6, HULL save, spare], not [ram, ram, save, save]: the 1d6
+	# is rolled EAGERLY inside build_damage_event's argument list, so it pops off CHEAT_ROLL_QUEUE
+	# before make_save ever asks. So 20 hits with the ram, 2 is a survivable damage roll, and 1 fails
+	# the HULL save against any target. A 20 in slot 1 would answer the 1d6 instead and deal 20 AP
+	# KINETIC to an 8 HP frame - the assertions below would then be measuring a corpse, which is
+	# exactly what the aliveness check is here to stop happening again quietly.
 	var victim := _hostile_on_bad_ground()
-	# Ram hits on the leading 20s; the trailing 1s are the HULL save, and 1 fails any target.
-	await _ram_prone(victim, Vector2i(1, 0), [20, 20, 1, 1])
+	await _ram_prone(victim, Vector2i(1, 0), [20, 2, 1])
+	assert_true(Unit.is_valid(victim), 'The victim survived the damage, so the save is what we are reading.')
 	assert_true(victim.has_status(Lancer.STATUS.IMMOBILIZED), 'Failed the save, held fast.')
+	# The last unpinned rules constant in this clause: "IMMOBILIZED until the end of their next turn".
+	# has_status alone would pass just as happily against a MANUAL status that never wears off.
+	var held:StatusCondition = UnitCondition.get_status(victim, Lancer.STATUS.IMMOBILIZED)
+	assert_true(is_instance_valid(held), 'The status is a real StatusCondition we can read the duration off.')
+	assert_eq(held.until, Lancer.UNTIL.END_OF_NEXT_TURN, 'Held until the end of its next turn, exactly as written.')
 
 func test_a_passed_hull_save_leaves_them_free_but_still_hurt():
+	# Same slot order as above: [ram attack, hands 1d6, HULL save]. The trailing 20 passes the save;
+	# the 2 keeps the victim alive so "still hurt" is a 2-point graze rather than a 20-point kill that
+	# any bug at all would have satisfied.
 	var victim := _hostile_on_bad_ground()
 	var before:int = victim.core.current.health
-	await _ram_prone(victim, Vector2i(1, 0), [20, 20, 20, 20])
+	await _ram_prone(victim, Vector2i(1, 0), [20, 2, 20])
+	assert_true(Unit.is_valid(victim), 'Still on the map - the damage was survivable, not lethal.')
 	assert_false(victim.has_status(Lancer.STATUS.IMMOBILIZED), 'Made the save, still standing free.')
 	assert_lt(victim.core.current.health, before, 'But the damage was never in question.')
 
@@ -240,11 +270,34 @@ func test_a_passed_hull_save_leaves_them_free_but_still_hurt():
 const MOVER_CORNER := Vector2i(0, 4)
 
 ## Every tile the mover may still END on, under whatever restriction buffs are in play.
-func _reachable(mover:Unit) -> int:
+func _reachable_tiles(mover:Unit) -> Array[Vector2i]:
 	var pathfinder:Pathfinder = await Pathfinder.generate_for_standard_move(
 		mover, MovementType.create_for_standard_move(mover), false
 	)
-	return pathfinder.valid_destinations.size()
+	return pathfinder.valid_destinations
+
+func _reachable(mover:Unit) -> int:
+	return (await _reachable_tiles(mover)).size()
+
+## How many of `tiles` sit further than `radius` from MOVER_CORNER, measured the way the buff measures.
+func _further_than(tiles:Array[Vector2i], radius:int) -> int:
+	var count:int = 0
+	for tile:Vector2i in tiles:
+		if Tile.distance(MOVER_CORNER, tile) > radius: count += 1
+	return count
+
+## Shrinks a mover's speed so the penalty's cap can land INSIDE this map.
+##
+## The cap is `speed + boost - 1` (buff_the_desperate_clawing_hands.gd, get_values). At the fixture's
+## default statblock that is 4 + 4 - 1 = 7, while opposite corners of a 5x5 map are 4 apart - so the
+## trimmed ring falls off the edge of the world and every assertion in this section would pass
+## vacuously. At speed 2 the cap is 3 and the outermost ring is really taken away.
+##
+## Safe per unit: Frame.create_dummy duplicates statblock_default.tres for every unit the factory
+## makes, so nothing here leaks into another test. MUST be called BEFORE start_turn - new_turn_refresh
+## fills current.speed from the statblock.
+func _shrink_speed(unit:Unit, speed:int = 2) -> void:
+	unit.core.frame.stat.speed = speed
 
 func test_a_hostile_starting_on_clean_ground_is_unrestricted():
 	# The control. Without it the next test cannot tell "the penalty applied" from "this mover was
@@ -258,12 +311,47 @@ func test_a_hostile_starting_on_clean_ground_is_unrestricted():
 func test_a_hostile_starting_in_difficult_terrain_reaches_less():
 	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
 	var victim:Unit = SpecFactory.create_unit(game.map, MOVER_CORNER, Faction.AI_ENEMY)
+	_shrink_speed(victim) # or the cap lands past the edge of the map and there is nothing to trim
 	await SpecFactory.start_turn(game, victim)
 	var free:int = await _reachable(victim)
 
 	_make_difficult(MOVER_CORNER)
 	var taxed:int = await _reachable(victim)
 	assert_lt(taxed, free, 'Leaving the muck costs it reach.')
+
+func test_the_penalty_costs_one_movement_point_and_not_the_whole_boost():
+	# THE clause's cost, and the one thing assert_lt above cannot see: it is satisfied just as well by
+	# a penalty that deletes every tile past speed - 1, which is not "one movement point" at all - it
+	# is the mover's entire boost. A speed-4 hostile that normally reaches 8 with a boost would be held
+	# to 3. That is a whole-ability nerf, in the restrictive direction this clause committed against,
+	# and it shipped invisibly because nothing measured WHERE the trimmed ring falls.
+	#
+	# The restriction array is intersected at pathfinder.gd:352 before the A* graph exists, while
+	# generate_for_standard_move sizes its candidate ring at speed_with_boost (pathfinder.gd:224-229),
+	# so the cap has to fold boost in itself. Every number below is derived from the mover at runtime.
+	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
+	var victim:Unit = SpecFactory.create_unit(game.map, MOVER_CORNER, Faction.AI_ENEMY)
+	_shrink_speed(victim)
+	await SpecFactory.start_turn(game, victim)
+
+	assert_true(UnitAction.can_boost(victim), 'Vacuity guard: a mover with no boost cannot have one taken away.')
+	var speed:int = victim.core.current.speed
+	var boost:int = UnitAction.get_boost_speed(victim)
+	assert_gt(boost, 0, 'Vacuity guard: and the boost has to be worth some tiles.')
+
+	var free:Array[Vector2i] = await _reachable_tiles(victim)
+	_make_difficult(MOVER_CORNER)
+	var taxed:Array[Vector2i] = await _reachable_tiles(victim)
+
+	# What the boost is worth: tiles past the un-boosted cap. Zero of these means the boost was erased
+	# rather than trimmed, which is precisely the bug.
+	assert_gt(_further_than(taxed, speed - 1), 0,
+		'A boosting hostile still reaches past its walking speed - the toll is a point, not the boost.')
+	# And the toll is still charged: nothing past the boosted budget minus one survives.
+	assert_eq(_further_than(taxed, speed + boost - 1), 0,
+		'The last ring of the boosted reach is still taken away.')
+	assert_gt(_further_than(free, speed + boost - 1), 0,
+		'Vacuity guard: that ring was reachable before the toll, or the assertion above proves nothing.')
 
 func test_the_penalty_needs_the_power_to_be_up():
 	# Vacuity guard on the whole bullet: with no buff, standing in difficult terrain must cost nothing
@@ -292,6 +380,7 @@ func test_involuntary_movement_is_not_taxed():
 	# would silently nerf the Kraken drag this power is specifically designed to combo with.
 	SpecFactory.apply_buff(nuckelavee, BUFF_ID, cp_gear)
 	var victim:Unit = SpecFactory.create_unit(game.map, MOVER_CORNER, Faction.AI_ENEMY)
+	_shrink_speed(victim) # or the cap lands past the edge of the map and neither move is restricted
 	_make_difficult(MOVER_CORNER)
 	await SpecFactory.start_turn(game, victim)
 
