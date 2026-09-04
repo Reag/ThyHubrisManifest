@@ -25,6 +25,7 @@
 extends GutTest
 
 const EARTHSTEP_ID := &'mt_earthstep'
+const PoisonedSoil := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd')
 
 ## Geometry copied from vanilla's test/gear/test_ms_overwatch.gd, which is known to produce an
 ## overwatch: the watcher sits at the origin and the mover starts ADJACENT to it before walking away.
@@ -76,3 +77,80 @@ func test_a_watcher_standing_in_difficult_terrain_does_not():
 	await SpecFactory.move(game, nuckelavee, FINISH)
 	assert_eq(nuckelavee.tile(), FINISH, 'It actually moved.')
 	assert_eq(nuckelavee.current_damage(), 0, 'Fouled footing, no shot.')
+
+# ============================== what it must NOT do ==============================
+
+func test_a_watcher_in_difficult_terrain_still_overwatches_anybody_else():
+	# The override keys on the MOVER carrying Earthstep. Fouled footing is not a general excuse to
+	# stop watching - without this, the trait would be a map-wide overwatch shutdown that happens to
+	# be on the Nuckelavee's card.
+	# Starts adjacent to the watcher, same as the Nuckelavee does, and walks away down its own lane
+	# so it never contends for a tile with anyone.
+	_make_rough([WATCHER_TILE])
+	var stranger := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	stranger.core.frame.stat.health = 100
+	stranger.core.full_repair()
+	SpecFactory.apply_passive_buffs(stranger)
+
+	await SpecFactory.move(game, stranger, Vector2i(3, 0))
+	assert_eq(stranger.tile(), Vector2i(3, 0), 'It actually moved.')
+	assert_gt(stranger.current_damage(), 0, 'Somebody without Earthstep is still caught.')
+
+func test_the_nuckelavee_still_overwatches_from_difficult_terrain_itself():
+	# The trait is about being moved PAST, not about watching. A Nuckelavee standing in its own filth
+	# shoots at passers-by exactly as anyone would - the override reads target_unit, never from_unit,
+	# for the Earthstep half.
+	# The Nuckelavee stands at START (1,1) and the prey starts adjacent at (2,1), mirroring the
+	# watcher/mover adjacency the fixture is built on.
+	_make_rough([START])
+	nuckelavee.core.equip_system(&'mw_assault_rifle')
+	SpecFactory.apply_passive_buffs(nuckelavee)
+
+	var prey := SpecFactory.create_unit(game.map, Vector2i(2, 1))
+	prey.core.frame.stat.health = 100
+	prey.core.full_repair()
+	SpecFactory.apply_passive_buffs(prey)
+
+	await SpecFactory.move(game, prey, Vector2i(4, 1))
+	assert_eq(prey.tile(), Vector2i(4, 1), 'It actually moved.')
+	assert_gt(prey.current_damage(), 0, 'The Nuckelavee shot it from the muck.')
+
+func test_attack_triggered_reactions_are_not_suppressed():
+	# The one assumption in this trait worth distrusting, asserted directly.
+	#
+	# The override is gated on use_normal_range_instead_of_threat == false to separate movement
+	# overwatches from attack-triggered reactions - Punishment, Cover Me, Reflexive Blow, Flank, Fix
+	# and Flank, Instinct Mode - all of which pass TRUE and must keep working. That parameter does not
+	# actually mean "is this an overwatch"; the split is a coincidence that holds today.
+	#
+	# Asserted white-box on the function rather than by orchestrating a real Punishment. Punishment
+	# needs an honorable-challenge mark on the attacker, a third unit being attacked within 3, and a
+	# reaction available - a large fixture to prove one boolean, and vanilla's own
+	# test/talent/test_t_exemplar.gd already covers Punishment itself. What is OURS to prove is that
+	# the flag still divides the two, and this proves exactly that.
+	_make_rough([WATCHER_TILE])
+
+	assert_true(
+		UnitRelation.get_weapons_that_can_overwatch(watcher, nuckelavee, false).is_empty(),
+		'Threat-based calls - the movement overwatches - are suppressed.')
+	assert_false(
+		UnitRelation.get_weapons_that_can_overwatch(watcher, nuckelavee, true).is_empty(),
+		'Range-based calls - the attack reactions - are not.')
+
+func test_poisoned_soils_trail_blinds_a_watcher_too():
+	# The two traits compose. Task 1 used vanilla map terrain because the rule is about the watcher's
+	# footing whoever fouled it; this proves our own trail is footing as well, through the real
+	# terrain-zone path rather than SpecFactory.set_terrain.
+	var soil_gear:GearCore = nuckelavee.core.equip_system(&'mt_poisoned_soil')
+	SpecFactory.apply_passive_buffs(nuckelavee)
+
+	PoisonedSoil.write_trail(soil_gear, [WATCHER_TILE] as Array[Vector2i])
+	# GearCore.set_state does not refresh the map - only set_aura_active does - so ask for a sweep,
+	# exactly as action_poisoned_soil_lay.gd has to.
+	UnitTile.update_tracking_and_statuses(game.map)
+	assert_true(game.map.get_surface_terrain_at(WATCHER_TILE).difficult_terrain,
+		'Fixture check: the trail really reached the map.')
+
+	await SpecFactory.move(game, nuckelavee, FINISH)
+	assert_eq(nuckelavee.tile(), FINISH, 'It actually moved.')
+	assert_eq(nuckelavee.current_damage(), 0, 'Standing in the trail blinds the watcher too.')
