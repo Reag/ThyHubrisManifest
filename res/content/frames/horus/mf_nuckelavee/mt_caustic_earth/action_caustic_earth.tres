@@ -5,6 +5,6 @@
 [resource]
 script = ExtResource("1_caustic_earth")
 when_enter_within = true
-when_start_turn_within = false
-triggers_on = Array[StringName]([&"step"])
+when_start_turn_within = true
+triggers_on = Array[StringName]([&"step", &"new_turn"])
 consumes_rxn = false

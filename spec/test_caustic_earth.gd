@@ -90,3 +90,20 @@ func test_the_armour_in_that_fixture_really_does_absorb_ordinary_damage():
 	var before:int = _health(victim)
 	await SpecFactory.damage(game, victim, 1, Lancer.DAMAGE_TYPE.ENERGY)
 	assert_eq(_health(victim), before, 'A plain 1 ENERGY is absorbed by 1 armour.')
+
+# ============================== starting a turn in the terrain ==============================
+
+func test_starting_a_turn_in_the_acid_costs_one_hp():
+	# The victim is already standing on the tile when its turn begins - no movement involved, so
+	# this can only come from the new_turn trigger.
+	_foul([VICTIM_TILE])
+	var before:int = _health(victim)
+	await SpecFactory.start_turn(game, victim)
+	assert_eq(_health(victim), before - 1, 'Waking up in the acid costs a point.')
+
+func test_starting_a_turn_on_clean_ground_costs_nothing():
+	# Vacuity guard.
+	_foul([ACID])
+	var before:int = _health(victim)
+	await SpecFactory.start_turn(game, victim)
+	assert_eq(_health(victim), before, 'Its own tile is clean, so nothing happens.')
