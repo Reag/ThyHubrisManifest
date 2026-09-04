@@ -31,9 +31,14 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	# A knockback or pull must not fire the frame's weapon mid-enemy-turn.
 	if not AcidSpill.is_voluntary_movement(triggering_event): return false
 	# Delegate to the weapon's own gate (armed + can deal damage) rather than re-deriving it here -
-	# one source of truth that cannot drift out of sync with action_acid_spill.gd, and it also runs
-	# that gate's super.is_available_to_activate half, which this file knows nothing about (e.g. a
-	# JAMMED Nuckelavee) and a hand-copied condition here would silently have skipped.
+	# one definition of "armed and able to deal damage" instead of two that could drift apart.
+	# NOT a status-blocking guarantee: Action.is_available_to_activate (action.gd:175-176) returns
+	# true unconditionally today, and neither ActionAttack nor ActionAttackWeapon overrides it, so the
+	# super call action_acid_spill.gd makes into it currently guards nothing. JAMMED specifically does
+	# not apply here either way - action_acid_spill_fire.tres sets consumes_rxn = false, so
+	# ActionReaction.is_jammable() (action_reaction.gd:64) is false and a jammed Nuckelavee can still
+	# fire Acid Spill. The super call stays in action_acid_spill.gd regardless, as correct defensive
+	# practice for composability, but this delegation should not be read as buying a block it doesn't.
 	var weapon:ActionAttackWeapon = gear.kit.get_action(&'action_acid_spill')
 	return weapon.is_available_to_activate(unit, gear)
 

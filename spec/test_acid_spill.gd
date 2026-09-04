@@ -406,6 +406,71 @@ func test_a_second_qualifying_charge_replaces_the_first_patch_end_to_end():
 	for tile in first_trail:
 		assert_false(second_trail.has(tile), 'The first patch is gone, replaced rather than merged with the second.')
 
+func test_the_burst_damages_both_an_adjacent_enemy_and_an_adjacent_ally():
+	# Design-mandated coverage gap: the design doc records friendly fire as an explicit designer
+	# decision - "the burst hits an adjacent ally as well as an adjacent enemy" - and lists it as a
+	# test. Nothing before this asserted a unit in the burst actually loses HP; the closest coverage
+	# was a damage-dice STRING (test_damage_dice_track_the_distance_charged) and the heat cost
+	# (test_firing_the_spill_costs_one_heat), neither of which proves anyone was actually hit.
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+
+	# A deliberately SHORT charge, not a full-speed one - firing only needs is_available_to_activate
+	# (armed and floor(steps/2) >= 1), which two steps already satisfies; terrain-qualification's
+	# full-speed-and-straight requirement is irrelevant to whether the attack itself lands. Charging
+	# short also leaves room on the map beyond the stop tile, which the placement below depends on.
+	var stop_tile:Vector2i = START + Vector2i(2, 0)
+
+	# Both tiles sit ONE COLUMN EAST OF the stop tile, not merely adjacent to it, and that is load-
+	# bearing, not a style choice: pathfinder.gd's engagement rule strips OUTWARD astar edges from any
+	# tile inside a newly-encountered enemy's threat range (:451, "no outward connections from engaged
+	# tiles"), and that range is a full 3x3 square (radius 1), same shape as this weapon's own burst.
+	# A tile placed diagonally BESIDE the stop tile (e.g. stop_tile + (-1,1)) threatens the SECOND-TO-
+	# LAST path tile too, since consecutive path tiles are only 1 apart - which strips that tile's
+	# outward edge and makes the stop tile itself unreachable, aborting the whole move before the
+	# reaction ever fires. Placing one column further out avoids threatening any tile but the stop
+	# tile - proven by hitting this exact abort when the units were first placed diagonally adjacent.
+	var enemy:Unit = SpecFactory.create_unit(game.map, stop_tile + Vector2i(1, 0), Faction.AI_ENEMY)
+	var ally:Unit = SpecFactory.create_unit(game.map, stop_tile + Vector2i(1, 1), Faction.AI_ALLY)
+	var enemy_health_before:int = enemy.core.current.health
+	var ally_health_before:int = ally.core.current.health
+
+	# Deterministic: a miss would make this flaky, since the attack rolls to hit. Force every roll to
+	# a natural 20 - one to-hit roll per unit caught in the burst, mirroring the "one roll per target"
+	# convention test_my_domain_trigger.gd's _use_burst helper already established for this codebase,
+	# with slack for anything else roll_d20_with_player_interventions might consume.
+	Dice.CHEAT_ROLL_QUEUE.append_array([20, 20, 20, 20, 20, 20])
+	await SpecFactory.move(game, nuckelavee, stop_tile)
+
+	assert_lt(enemy.core.current.health, enemy_health_before, 'The adjacent enemy took damage.')
+	assert_lt(ally.core.current.health, ally_health_before, 'The adjacent ally took damage too - friendly fire is by design, not a bug.')
+
+func test_declining_the_prompt_still_disarms_and_leaves_the_previous_patch_intact():
+	# action_acid_spill_fire.gd's header specifically warns against adding an early return above its
+	# unconditional disarm tail - "whichever way the player answered, the boost is spent" - but only
+	# the ACCEPT branch was ever driven by this suite, so that warning was unenforced. This drives the
+	# DECLINE branch instead.
+	AcidSpill.write_trail(cp_gear, [Vector2i(4, 4)] as Array[Vector2i])
+	_refresh_terrain()
+
+	# chosen_yesnos answers EVERY quick_yesno, including action_boost's own confirm-use prompt, so it
+	# has to accept the boost and only flip to decline for the fire prompt the move raises - same
+	# toggle-mid-test precedent as test_poisoned_soil.gd's test_declining_leaves_the_previous_trail_standing.
+	SpecFactory.current_responder.chosen_yesnos = true
+	await SpecFactory.start_turn(game, nuckelavee)
+	await SpecFactory.use_solo(game, nuckelavee, &'ms_boost')
+	assert_true(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count), 'The boost armed the spill before the decline.')
+
+	SpecFactory.current_responder.chosen_yesnos = false
+	var speed:int = AcidSpill.read_boost_speed(cp_gear)
+	await SpecFactory.move(game, nuckelavee, START + Vector2i(speed, 0))
+
+	assert_false(AcidSpill.is_armed(cp_gear, game.map.game_core.round_count),
+		'The unconditional tail ran regardless of the answer - the boost is spent either way.')
+	assert_eq(AcidSpill.read_trail(cp_gear), [Vector2i(4, 4)],
+		'Declining did not touch the previous spill - only a fired, ACCEPTED spill replaces it.')
+
 # ============================== the qualifying-endpoint highlight ==============================
 
 const Highlight := preload('res://unpacked/Reag-ThyHubris/res/ui/choice_controller/acid_spill_highlight.gd')

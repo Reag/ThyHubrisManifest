@@ -59,7 +59,7 @@ color_ramp = SubResource("GradientTexture1D_acid_spill")
 script = ExtResource("1_fxe")
 lock_height_to = 3
 
-[node name="PoisonHaze" type="GPUParticles3D" parent="."]
+[node name="AcidHaze" type="GPUParticles3D" parent="."]
 amount = 7
 lifetime = 20.0
 speed_scale = 0.5

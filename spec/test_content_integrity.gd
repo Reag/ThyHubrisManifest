@@ -389,11 +389,15 @@ func test_truth_in_filth_has_two_parts_with_the_right_economy():
 	# reactions (action_acid_spill_arm/_track/_fire/_disarm) also live on this Kit as internal
 	# machinery, each overriding show_in_tooltip(_kit) -> false so the player never sees them. Assert
 	# on what the test's comment actually cares about - what the PLAYER sees - by filtering to the
-	# actions that show in the tooltip. That is strictly stronger than the original: it keeps "exactly
-	# its two parts" from the player's point of view, and newly pins that the machinery stays hidden.
+	# actions that show in the tooltip. This trades one guarantee for another rather than strictly
+	# improving on the original: filtering to tooltip-visible actions pins the player-facing set more
+	# precisely, but on its own no longer pins the COMPLETE action list, so a seventh action, or a
+	# typo'd id on a hidden one, would pass silently. The explicit count below restores that guarantee,
+	# which is why both assertions are kept.
 	var player_facing_ids:Array = kit.actions.filter(func(action:Action) -> bool: return action.show_in_tooltip(kit)) \
 		.map(func(action:Action) -> StringName: return action.get_id())
 	assert_eq(player_facing_ids, NUCKELAVEE_CORE_POWER_MODES, 'It shows the player exactly its two parts.')
+	assert_eq(kit.actions.size(), 6, 'Two player-facing parts plus four bookkeeping reactions, and nothing else.')
 
 	var spill:Action = by_id.get(NUCKELAVEE_SPILL)
 	if Action.is_valid(spill):
