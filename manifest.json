@@ -14,25 +14,25 @@
 	"load_before": [],
 	"mod_meta": {
 		"date_added": 1788354236,
-		"date_updated": 1788358100,
-		"file_id": 8170710,
+		"date_updated": 1788584070,
+		"file_id": 8176936,
 		"game_version": "1.3.3",
 		"mod_id": 6353712,
 		"name_id": "dgco-reag",
-		"revision": 4,
+		"revision": 7,
 		"user_id": 61561194,
 		"username": "Mr_Reag"
 	},
 	"name": "ThyHubris",
 	"namespace": "Reag",
 	"optional_dependencies": [],
-	"requires_restart": false,
+	"requires_restart": true,
 	"summary": "A partial implementation of HORUS: Thy Hubris Manifest, a 3pp suplement for Lancer. Please support the official release at itch.io",
 	"tags": [
 		"PC frames",
 		"Systems and weapons"
 	],
 	"title": "HORUS: Thy Hubris Manifest",
-	"version_number": "0.2.0",
+	"version_number": "0.3.1",
 	"website_url": ""
 }
