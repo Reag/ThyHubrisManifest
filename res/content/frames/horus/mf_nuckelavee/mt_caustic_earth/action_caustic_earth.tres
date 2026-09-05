@@ -1,0 +1,12 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_caustic_earth/action_caustic_earth.gd" id="1_caustic_earth"]
+
+[resource]
+script = ExtResource("1_caustic_earth")
+when_enter_within = true
+when_start_turn_within = true
+triggers_on = Array[StringName]([&"step", &"new_turn"])
+consumes_rxn = false
+can_trigger_any_number_of_times_per_round = true
+can_only_affect_a_unit_once_per_round = true

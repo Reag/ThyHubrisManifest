@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="Kit" format=3]
+
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="1_kit"]
+[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="2_passive"]
+[ext_resource type="Script" uid="uid://bhirgicgi66th" path="res://engine/gamemaster/map/terrain/terrain_data.gd" id="3_terrain_data"]
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd" id="4_passive_poisoned_soil"]
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="5_action"]
+[ext_resource type="PackedScene" path="res://unpacked/Reag-ThyHubris/res/content/fx_endless/gear/fxe_poisoned_soil.tscn" id="10_fxe_poisoned_soil"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_arm.tres" id="6_arm"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_track.tres" id="7_track"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_lay.tres" id="8_lay"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/action_poisoned_soil_disarm.tres" id="9_disarm"]
+[ext_resource type="Texture2D" uid="uid://bfslno2ndvxbm" path="res://assets/icons/editor/terrain.svg" id="11_icon"]
+
+[sub_resource type="Resource" id="Resource_poisoned_soil_terrain"]
+script = ExtResource("3_terrain_data")
+difficult_terrain = true
+
+[sub_resource type="Resource" id="Resource_poisoned_soil_zone"]
+script = ExtResource("4_passive_poisoned_soil")
+terrain_data = SubResource("Resource_poisoned_soil_terrain")
+fxe = ExtResource("10_fxe_poisoned_soil")
+
+[resource]
+script = ExtResource("1_kit")
+actions = Array[ExtResource("5_action")]([ExtResource("6_arm"), ExtResource("7_track"), ExtResource("8_lay"), ExtResource("9_disarm")])
+passives = Array[ExtResource("2_passive")]([SubResource("Resource_poisoned_soil_zone")])
+icon_override = ExtResource("11_icon")
+is_trait = true
+metadata/_custom_type_script = "uid://ckrv6mvs5q65e"

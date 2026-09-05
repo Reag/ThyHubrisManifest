@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="Kit" format=3]
+
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_action"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_acid_spill.tres" id="3_acid_spill"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_the_desperate_clawing_hands_of_the_dead.tres" id="4_clawing_hands"]
+[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="5_passive"]
+[ext_resource type="Script" uid="uid://bhirgicgi66th" path="res://engine/gamemaster/map/terrain/terrain_data.gd" id="6_terrain_data"]
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/passive_acid_spill.gd" id="7_passive_acid_spill"]
+[ext_resource type="PackedScene" path="res://unpacked/Reag-ThyHubris/res/content/fx_endless/gear/fxe_acid_spill.tscn" id="8_fxe_acid_spill"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_acid_spill_arm.tres" id="9_arm"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_acid_spill_track.tres" id="10_track"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_acid_spill_disarm.tres" id="11_disarm"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_acid_spill_fire.tres" id="12_fire"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_clawing_hands_prone.tres" id="13_prone"]
+[ext_resource type="Texture2D" uid="uid://slypuoium87x" path="res://assets/icons/spikes.svg" id="14_icon"]
+
+[sub_resource type="Resource" id="Resource_acid_spill_terrain"]
+script = ExtResource("6_terrain_data")
+difficult_terrain = true
+
+[sub_resource type="Resource" id="Resource_acid_spill_zone"]
+script = ExtResource("7_passive_acid_spill")
+terrain_data = SubResource("Resource_acid_spill_terrain")
+fxe = ExtResource("8_fxe_acid_spill")
+
+[resource]
+script = ExtResource("2_kit")
+actions = Array[ExtResource("1_action")]([ExtResource("3_acid_spill"), ExtResource("4_clawing_hands"), ExtResource("9_arm"), ExtResource("10_track"), ExtResource("11_disarm"), ExtResource("12_fire"), ExtResource("13_prone")])
+passives = Array[ExtResource("5_passive")]([SubResource("Resource_acid_spill_zone")])
+icon_override = ExtResource("14_icon")
+is_trait = true
+metadata/_custom_type_script = "uid://ckrv6mvs5q65e"

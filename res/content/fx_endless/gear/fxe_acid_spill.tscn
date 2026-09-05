@@ -1,0 +1,68 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://ck34knquhucbv" path="res://engine/gamemaster/effects_controller/fx_endless/fx_endless.gd" id="1_fxe"]
+[ext_resource type="ArrayMesh" uid="uid://dlvkhs8kmckpi" path="res://assets/fx/resources/icosphere_smoke.tres" id="2_icosphere"]
+
+[sub_resource type="Gradient" id="Gradient_acid_spill"]
+colors = PackedColorArray(0.35, 0.95, 0.85, 0.55, 0.08, 0.42, 0.38, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_acid_spill"]
+gradient = SubResource("Gradient_acid_spill")
+
+[sub_resource type="Curve" id="Curve_orbit_x"]
+_limits = [-2.0, 2.0, 0.0, 1.0]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_orbit_y"]
+_limits = [-2.0, 2.0, 0.0, 1.0]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_orbit_z"]
+_limits = [-2.0, 2.0, 0.0, 1.0]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_acid_spill"]
+curve_x = SubResource("Curve_orbit_x")
+curve_y = SubResource("Curve_orbit_y")
+curve_z = SubResource("Curve_orbit_z")
+
+[sub_resource type="Curve" id="Curve_scale_acid_spill"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.17627119, 1), 0.0, 0.0, 0, 0, Vector2(0.8440679, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="CurveTexture" id="CurveTexture_scale_acid_spill"]
+curve = SubResource("Curve_scale_acid_spill")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_acid_spill"]
+lifetime_randomness = 0.6
+direction = Vector3(0, 0, 1)
+spread = 180.0
+flatness = 1.0
+initial_velocity_min = 0.05
+initial_velocity_max = 0.1
+orbit_velocity_min = 0.010000096
+orbit_velocity_max = 0.020000096
+orbit_velocity_curve = SubResource("CurveXYZTexture_acid_spill")
+gravity = Vector3(0, 0.01, 0)
+damping_min = 0.05
+damping_max = 0.05
+scale_min = 0.4
+scale_max = 0.9
+scale_curve = SubResource("CurveTexture_scale_acid_spill")
+color = Color(0.22, 0.78, 0.7, 1)
+color_ramp = SubResource("GradientTexture1D_acid_spill")
+
+[node name="Fxe" type="Node3D"]
+script = ExtResource("1_fxe")
+lock_height_to = 3
+
+[node name="AcidHaze" type="GPUParticles3D" parent="."]
+amount = 7
+lifetime = 20.0
+speed_scale = 0.5
+randomness = 0.6
+process_material = SubResource("ParticleProcessMaterial_acid_spill")
+draw_pass_1 = ExtResource("2_icosphere")

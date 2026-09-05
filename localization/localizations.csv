@@ -9,15 +9,22 @@ gear.buff_infection.name,Infection
 gear.buff_infection.effect,"Infection works similarly to Burn, but applies Heat instead of damage.
 When characters take Infection, they immediately take an equal amount of Heat, and mark down how much Infection they received. If a character already has Infection, additional Infection is added on top of what they already had. At the end of their turn, Infected characters must roll a Systems check. On a success, they clear all Infection; otherwise, they take Heat equal to the amount of Infection currently marked.
 If an action would clear BURN, such as stabilize, it also clears INFECTION"
-gear.mt_spreading_stain.name,
+gear.mt_spreading_stain.name,The Spreading Stain
 gear.mt_spreading_stain.effect,
 gear.mt_spreading_stain.trigger,
-gear.mt_raging_plague.name,
+gear.mt_raging_plague.name,The Raging Plague
 gear.mt_raging_plague.effect,
 gear.mt_raging_plague.trigger,
-gear.mt_seeping_rot.name,
+gear.mt_seeping_rot.name,The Seeping Rot
 gear.mt_seeping_rot.effect,
 gear.mt_seeping_rot.trigger,
+gear.cp_cupiditas_vitae.name,CUPIDITAS VITAE
+gear.cp_cupiditas_vitae.flavor,"TO YOU ABOVE: if you will not grant us life, then we have no choice but to take it."
+gear.cp_cupiditas_vitae.action_ceaseless_death.name,The Ceaseless Death
+gear.cp_cupiditas_vitae.action_ceaseless_death.effect,
+gear.cp_cupiditas_vitae.action_plague_vent_disperal.name,Plague-Vent Dispersal
+gear.cp_cupiditas_vitae.action_plague_vent_disperal.effect,
+,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)
 LOCATION: Himalaya-Annapurna, Agni-Cabalia1
@@ -48,7 +55,7 @@ gear.mt_tattered_wings.name,Tattered Wings
 gear.mt_tattered_wings.effect,"As a protocol, the Erinyes may take |1 HEAT| to hover until the start of its next turn."
 gear.mt_tattered_wings.trigger,
 gear.cp_dhiyed_observation.name,DHIYED Observation
-gear.cp_dhiyed_observation.effect,
+gear.cp_dhiyed_observation.effect,|Face Thy Judgement| is a |reaction| that prolongs what you have already done to a chained character. |Punishment| spends your core power and requires no action.
 gear.cp_dhiyed_observation.flavor,"[i]It knows me. It knows where I am and what I've done, what I will do. I will be judged. And I will fail.[/i]"
 gear.cp_dhiyed_observation.action_face_thy_judgement.name,Face Thy Judgement
 gear.cp_dhiyed_observation.action_face_thy_judgement.effect,"When the effect of a tech action expires at the end of a chained character's turn within |SENSORS|, you may extend its duration to the end of that character's next turn instead. This cannot be used to extend the duration of |STUNNED|. An effect cannot be extended more than once."
@@ -75,8 +82,8 @@ gear.mt_irrepressible.name,Irrepressible
 gear.mt_irrepressible.effect,"If an effect would prevent the Kraken from taking a |reaction| (like |grapple|), it may take |1 HEAT| to use a reaction anyway."
 gear.mt_irrepressible.trigger,"An effect would prevent the Kraken from taking a |reaction|"
 gear.cp_the_endless_black_sea.name,The Endless Black Sea
-gear.cp_the_endless_black_sea.effect,
-gear.cp_the_endless_black_sea.flavor,
+gear.cp_the_endless_black_sea.effect,"|The All-Consuming Tide| is a |protocol| that spends your core power and lasts the rest of the |scene|. |Drag To The Depths| lets you keep fighting while |IMMOBILIZED|, spending base movement in place of actions."
+gear.cp_the_endless_black_sea.flavor,"[i]The Rite says a demon was raised up to the firmament, and from there touched realspace. It does not say the firmament ever let go.[/i]"
 gear.cp_the_endless_black_sea.action_drag_grapple.name,Drag To The Depths: Grapple
 gear.cp_the_endless_black_sea.action_drag_grapple.effect,"While |IMMOBILIZED|, expend your base movement to |Grapple|."
 gear.cp_the_endless_black_sea.action_drag_pull.name,Drag To The Depths: Pull
@@ -94,3 +101,40 @@ gear.cp_the_endless_black_sea.action_tide_undertow.prompt,"Pull {name} 1 space t
 gear.cp_the_endless_black_sea.action_tide_seize.name,Seize
 gear.cp_the_endless_black_sea.action_tide_seize.effect,"While |The All-Consuming Tide| is active, if a character collides with you, you may expend your |OVERWATCH| to attempt to |Grapple| it as a |reaction|."
 gear.cp_the_endless_black_sea.action_tide_seize.trigger,"A character collides with you"
+,
+frame.mf_nuckelavee.name,Nuckelavee
+frame.mf_nuckelavee.flavor,"“World-death is always imagined to be so grand. Tomb-worlds are a treasure, after all. Full of mystery and wealth just waiting to be discovered. Researched. Plundered.
+“But reality often disappoints. For every violent apocalypse, for every stellar disaster, there are a dozen slow, agonizing, and worst of all, chosen world-deaths.
+“For some worlds, it comes from ignorance. From a desire to grow and learn that outstrips the discovery of consequence. It is what almost killed you, once.
+“Worse than that is when itls done from malice. From a hate so vile the consequences cease to matter. You know this. You've done it.
+“But the worst of all is indifference. When world-death is nothing more than a byproduct. You do it now, here, on the morning shores you covet.
+“The noble vulture eats what must be eaten, removes the festering carrion that ruins what is good. This carcass you make is not yet dead, and it shall eat what must be eaten.”"
+frame.mf_nuckelavee.flavor.short,Redecorating Roamer
+gear.mt_poisoned_soil.name,Poisoned Soil
+gear.mt_poisoned_soil.effect,"When you BOOST, the Nuckelavee may turn the spaces it moves through into difficult terrain. This terrain lasts until you create terrain this way again."
+gear.mt_poisoned_soil.trigger,On |Boost|
+gear.mt_caustic_earth.name,Caustic Earth
+gear.mt_caustic_earth.effect,"Characters who start their turn in or enter a space of |difficult terrain| created by the Nuckelavee take |1 AP ENERGY|. Characters can take this damage 1/round. Characters who ignore |difficult terrain| ignore this damage"
+gear.mt_caustic_earth.trigger,
+gear.mt_earthstep.name,Earthstep
+gear.mt_earthstep.effect,"The Nuckelavee does not trigger |OVERWATCH| from characters in difficult terrain."
+gear.mt_earthstep.trigger,
+gear.cp_truth_in_filth.name,Truth in Filth
+gear.cp_truth_in_filth.effect,"|Acid Spill| is an integrated |Main Melee| weapon, usable only as a |free action| after you |BOOST|. |The Desperate Clawing Hands Of The Dead| is a |protocol| that spends your core power."
+gear.cp_truth_in_filth.flavor,"You made us kill each other in your name. Its only fair we kill you in ours."
+gear.cp_truth_in_filth.action_acid_spill.name,Acid Spill
+gear.cp_truth_in_filth.action_acid_spill.effect,"This weapon may only be used as a |free action| after you |BOOST|, and deals damage equal to half the distance moved. If you |BOOST| your full speed in a straight line, the attack area becomes difficult terrain which lasts until you create terrain this way again"
+gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.name,The Desperate Clawing Hands Of The Dead
+gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.effect,"For the rest of the scene, something terrible lurks in the cracks.
+• Hostile characters take |1d6 AP KINETIC| when knocked |PRONE| in |difficult terrain|, and must make a |HULL save| or become |IMMOBILIZED| until the end of their next turn.
+• Hostile characters must spend two movement to exit |difficult terrain|.
+• Caustic Earth loses its 1/round limit for hostile characters and applies to all |difficult terrain|."
+
+gear.mt_poisoned_soil.action_poisoned_soil_arm.name,Poisoned Soil
+gear.mt_poisoned_soil.action_poisoned_soil_arm.effect,"Begin tracking the spaces you move through, starting with the space you |BOOST| from."
+gear.mt_poisoned_soil.action_poisoned_soil_track.name,Poisoned Soil
+gear.mt_poisoned_soil.action_poisoned_soil_track.effect,"Continue tracking each space you move through this turn."
+gear.mt_poisoned_soil.action_poisoned_soil_lay.name,Poisoned Soil
+gear.mt_poisoned_soil.action_poisoned_soil_lay.effect,"Turn the spaces you moved through into |difficult terrain|, replacing any terrain you created this way before."
+gear.mt_poisoned_soil.action_poisoned_soil_disarm.name,Poisoned Soil
+gear.mt_poisoned_soil.action_poisoned_soil_disarm.effect,"Stop tracking at the end of your turn, even if you never moved."

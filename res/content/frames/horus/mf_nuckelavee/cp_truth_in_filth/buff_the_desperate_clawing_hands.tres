@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/buff_the_desperate_clawing_hands.gd" id="1_buff_script"]
+[ext_resource type="Texture2D" uid="uid://ddtx16uivcfs" path="res://assets/icons/buffs/buff_scouring_swarm.svg" id="2_icon"]
+
+[resource]
+script = ExtResource("1_buff_script")
+log_on_application = true
+to = &"movement_restriction"
+icon = ExtResource("2_icon")

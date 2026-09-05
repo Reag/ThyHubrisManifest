@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Kit" format=3]
+
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="1_kit"]
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="2_action"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_caustic_earth/action_caustic_earth.tres" id="3_caustic_earth"]
+[ext_resource type="Texture2D" uid="uid://dv76i1cwwdl0q" path="res://assets/icons/difficult_terrain.svg" id="4_icon"]
+
+[resource]
+script = ExtResource("1_kit")
+actions = Array[ExtResource("2_action")]([ExtResource("3_caustic_earth")])
+icon_override = ExtResource("4_icon")
+is_trait = true
+metadata/_custom_type_script = "uid://ckrv6mvs5q65e"

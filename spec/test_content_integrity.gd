@@ -6,6 +6,7 @@
 extends GutTest
 
 const ModContentAudit := preload('res://testkit/mod_content_audit.gd')
+const PassiveEarthstep := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_earthstep/passive_earthstep.gd')
 
 const MOD_ID := 'Reag-ThyHubris'
 
@@ -327,3 +328,275 @@ func test_kraken_effects_and_flavor_are_written():
 		return
 
 	assert_true(true, 'The Kraken has flavor and effect text throughout.')
+
+# ============================== Nuckelavee ==============================
+#
+# Variant frame cloning the IPS-N Nelson license. Scaffold only: the three unique traits are
+# behaviourless Kits, the statblock and mounts are the Nelson's, and there is no art yet - each of
+# those has a pending guard below so it cannot be quietly forgotten.
+#
+# As with the Kraken there is deliberately NO license test here; test_variant_licenses.gd carries
+# li_nuckelavee through all six of its clause tests from one row.
+
+const NUCKELAVEE_TRAITS := [&'mt_poisoned_soil', &'mt_caustic_earth', &'mt_earthstep']
+const NUCKELAVEE_CORE_POWER := &'cp_truth_in_filth'
+## Truth in Filth is two parts: Acid Spill is a FREE weapon attack that does NOT spend the core,
+## and The Desperate Clawing Hands Of The Dead is the PROTOCOL that does.
+const NUCKELAVEE_SPILL := &'action_acid_spill'
+const NUCKELAVEE_CLAWING_HANDS := &'action_the_desperate_clawing_hands_of_the_dead'
+const NUCKELAVEE_CORE_POWER_MODES := [NUCKELAVEE_SPILL, NUCKELAVEE_CLAWING_HANDS]
+
+func test_nuckelavee_frame_is_registered():
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_nuckelavee')
+	assert_true(is_instance_valid(frame), 'mf_nuckelavee is in the frames index.')
+	if not is_instance_valid(frame): return
+	assert_eq(frame.role_primary, Lancer.SQUAD_ROLE.STRIKER, 'Nuckelavee is a Striker first.')
+	assert_eq(frame.role_secondary, Lancer.SQUAD_ROLE.CONTROLLER, 'Nuckelavee is a Controller second.')
+
+func test_nuckelavee_traits_and_core_power_are_registered():
+	for kit_id:StringName in NUCKELAVEE_TRAITS + [NUCKELAVEE_CORE_POWER]:
+		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
+
+func test_the_nuckelavee_frame_carries_its_traits_in_book_order():
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_nuckelavee')
+	if not is_instance_valid(frame): return fail_test('mf_nuckelavee loaded.')
+	var wired:Array[StringName] = []
+	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
+	assert_eq(wired, NUCKELAVEE_TRAITS + [NUCKELAVEE_CORE_POWER], 'Three traits, then the core power.')
+
+func test_nuckelavee_traits_are_flagged_as_traits():
+	for kit_id:StringName in NUCKELAVEE_TRAITS + [NUCKELAVEE_CORE_POWER]:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
+		assert_false(kit.is_destructable(), 'And so is not destructible.')
+
+func test_the_nuckelavee_core_power_reads_as_a_core_power():
+	var kit:Kit = ContentLibrary.get_kit(NUCKELAVEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % NUCKELAVEE_CORE_POWER)
+	assert_true(kit.is_core_power(), '%s is a core power.' % NUCKELAVEE_CORE_POWER)
+
+func test_truth_in_filth_has_two_parts_with_the_right_economy():
+	# Pinned from the scaffold, the way the Kraken's was: which half spends the core is invisible in
+	# play if it is wrong - the frame just plays as though its core never depletes, or always does.
+	var kit:Kit = ContentLibrary.get_kit(NUCKELAVEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % NUCKELAVEE_CORE_POWER)
+
+	var by_id := {}
+	for action:Action in kit.actions: by_id[action.get_id()] = action
+
+	# The raw action list is no longer "exactly its two parts": by design, five bookkeeping
+	# reactions (action_acid_spill_arm/_track/_fire/_disarm, action_clawing_hands_prone) also live on
+	# this Kit as internal machinery, each overriding show_in_tooltip(_kit) -> false so the player
+	# never sees them. Assert on what the test's comment actually cares about - what the PLAYER sees -
+	# by filtering to the actions that show in the tooltip. This trades one guarantee for another
+	# rather than strictly improving on the original: filtering to tooltip-visible actions pins the
+	# player-facing set more precisely, but on its own no longer pins the COMPLETE action list, so an
+	# eighth action, or a typo'd id on a hidden one, would pass silently. The explicit count below
+	# restores that guarantee, which is why both assertions are kept.
+	var player_facing_ids:Array = kit.actions.filter(func(action:Action) -> bool: return action.show_in_tooltip(kit)) \
+		.map(func(action:Action) -> StringName: return action.get_id())
+	assert_eq(player_facing_ids, NUCKELAVEE_CORE_POWER_MODES, 'It shows the player exactly its two parts.')
+	assert_eq(kit.actions.size(), 7, 'Two player-facing parts plus five bookkeeping reactions, and nothing else.')
+
+	var spill:Action = by_id.get(NUCKELAVEE_SPILL)
+	if Action.is_valid(spill):
+		assert_eq(spill.get_action_type(null), Lancer.ACTION.FREE, 'Acid Spill is free.')
+		assert_false(bool(spill.consumes_core_power()), 'And does not spend the core.')
+
+	var hands:Action = by_id.get(NUCKELAVEE_CLAWING_HANDS)
+	if Action.is_valid(hands):
+		assert_eq(hands.get_action_type(null), Lancer.ACTION.PROTOCOL, 'The Clawing Hands is a protocol.')
+		assert_true(bool(hands.consumes_core_power()), 'And spends the core.')
+
+func test_the_nuckelavee_core_power_parts_do_not_share_a_round_allowance():
+	# Same trap as the Kraken's: actions on one Kit default to a usage_group keyed on the gear id.
+	var kit:Kit = ContentLibrary.get_kit(NUCKELAVEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % NUCKELAVEE_CORE_POWER)
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Both parts have their own usage_group.')
+	assert_false(groups.has(&''), 'And neither fell back to the shared default.')
+
+func test_caustic_earth_carries_one_correctly_configured_reaction():
+	# Four exports, three of which fail silently and one of which fails invisibly.
+	#
+	# can_trigger_any_number_of_times_per_round is the load-bearing one: ActionReactionOnComingWithin
+	# overrides get_per_round_hard_limit off it and IGNORES consumes_rxn, so at the default the trait
+	# damages one character per ROUND in total - the text's 1/round-per-CHARACTER rule collapsed into
+	# 1/round-per-Nuckelavee. Vanilla's own action_apocalypse_burn.tres omits it.
+	#
+	# show_in_tooltip is the invisible one: Action.show_in_tooltip returns TRUE for any trait
+	# reaction whose KIT carries a trigger row (action.gd:343-344). mt_caustic_earth's is empty
+	# today, so nothing leaks - but one localization row later would advertise this bookkeeping as a
+	# separate ability, exactly as happened to all four Poisoned Soil actions.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_caustic_earth')
+	if not Kit.is_valid(kit): return fail_test('mt_caustic_earth loaded.')
+
+	var reactions:Array = kit.get_reactions()
+	assert_eq(reactions.size(), 1, 'Caustic Earth is one reaction, not several.')
+	if reactions.is_empty(): return
+
+	# Deliberately UNTYPED. can_trigger_any_number_of_times_per_round, when_enter_within, DAMAGE and
+	# DAMAGE_TYPE all live on ActionReactionOnComingWithin or on our own script, not on
+	# ActionReaction - so a typed `var rxn:ActionReaction` makes every one of them a PARSE error,
+	# and GUT responds to a parse error by SKIPPING the whole file with "Ignoring script ... because
+	# it does not extend GutTest". The suite would still read green, just fifty tests shorter.
+	var rxn = reactions[0]
+	assert_eq(rxn.triggers_on, [&'step', &'new_turn'] as Array[StringName],
+		'It reacts to entering and to starting a turn.')
+	assert_true(rxn.when_enter_within, 'The entering half of the clause is on.')
+	assert_true(rxn.when_start_turn_within, 'And the starting-a-turn half.')
+	assert_eq(rxn.trigger_timing, ReactionBus.TIMING.POST, 'After the fact, so the unit is on the tile.')
+	assert_false(rxn.consumes_rxn, 'A trait does not spend the pilot reaction.')
+
+	# "1 AP ENERGY". The AP half is asserted behaviourally in test_caustic_earth.gd, against a
+	# victim with 1 armour. The damage TYPE cannot be fully pinned that way: test_caustic_earth.gd's
+	# before-1 assertions already prove it is not HEAT, which routes to heat() and never touches
+	# health. They do NOT prove it is not BURN - event_unit_damage.gd calls damage() and THEN adds
+	# burn, so a BURN-typed trait would pass every before-1 assertion unchanged; that half is instead
+	# pinned by test_the_damage_is_armour_piercing's separate assert on victim.state.burn. Beyond
+	# that, nothing in the engine distinguishes ENERGY from KINETIC or EXPLOSIVE at 1 point of AP
+	# damage - resistance halves, and Util.half(1) is ceili(0.5) = 1, so even a resistant target
+	# still loses exactly 1. Pinning the constant is the whole of the achievable coverage, and it is
+	# a source-level assertion on purpose rather than by omission.
+	assert_eq(rxn.DAMAGE, 1, 'One point.')
+	assert_eq(rxn.DAMAGE_TYPE, Lancer.DAMAGE_TYPE.ENERGY, 'Of ENERGY.')
+	assert_true(rxn.can_trigger_any_number_of_times_per_round,
+		'Or the per-round hard limit caps the whole trait at one character per round.')
+	assert_true(rxn.can_only_affect_a_unit_once_per_round, 'Characters take it 1/round.')
+	assert_false(rxn.once_per_round_is_specific_to_gear,
+		'"1/round" is unqualified - two Nuckelavees still only bite a character once.')
+	assert_true(rxn.triggers_only_on_characters, 'The text says "Characters", so deployables are spared.')
+	assert_false(rxn.show_in_tooltip(kit), 'Bookkeeping stays out of the trait tooltip.')
+
+func test_earthstep_carries_its_marker_passive_and_nothing_else():
+	# Earthstep has no actions and no behaviour of its own: the rule lives in
+	# res/engine/character/unit/service/unit_relation.gd_ext.gd, which finds the frame by looking for
+	# THIS PASSIVE TYPE rather than for the id mt_earthstep. Delete the passive and the extension
+	# stops recognising the Nuckelavee - silently, since an override that never matches looks exactly
+	# like an override that never runs. This is what notices.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_earthstep')
+	if not Kit.is_valid(kit): return fail_test('mt_earthstep loaded.')
+
+	assert_eq(kit.get_passives(PassiveEarthstep).size(), 1, 'Exactly one Earthstep marker.')
+	assert_true(kit.actions.is_empty(), 'And no actions - the trait is entirely passive.')
+
+func test_nuckelavee_names_are_localized():
+	var keys:Array[String] = ['frame.mf_nuckelavee.name']
+	for kit_id:StringName in NUCKELAVEE_TRAITS + [NUCKELAVEE_CORE_POWER]:
+		keys.append('gear.%s.name' % kit_id)
+	for mode_id:StringName in NUCKELAVEE_CORE_POWER_MODES:
+		keys.append('gear.%s.%s.name' % [NUCKELAVEE_CORE_POWER, mode_id])
+	for key:String in keys:
+		assert_ne(tr(key), key, '%s resolves to real text.' % key)
+
+func test_nuckelavee_effects_and_flavor_are_written():
+	# Stub rows, blank until the copy is written. Pending, not failing - see the Draugr traits above.
+	var unwritten:PackedStringArray = []
+	for key:String in ['frame.mf_nuckelavee.flavor', 'frame.mf_nuckelavee.flavor.short',
+			'gear.%s.effect' % NUCKELAVEE_CORE_POWER, 'gear.%s.flavor' % NUCKELAVEE_CORE_POWER]:
+		if tr(key) == key: unwritten.append(key)
+	for kit_id:StringName in NUCKELAVEE_TRAITS:
+		var key := 'gear.%s.effect' % kit_id
+		if tr(key) == key: unwritten.append(key)
+	for mode_id:StringName in NUCKELAVEE_CORE_POWER_MODES:
+		var key := 'gear.%s.%s.effect' % [NUCKELAVEE_CORE_POWER, mode_id]
+		if tr(key) == key: unwritten.append(key)
+
+	if not unwritten.is_empty():
+		pending('Nuckelavee copy not written yet: %s' % ', '.join(unwritten))
+		return
+
+	assert_true(true, 'The Nuckelavee has flavor and effect text throughout.')
+
+func test_nuckelavee_stats_are_its_own_and_not_the_nelsons():
+	# The statblock and mounts ship as the Nelson's placeholders. The Kraken went two commits with
+	# the Saladin's numbers before anyone noticed, so this says so out loud rather than hoping.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_nuckelavee')
+	var nelson:Frame = ContentLibrary.get_mech_frame(&'mf_nelson')
+	if not is_instance_valid(frame): return fail_test('mf_nuckelavee loaded.')
+	if not is_instance_valid(nelson): return fail_test('mf_nelson loaded.')
+
+	if _statblock_signature(frame.stat) == _statblock_signature(nelson.stat):
+		pending('Statblock is still the Nelson\'s placeholder.')
+		return
+
+	assert_true(true, 'The Nuckelavee has its own numbers.')
+
+func test_the_nuckelavee_has_art():
+	# An unwired sprite falls back to the missing-frame token, which reads in the catalog as a
+	# broken frame rather than an unfinished one.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_nuckelavee')
+	if not is_instance_valid(frame): return fail_test('mf_nuckelavee loaded.')
+
+	if frame.sprites.is_empty():
+		pending('No art wired yet - drop a png in res/assets/frames/horus/mf_nuckelavee/.')
+		return
+
+	assert_true(true, 'The Nuckelavee has a sprite.')
+
+func _statblock_signature(stat:Statblock) -> Array:
+	if stat == null: return []
+	return [stat.size, stat.structure, stat.stress, stat.health, stat.armor, stat.evasion, stat.edef,
+		stat.speed, stat.heat, stat.save_target, stat.sensor_range, stat.tech_attack, stat.repairs,
+		stat.systems_points, stat.reactions, stat.activations]
+
+# ==================== Poisoned Soil ====================
+
+const POISONED_SOIL_ACTIONS := [&'action_poisoned_soil_arm', &'action_poisoned_soil_track',
+	&'action_poisoned_soil_lay', &'action_poisoned_soil_disarm']
+
+func test_poisoned_soil_carries_one_terrain_zone_and_four_reactions():
+	# The fourth reaction (disarm, on END_TURN) was added by the final review's round-2 fix: a round
+	# stamp alone bounds a stale arm to the rest of the ARMING ROUND, which is one grain too coarse
+	# for a turn-scoped effect - action_symbiosis_shared_turn.gd can grant a second, linked turn
+	# within the same round. Disarming unconditionally at the end of the arming unit's own turn is
+	# what actually closes that.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+
+	assert_eq(kit.get_passives(PassiveTerrainZone).size(), 1, 'Exactly one terrain zone.')
+
+	var action_ids:Array[StringName] = []
+	for action:Action in kit.actions: action_ids.append(action.get_id())
+	assert_eq(action_ids, POISONED_SOIL_ACTIONS, 'Arm, track, lay, disarm - in that order.')
+
+func test_no_poisoned_soil_reaction_consumes_the_reaction():
+	# A consuming reaction is hard-capped at 1/round by ActionReaction.get_action_type returning
+	# RXN, which would silently stop the tracker after its first step.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+	for action:Action in kit.actions:
+		assert_true(action is ActionReaction, '%s is a reaction.' % action.get_id())
+		if action is ActionReaction:
+			assert_false(action.consumes_rxn, '%s does not spend the reaction.' % action.get_id())
+
+func test_the_poisoned_soil_reactions_do_not_share_a_round_allowance():
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Every reaction has its own usage_group.')
+	assert_false(groups.has(&''), 'And none fell back to the shared default.')
+
+func test_the_poisoned_soil_reactions_are_hidden_from_the_tooltip():
+	# All four are internal bookkeeping - the player never chooses any of them, and the trait's own
+	# effect and trigger text already say what it does. Action.show_in_tooltip returns TRUE for any
+	# trait reaction whose KIT carries a trigger row (action.gd:343-344), and mt_poisoned_soil has
+	# one, so without an explicit override all four list themselves in the tooltip. Found in play.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+	for action:Action in kit.actions:
+		assert_false(action.show_in_tooltip(kit), '%s stays out of the tooltip.' % action.get_id())
+
+func test_poisoned_soil_terrain_is_visible():
+	# Dynamic difficult terrain draws NOTHING on its own - confirmed in play, the trail was
+	# completely invisible. PassiveTerrainZone.get_attached_fx returns no tickets unless the passive
+	# carries an fxe, so this assertion is the difference between a trait that works and a trait
+	# nobody can see working. Asserting the resolved id also proves the scene actually loaded.
+	var kit:Kit = ContentLibrary.get_kit(&'mt_poisoned_soil')
+	if not Kit.is_valid(kit): return fail_test('mt_poisoned_soil loaded.')
+	var zones:Array = kit.get_passives(PassiveTerrainZone)
+	if zones.is_empty(): return fail_test('mt_poisoned_soil carries a terrain zone.')
+	assert_eq(zones[0].get_fxe_id(), &'fxe_poisoned_soil', 'The trail draws an effect on every fouled tile.')

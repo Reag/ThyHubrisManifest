@@ -1,0 +1,73 @@
+# Poisoned Soil, part 3 of 4: offer the trail, and commit it.
+#
+#   "...may turn the spaces it moves through into difficult terrain. This terrain lasts until you
+#    create terrain this way again."
+#
+# One yes/no for the whole path, by the designer's decision - not a per-tile selection. The
+# "lasts until you create terrain this way again" clause is the write on line `write_trail` below
+# and nothing else: replacing the array IS the expiry, so there is no lifetime to track and no
+# cleanup path that can leak.
+#
+# Declining leaves the previous trail alone. A boost the player does not cash in is not a boost that
+# scrubs the ground clean.
+#
+# Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-03-poisoned-soil-design.md
+extends ActionReaction
+
+## Bookkeeping, not an ability the pilot uses - keep it out of the trait's tooltip.
+##
+## Action.show_in_tooltip returns TRUE for any trait reaction whose KIT carries a trigger row
+## (action.gd:343-344), and mt_poisoned_soil has one ("On |Boost|"). Without this override all four
+## of the trait's reactions list themselves separately in the tooltip, which is four lines of
+## internal machinery the player can neither see nor act on. The trait's own name, effect and
+## trigger text still render - they come from the kit, not from these.
+##
+## Same move as vanilla's action_system_clear_buff.gd:21.
+func show_in_tooltip(_kit:Kit) -> bool: return false
+
+
+const PoisonedSoil := preload('./passive_poisoned_soil.gd')
+
+func get_required_triggering_context() -> Array[Context.PROP]:
+	return [Context.PROP.unit]
+
+func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> bool:
+	if not PoisonedSoil.is_armed(gear, triggering_event.context.map.game_core.round_count): return false
+	if triggering_event.context.unit != unit: return false
+	# Only the Nuckelavee's own movement offers a trail - a knockback or pull must not prompt the
+	# player mid-enemy-turn over ground it was thrown across.
+	if not PoisonedSoil.is_voluntary_movement(triggering_event): return false
+	# An armed boost the frame never moved off is not a decision worth a prompt. The seeded start
+	# tile alone means no step was ever taken.
+	return PoisonedSoil.read_pending(gear).size() > 1
+
+func activate(context:Context, activation:EventCore) -> void:
+	var gear:GearCore = context.gear
+	var trail:Array[Vector2i] = PoisonedSoil.read_pending(gear)
+
+	# "the spaces it moves THROUGH" - the frame never moves through the space it stops in, it moves
+	# TO it. Removed BEFORE the prompt so the highlighted tiles are the ones actually about to be
+	# fouled.
+	#
+	# Erase by POSITION, never "drop the last entry": action_poisoned_soil_track.gd de-dupes
+	# revisited tiles, so on a path A -> B -> C -> B the buffer is [A, B, C] while the frame stands
+	# on B. Dropping the last entry would erase C and leave the frame in its own acid. Array.erase
+	# removes the first match, and the de-dupe guarantees there is at most one.
+	#
+	# This cannot empty the trail: triggers_on_event only fires when pending holds more than the one
+	# seeded tile, so at least one tile always survives the erase.
+	trail.erase(context.unit.tile())
+
+	# Disarm first and unconditionally: whichever way the player answers, this boost is spent. An
+	# early return past the disarm would leave the trail armed into the next movement.
+	PoisonedSoil.set_armed(gear, false)
+	PoisonedSoil.write_pending(gear, [] as Array[Vector2i])
+
+	# Passing the trail as aoe_tiles highlights exactly which ground is about to be fouled.
+	var confirmed:bool = await CommonActionUtil.confirm_use(context, [], trail)
+	if not confirmed: return
+
+	PoisonedSoil.write_trail(gear, trail)
+	# GearCore.set_state does not refresh the map - only set_aura_active does - so the new terrain
+	# would not exist until something unrelated happened to trigger a sweep. Ask for one.
+	UnitTile.update_tracking_and_statuses(context.unit.map, activation)

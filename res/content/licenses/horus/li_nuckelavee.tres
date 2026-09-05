@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="UnlockTree" format=3]
+
+[ext_resource type="Script" uid="uid://dq0jowvw37x6i" path="res://engine/character/unit_core/unlock_tree.gd" id="1_unlock_tree"]
+[ext_resource type="Script" uid="uid://ctb1pfqlfgmni" path="res://engine/character/unit_core/unlock_rank.gd" id="2_unlock_rank"]
+[ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="3_frame"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="4_kit"]
+[ext_resource type="Texture2D" uid="uid://h17gn7ncv4p7" path="res://assets/media/horus.png" id="5_horus_icon"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mf_nuckelavee.tres" id="6_mf_nuckelavee"]
+[ext_resource type="Resource" uid="uid://b3i5inky1fugy" path="res://content/gear/ipsn/weapons/mw_war_pike.tres" id="7_mw_war_pike"]
+[ext_resource type="Resource" uid="uid://bhuac2qi243wa" path="res://content/gear/ipsn/systems/ms_bulwark_mods.tres" id="8_ms_bulwark_mods"]
+[ext_resource type="Resource" uid="uid://c2kro7fc6sbwk" path="res://content/gear/ipsn/systems/wm_thermal_charge/wm_thermal_charge.tres" id="9_wm_thermal_charge"]
+[ext_resource type="Resource" uid="uid://6o06ecvr23bs" path="res://content/gear/ipsn/systems/ms_armor_lock_plating/ms_armor_lock_plating.tres" id="10_ms_armor_lock_plating"]
+[ext_resource type="Resource" uid="uid://brgk7it8mwdm8" path="res://content/gear/ipsn/weapons/mw_power_knuckles.tres" id="11_mw_power_knuckles"]
+[ext_resource type="Resource" uid="uid://0habeehps5ur" path="res://content/gear/ipsn/systems/ms_ramjet/ms_ramjet.tres" id="12_ms_ramjet"]
+
+[sub_resource type="Resource" id="Resource_nuckelavee_rank_1"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("7_mw_war_pike"), ExtResource("8_ms_bulwark_mods")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[sub_resource type="Resource" id="Resource_nuckelavee_rank_2"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("9_wm_thermal_charge"), ExtResource("10_ms_armor_lock_plating")])
+granted_frames = Array[ExtResource("3_frame")]([ExtResource("6_mf_nuckelavee")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[sub_resource type="Resource" id="Resource_nuckelavee_rank_3"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("11_mw_power_knuckles"), ExtResource("12_ms_ramjet")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[resource]
+script = ExtResource("1_unlock_tree")
+icon = ExtResource("5_horus_icon")
+rank_1 = SubResource("Resource_nuckelavee_rank_1")
+rank_2 = SubResource("Resource_nuckelavee_rank_2")
+rank_3 = SubResource("Resource_nuckelavee_rank_3")
+metadata/_custom_type_script = "uid://dq0jowvw37x6i"
