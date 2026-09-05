@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://cm50wdj5g8syg" path="res://engine/character/gear_action/archtypes/action_system_apply_buff.gd" id="1_apply_buff"]
 [ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="2_buff"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/buff_the_desperate_clawing_hands.tres" id="3_hands_buff"]
+[ext_resource type="Texture2D" uid="uid://bsulrfc0og7l0" path="res://assets/icons/actions/systems/ms_webjaw_snare.svg" id="4_icon"]
 
 [resource]
 script = ExtResource("1_apply_buff")
@@ -14,3 +15,4 @@ action_type = 4
 consumes_cp = true
 usage_group = &"action_the_desperate_clawing_hands_of_the_dead"
 emit_text_popcorn_on_use = true
+icon_override = ExtResource("4_icon")

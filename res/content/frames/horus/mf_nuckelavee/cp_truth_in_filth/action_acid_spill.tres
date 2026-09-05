@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/action_acid_spill.gd" id="1_action_script"]
 [ext_resource type="Script" uid="uid://c0yv6pnw2be6l" path="res://engine/character/gear_action/resources/range_pattern.gd" id="2_range_pattern"]
 [ext_resource type="Script" uid="uid://df1yicp7kbf3x" path="res://engine/character/gear_action/resources/target_requirements.gd" id="3_target_requirements"]
+[ext_resource type="Texture2D" uid="uid://638sgqorulo3" path="res://assets/icons/buffs/ms_scanner_swarm.svg" id="4_icon"]
 
 [sub_resource type="Resource" id="Resource_acid_spill_burst"]
 script = ExtResource("2_range_pattern")
@@ -26,3 +27,4 @@ range_pattern = SubResource("Resource_acid_spill_burst")
 target_requirements_override = SubResource("Resource_acid_spill_targeting")
 self_heat_dice = "1"
 usage_group = &"action_acid_spill"
+icon_override = ExtResource("4_icon")
