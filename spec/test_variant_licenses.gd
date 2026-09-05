@@ -25,6 +25,7 @@ const VARIANTS := {
 	&'li_erinyes': {&'clones': &'li_dusk_wing', &'grants': &'mf_erinyes'},
 	&'li_kraken': {&'clones': &'li_saladin', &'grants': &'mf_kraken'},
 	&'li_nuckelavee': {&'clones': &'li_nelson', &'grants': &'mf_nuckelavee'},
+	&'li_banshee': {&'clones': &'li_deaths_head', &'grants': &'mf_banshee'},
 }
 
 func test_every_variant_grants_exactly_its_base_licenses_gear():

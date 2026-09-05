@@ -138,3 +138,23 @@ gear.mt_poisoned_soil.action_poisoned_soil_lay.name,Poisoned Soil
 gear.mt_poisoned_soil.action_poisoned_soil_lay.effect,"Turn the spaces you moved through into |difficult terrain|, replacing any terrain you created this way before."
 gear.mt_poisoned_soil.action_poisoned_soil_disarm.name,Poisoned Soil
 gear.mt_poisoned_soil.action_poisoned_soil_disarm.effect,"Stop tracking at the end of your turn, even if you never moved."
+,
+frame.mf_banshee.name,Banshee
+frame.mf_banshee.flavor,
+frame.mf_banshee.flavor.short,
+gear.mt_to_bend_reality.name,To Bend Reality
+gear.mt_to_bend_reality.effect,
+gear.mt_to_bend_reality.trigger,
+gear.mt_to_twist_truth.name,To Twist Truth
+gear.mt_to_twist_truth.effect,
+gear.mt_to_twist_truth.trigger,
+gear.mt_whispering.name,Whispering
+gear.mt_whispering.effect,
+gear.mt_whispering.trigger,
+gear.cp_the_keening.name,The Keening
+gear.cp_the_keening.effect,
+gear.cp_the_keening.flavor,
+gear.cp_the_keening.action_tear.name,Tear
+gear.cp_the_keening.action_tear.effect,
+gear.cp_the_keening.action_mourning_call.name,Mourning Call
+gear.cp_the_keening.action_mourning_call.effect,

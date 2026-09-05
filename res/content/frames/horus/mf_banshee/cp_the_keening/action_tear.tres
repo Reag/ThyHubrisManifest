@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ActionSystem" format=3]
+
+[ext_resource type="Script" uid="uid://cvvlk0g0af1lk" path="res://engine/character/gear_action/action_system.gd" id="1_action_system"]
+
+[resource]
+script = ExtResource("1_action_system")
+action_type = 1
+consumes_cp = false
+usage_group = &"action_tear"
+metadata/_custom_type_script = "uid://cvvlk0g0af1lk"

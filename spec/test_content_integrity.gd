@@ -600,3 +600,150 @@ func test_poisoned_soil_terrain_is_visible():
 	var zones:Array = kit.get_passives(PassiveTerrainZone)
 	if zones.is_empty(): return fail_test('mt_poisoned_soil carries a terrain zone.')
 	assert_eq(zones[0].get_fxe_id(), &'fxe_poisoned_soil', 'The trail draws an effect on every fouled tile.')
+
+# ============================== Banshee ==============================
+#
+# Variant frame cloning the SSC Death's Head license. Scaffold only: the three unique traits are
+# behaviourless Kits, the statblock is the Death's Head's, and there is no art yet - each of those
+# has a pending guard below so it cannot be quietly forgotten.
+#
+# The mounts are NOT the Death's Head's: the Banshee carries a Main and a Heavy where the base frame
+# carries a Heavy and a Main/Aux, so the mount test below asserts the real loadout rather than
+# guarding a placeholder.
+#
+# As with the Kraken and the Nuckelavee there is deliberately NO license test here;
+# test_variant_licenses.gd carries li_banshee through all six of its clause tests from one row.
+
+const BANSHEE_TRAITS := [&'mt_to_bend_reality', &'mt_to_twist_truth', &'mt_whispering']
+const BANSHEE_CORE_POWER := &'cp_the_keening'
+## The Keening is two parts, and unusually for this mod BOTH are QUICK actions: Tear does NOT spend
+## the core power, Mourning Call does.
+const BANSHEE_TEAR := &'action_tear'
+const BANSHEE_MOURNING_CALL := &'action_mourning_call'
+const BANSHEE_CORE_POWER_MODES := [BANSHEE_TEAR, BANSHEE_MOURNING_CALL]
+
+func test_banshee_frame_is_registered():
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	assert_true(is_instance_valid(frame), 'mf_banshee is in the frames index.')
+	if not is_instance_valid(frame): return
+	assert_eq(frame.role_primary, Lancer.SQUAD_ROLE.ARTILLERY, 'Banshee is Artillery.')
+	assert_eq(frame.role_secondary, Lancer.SQUAD_ROLE.NONE, 'And pure Artillery - no secondary role.')
+
+func test_banshee_traits_and_core_power_are_registered():
+	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER]:
+		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
+
+func test_the_banshee_frame_carries_its_traits_in_book_order():
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+	var wired:Array[StringName] = []
+	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
+	assert_eq(wired, BANSHEE_TRAITS + [BANSHEE_CORE_POWER], 'Three traits, then the core power.')
+
+func test_banshee_traits_are_flagged_as_traits():
+	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER]:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
+		assert_false(kit.is_destructable(), 'And so is not destructible.')
+
+func test_the_banshee_core_power_reads_as_a_core_power():
+	var kit:Kit = ContentLibrary.get_kit(BANSHEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % BANSHEE_CORE_POWER)
+	assert_true(kit.is_core_power(), '%s is a core power.' % BANSHEE_CORE_POWER)
+
+func test_the_banshee_carries_a_main_and_a_heavy_mount():
+	# Not a placeholder guard - this is the Banshee's real loadout, and it deliberately differs from
+	# the Death's Head's Heavy + Main/Aux. Nothing else would notice if a later edit copied the base
+	# frame's mounts across along with its statblock.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+	var mounts:Array[StringName] = []
+	for mount:MountType in frame.mount_types: mounts.append(mount.compcon_id)
+	assert_eq(mounts, [&'mount_main', &'mount_heavy'] as Array[StringName], 'A Main and a Heavy.')
+
+func test_the_keening_has_two_parts_with_the_right_economy():
+	# Pinned from the scaffold, the way the Kraken's and the Nuckelavee's were: which half spends the
+	# core is invisible in play if it is wrong - the frame just plays as though its core never
+	# depletes, or always does. Both halves being QUICK makes that worse, not better: the two are
+	# indistinguishable in the action bar, so the only tell would be the core meter.
+	var kit:Kit = ContentLibrary.get_kit(BANSHEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % BANSHEE_CORE_POWER)
+
+	var by_id := {}
+	for action:Action in kit.actions: by_id[action.get_id()] = action
+	assert_eq(by_id.keys(), BANSHEE_CORE_POWER_MODES, 'It is exactly its two parts.')
+
+	var tear:Action = by_id.get(BANSHEE_TEAR)
+	if Action.is_valid(tear):
+		assert_eq(tear.get_action_type(null), Lancer.ACTION.QUICK, 'Tear is a quick action.')
+		assert_false(bool(tear.consumes_core_power()), 'And does not spend the core.')
+
+	var mourning_call:Action = by_id.get(BANSHEE_MOURNING_CALL)
+	if Action.is_valid(mourning_call):
+		assert_eq(mourning_call.get_action_type(null), Lancer.ACTION.QUICK, 'Mourning Call is a quick action.')
+		assert_true(bool(mourning_call.consumes_core_power()), 'And spends the core.')
+
+func test_the_banshee_core_power_parts_do_not_share_a_round_allowance():
+	# Same trap as the Kraken's and the Nuckelavee's: actions on one Kit default to a usage_group
+	# keyed on the gear id, so a 1/round limit on either half would silently spend the other's.
+	var kit:Kit = ContentLibrary.get_kit(BANSHEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % BANSHEE_CORE_POWER)
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Both parts have their own usage_group.')
+	assert_false(groups.has(&''), 'And neither fell back to the shared default.')
+
+func test_banshee_names_are_localized():
+	var keys:Array[String] = ['frame.mf_banshee.name']
+	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER]:
+		keys.append('gear.%s.name' % kit_id)
+	for mode_id:StringName in BANSHEE_CORE_POWER_MODES:
+		keys.append('gear.%s.%s.name' % [BANSHEE_CORE_POWER, mode_id])
+	for key:String in keys:
+		assert_ne(tr(key), key, '%s resolves to real text.' % key)
+
+func test_banshee_effects_and_flavor_are_written():
+	# Stub rows, blank until the copy is written. Pending, not failing - see the Draugr traits above.
+	var unwritten:PackedStringArray = []
+	for key:String in ['frame.mf_banshee.flavor', 'frame.mf_banshee.flavor.short',
+			'gear.%s.effect' % BANSHEE_CORE_POWER, 'gear.%s.flavor' % BANSHEE_CORE_POWER]:
+		if tr(key) == key: unwritten.append(key)
+	for kit_id:StringName in BANSHEE_TRAITS:
+		var key := 'gear.%s.effect' % kit_id
+		if tr(key) == key: unwritten.append(key)
+	for mode_id:StringName in BANSHEE_CORE_POWER_MODES:
+		var key := 'gear.%s.%s.effect' % [BANSHEE_CORE_POWER, mode_id]
+		if tr(key) == key: unwritten.append(key)
+
+	if not unwritten.is_empty():
+		pending('Banshee copy not written yet: %s' % ', '.join(unwritten))
+		return
+
+	assert_true(true, 'The Banshee has flavor and effect text throughout.')
+
+func test_banshee_stats_are_its_own_and_not_the_deaths_heads():
+	# The statblock ships as the Death's Head's placeholder. The Kraken went two commits with the
+	# Saladin's numbers before anyone noticed, so this says so out loud rather than hoping.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	var deaths_head:Frame = ContentLibrary.get_mech_frame(&'mf_deaths_head')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+	if not is_instance_valid(deaths_head): return fail_test('mf_deaths_head loaded.')
+
+	if _statblock_signature(frame.stat) == _statblock_signature(deaths_head.stat):
+		pending('Statblock is still the Death\'s Head\'s placeholder.')
+		return
+
+	assert_true(true, 'The Banshee has its own numbers.')
+
+func test_the_banshee_has_art():
+	# An unwired sprite falls back to the missing-frame token, which reads in the catalog as a
+	# broken frame rather than an unfinished one.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+
+	if frame.sprites.is_empty():
+		pending('No art wired yet - drop a png in res/assets/frames/horus/mf_banshee/.')
+		return
+
+	assert_true(true, 'The Banshee has a sprite.')
