@@ -88,6 +88,19 @@ func remaining_range_after(specific:SpecificAction, tear_tile:Vector2i) -> int:
 	var first_leg:int = Tile.distance(specific.unit.tile(), tear_tile)
 	return maxi(get_target_range(specific) - first_leg, 0)
 
+## THE LINE SPLIT, extracted out of activate() for the same reason as remaining_range_after above -
+## nothing on the mocked-CompconPlan test path ever re-derives or checks a segment's actual length (see
+## test_to_bend_reality.gd's Gap 2 comment), so a test asserting only on damage would pass even if this
+## arithmetic were deleted or wrong. x is segment 1's length (Banshee -> tear, full damage); y is
+## segment 2's length (tear -> wherever the second pick aims, half damage - remaining_range_after's
+## whole contract, reused rather than recomputed so the two functions cannot drift apart). Barring
+## remaining_range_after's own clamp at zero, x + y always equals the weapon's full line length, since y
+## is defined as "whatever's left of the range budget after x is spent."
+func line_segment_lengths(specific:SpecificAction, tear_tile:Vector2i) -> Vector2i:
+	var first_leg:int = Tile.distance(specific.unit.tile(), tear_tile)
+	var remaining:int = remaining_range_after(specific, tear_tile)
+	return Vector2i(first_leg, remaining)
+
 func activate(context:Context, activation:EventCore) -> void:
 	if activation.abort_when(not Action.is_valid(followup_attack)): return
 	var unit := context.unit
@@ -101,26 +114,69 @@ func activate(context:Context, activation:EventCore) -> void:
 
 	# ASSIGN a fresh RangePattern - never mutate the existing one. create_duplicate_for_variant is
 	# duplicate_deep(DEEP_DUPLICATE_NONE), so subresources are SHARED with the pilot's real weapon and
-	# mutating one permanently rewrites their actual gun.
-	var remaining:int = remaining_range_after(SpecificAction.from_context(context), tear_tile)
-	if followup_attack.range_pattern:
-		followup_attack.range_pattern = RangePattern.create(followup_attack.range_pattern.pattern, remaining)
-	else:
-		followup_attack.aim_range = remaining
+	# mutating one permanently rewrites their actual gun. This gets reassigned a SECOND time below for a
+	# LINE weapon - once per segment - and both assignments must stay assignments, never in-place mutation.
+	var specific := SpecificAction.from_context(context)
+	var segment_lengths:Vector2i = line_segment_lengths(specific, tear_tile)
+	var first_leg:int = segment_lengths.x
+	var remaining:int = segment_lengths.y
+	var is_line:bool = followup_attack.range_pattern != null and followup_attack.range_pattern.pattern == Lancer.AOE_TYPE.LINE
 
 	var proxy := TargetActionUtil.create_targeting_proxy(tear_tile, unit, 1, TearRouting.BEND_PROXY_FRAME_ID)
-	var relay_buff := UnitCondition.apply_buff_id(activation, unit, RELAY_BUFF_ID, context.gear)
-	relay_buff.set_state(PROXY_KEY, proxy.core.persistent_id)
+	var relay_buff:BuffCore
 
-	# Delegate with a context re-pointed at the FOLLOWUP, not the wrapper. SpecificAction.from_context
-	# rebuilds specific.action straight from context.action, and that is what event_unit_attack_declared
-	# and friends read damage_dice/aim_range/weapon_size/threat/tags from - not from `self`, even though
-	# `self` (the object this activate() runs on) is already the followup. Handing the followup our own
-	# (wrapper) context would run its targeting and damage resolution against the wrapper's unset
-	# defaults instead of the real weapon. Mirrors action_throughbolt_line.gd's followup_context swap.
-	var followup_context := Context.clone(context, { action = followup_attack })
-	activation.context = followup_context
-	await followup_attack.activate(followup_context, activation)
+	if is_line:
+		# A LINE weapon bends into two segments instead of one relocated shot: segment 1 from the
+		# Banshee to the tear at full damage, segment 2 onward from the tear at half damage.
+		#
+		# SEGMENT 1 FIRES BEFORE THE RELAY BUFF EXISTS. get_attacker_relay (action_attack.gd:120-128) is
+		# called at the very top of every ActionAttackWeapon.activate (action_attack.gd:233) and, the
+		# moment it finds a SET_ATTACK_RELAY buff, CONSUMES it (UnitCondition.consume_buffs at :126) -
+		# it is one-shot. Applying the relay buff before both activations, as the non-line path does,
+		# would relay SEGMENT 1 (the wrong leg - it must originate from the Banshee, not the tear) and
+		# leave segment 2 unrelayed. So the buff is applied AFTER segment 1 returns and BEFORE segment 2
+		# starts, so only segment 2 ever sees it and consumes it.
+		var pattern:Lancer.AOE_TYPE = followup_attack.range_pattern.pattern
+		followup_attack.range_pattern = RangePattern.create(pattern, first_leg)
+		var segment_one := Context.clone(context, {
+			action = followup_attack,
+			target_tiles = [tear_tile],
+		})
+		activation.context = segment_one
+		await followup_attack.activate(segment_one, activation)
 
+		relay_buff = UnitCondition.apply_buff_id(activation, unit, RELAY_BUFF_ID, context.gear)
+		relay_buff.set_state(PROXY_KEY, proxy.core.persistent_id)
+
+		# SEGMENT 2: from the proxy on the tear (relayed, above), the remaining length, HALF damage.
+		# The player's second pick supplies this segment's direction/target. AS_FREEBIE keeps it from
+		# charging a second action - the same flag action_attack_weapon.gd:64-79 uses for mounted
+		# followups. first_leg + remaining == the line's normal length (remaining_range_after's contract).
+		followup_attack.range_pattern = RangePattern.create(pattern, remaining)
+		var segment_two := Context.clone(context, {
+			action = followup_attack,
+			flags = context.flags.duplicate() + [Action.FLAG.HALF_DAMAGE, Action.FLAG.AS_FREEBIE],
+		})
+		activation.context = segment_two
+		await followup_attack.activate(segment_two, activation)
+	else:
+		if followup_attack.range_pattern:
+			followup_attack.range_pattern = RangePattern.create(followup_attack.range_pattern.pattern, remaining)
+		else:
+			followup_attack.aim_range = remaining
+
+		relay_buff = UnitCondition.apply_buff_id(activation, unit, RELAY_BUFF_ID, context.gear)
+		relay_buff.set_state(PROXY_KEY, proxy.core.persistent_id)
+
+		# Delegate with a context re-pointed at the FOLLOWUP, not the wrapper. SpecificAction.from_context
+		# rebuilds specific.action straight from context.action, and that is what event_unit_attack_declared
+		# and friends read damage_dice/aim_range/weapon_size/threat/tags from - not from `self`, even though
+		# `self` (the object this activate() runs on) is already the followup. Handing the followup our own
+		# (wrapper) context would run its targeting and damage resolution against the wrapper's unset
+		# defaults instead of the real weapon. Mirrors action_throughbolt_line.gd's followup_context swap.
+		var followup_context := Context.clone(context, { action = followup_attack })
+		activation.context = followup_context
+		await followup_attack.activate(followup_context, activation)
+
+	if Unit.is_valid(unit) and BuffCore.is_valid(relay_buff): UnitCondition.clear_buffs(activation, unit, [relay_buff])
 	if Unit.is_valid(proxy): proxy.remove_from_game()
-	if Unit.is_valid(unit): UnitCondition.clear_buffs(activation, unit, [relay_buff])

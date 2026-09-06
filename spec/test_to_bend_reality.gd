@@ -581,6 +581,75 @@ func test_remaining_range_after_first_leg_plus_remaining_equals_full_range():
 		assert_eq(first_leg + remaining, max_range,
 			'First leg %d + remaining %d must equal the full range %d.' % [first_leg, remaining, max_range])
 
+## THE LINE SPLIT ARITHMETIC. Same rationale as Gap 2 above, for line_segment_lengths instead of
+## remaining_range_after: nothing on the mocked-CompconPlan end-to-end path
+## (test_a_bent_line_hits_both_segments_and_halves_the_second below) re-derives or checks a segment's
+## actual length - CompconPlan.is_valid_with_targets_alt never checks range and neither does
+## Action.can_target_unit - so a test that only asserts damage would pass even if both segments were
+## sized wrong, or the split were deleted outright. These call line_segment_lengths directly, which is
+## the only thing that actually exercises the split.
+##
+## mw_rail_rifle, not mw_assault_rifle like Gap 2's block: it is a real kinetic LINE weapon
+## (content/gear/ssc/weapons/mw_rail_rifle.tres: pattern = 2 [LINE], value = 10), so get_target_range
+## here returns the line's own length rather than a plain aim_range - the actual budget the split
+## divides in the real activate() flow.
+func test_line_segment_lengths_x_is_the_distance_to_the_tear():
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1)) # any open tear satisfies the offer gate
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+
+	var tear_tile := Vector2i(4,1) # first leg 3
+	var lengths:Vector2i = bend_action.line_segment_lengths(bend, tear_tile)
+	assert_eq(lengths.x, 3, "Segment 1's length is exactly the distance from the Banshee to the tear.")
+
+func test_line_segment_lengths_y_matches_remaining_range_after():
+	# THE REUSE CHECK. line_segment_lengths.y is documented as remaining_range_after's own result,
+	# reused rather than recomputed so the two functions cannot drift apart. Assert that directly, not
+	# just its value, so a future edit that inlines a SEPARATE (and possibly different) formula for y
+	# is caught even if it happens to agree with remaining_range_after for this one geometry.
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+
+	var tear_tile := Vector2i(4,1)
+	var lengths:Vector2i = bend_action.line_segment_lengths(bend, tear_tile)
+	assert_eq(lengths.y, bend_action.remaining_range_after(bend, tear_tile),
+		"Segment 2's length equals remaining_range_after's answer for the same tear.")
+
+func test_line_segment_lengths_at_the_range_boundary_leaves_a_zero_length_second_segment():
+	# THE BOUNDARY. A tear exactly at the weapon's full range leaves segment 2 legal but zero-length -
+	# mirroring test_remaining_range_after_a_tear_at_max_range_leaves_zero above, through the pair now.
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+	var max_range:int = bend_action.get_target_range(bend)
+
+	var boundary_tear := Vector2i(1 + max_range, 1) # first leg == max_range exactly
+	var lengths:Vector2i = bend_action.line_segment_lengths(bend, boundary_tear)
+	assert_eq(lengths.x, max_range, 'Segment 1 spans the whole weapon range up to the boundary tear.')
+	assert_eq(lengths.y, 0, 'Segment 2 is left with nothing past a tear sitting at the range limit.')
+
+func test_line_segment_lengths_always_sum_to_the_full_line_length():
+	# THE INVARIANT THE BRIEF ASKS FOR BY NAME. Whatever the geometry (short of the clamp kicking in),
+	# segment 1 plus segment 2 must add back up to the weapon's whole line length - an off-by-one in
+	# either direction breaks this even though the individual x/y checks above might still look
+	# plausible in isolation. Mirrors test_remaining_range_after_first_leg_plus_remaining_equals_full_range,
+	# through the pair rather than through remaining_range_after alone.
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+	var max_range:int = bend_action.get_target_range(bend)
+
+	for first_leg:int in [1, 3, max_range - 1]:
+		var tear_tile := Vector2i(1 + first_leg, 1)
+		var lengths:Vector2i = bend_action.line_segment_lengths(bend, tear_tile)
+		assert_eq(lengths.x + lengths.y, max_range,
+			'Segment 1 %d + segment 2 %d must equal the full line length %d.' % [lengths.x, lengths.y, max_range])
+
 func test_activation_narrows_the_followups_range_to_the_computed_budget():
 	# THE END-TO-END CHECK. The direct tests above prove remaining_range_after's arithmetic in
 	# isolation; this proves activate() actually calls it and applies the result to the followup that
@@ -622,3 +691,58 @@ func test_activation_narrows_the_followups_range_to_the_computed_budget():
 	assert_not_null(followup, 'The finished event core still carries the followup as its context action.')
 	assert_eq(followup.aim_range, weapon_range - first_leg,
 		"The followup's narrowed aim_range equals the weapon's range minus the first leg to the tear.")
+
+## THE LINE-SPLIT END-TO-END PLUMBING. The direct line_segment_lengths tests above prove the split
+## arithmetic in isolation; this proves activate() actually branches on it for a LINE weapon and fires
+## TWO real attacks - one from the Banshee to the tear, one onward from the tear at half damage - not
+## just narrowing a single followup's range as the non-line path does. Per the Gap 2/line-split-Gap
+## analysis, damage landing at all does not prove the segments were sized correctly - only
+## line_segment_lengths's own tests do that - so this is plumbing cover, not geometry cover.
+func test_a_bent_line_hits_both_segments_and_halves_the_second():
+	# Rail Rifle: LINE, length 10. Banshee at (1,1), tear at (4,1) - so segment 1 is 3 long and
+	# segment 2 is 7, and 3 + 7 == 10, the line's normal length.
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
+	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)
+	for victim:Unit in [near, far]:
+		victim.core.frame.stat.evasion = 0
+		victim.core.frame.stat.armor = 0
+		victim.core.full_repair()
+	_place_frame(TEAR_FRAME, Vector2i(4,1))
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(4,1)]),  # the tear
+		CompconPlan.create([Vector2i(9,1)]),  # segment 2's direction
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20, 20, 4, 4] # both attacks hit; both damage rolls fixed
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+	assert_gt(near.current_damage(), 0, 'Segment 1 hit the character before the tear.')
+	assert_gt(far.current_damage(), 0, 'Segment 2 hit the character past the tear.')
+	assert_lt(far.current_damage(), near.current_damage(),
+		'Segment 2 dealt HALF damage; segment 1 dealt full.')
+
+func test_the_pilots_real_weapon_is_not_rewritten_by_a_bend():
+	# THE SUBRESOURCE TRAP, for the LINE path specifically. create_duplicate_for_variant does not
+	# duplicate subresources, so a line bend that MUTATED range_pattern.value - on EITHER of its two
+	# reassignments, segment 1's or segment 2's - would permanently shorten the player's actual
+	# railgun. Every other assertion in this file, including the end-to-end test above, would still
+	# pass; only reading the real action's own range_pattern.value back catches it.
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	var real_action:ActionAttackWeapon = gear.get_solo_action()
+	var length_before:int = real_action.range_pattern.value
+	_place_frame(TEAR_FRAME, Vector2i(4,1))
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(4,1)]),
+		CompconPlan.create([Vector2i(9,1)]),
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20, 20, 4, 4]
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+	assert_eq(real_action.range_pattern.value, length_before,
+		'The pilot\'s real weapon still has its original line length after a bend.')
