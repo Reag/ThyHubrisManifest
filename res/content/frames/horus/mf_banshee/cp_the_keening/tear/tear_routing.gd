@@ -35,6 +35,13 @@ const TEAR_FRAME_ID := &'dep_tear_banshee'
 ## maps sharing a coordinate never collide.
 static var _visibility_cache:Dictionary = {}
 
+## map instance id -> Array[Vector2i] of every open tear's tile on that map. routes_between calls
+## tear_tiles on every query - once per candidate tile in is_tile_in_los, once per is_tile_in_los
+## call, in every spec in the mod whether or not a tear exists - and unlike _visibility_of it was
+## never cached, so it paid a full map.get_all_units() scan every time. Same per-map keying as
+## _visibility_cache and for the same reason: two maps can share a tile, never an instance id.
+static var _tear_tile_cache:Dictionary = {}
+
 ## REENTRANCY GUARD, and it is load-bearing rather than defensive.
 ##
 ## unit_tile.gd_ext.gd overrides is_tile_in_los to consult this file. This file computes visibility
@@ -56,15 +63,23 @@ static func open_tears(map:MapState) -> Array[Unit]:
 		if unit.core.frame.compcon_id == TEAR_FRAME_ID: tears.append(unit)
 	return tears
 
+## Cached per map - see _tear_tile_cache. Invalidated the same way and by the same callers as the
+## visibility cache, since both go stale exactly when a tear is created, moved or closed.
 static func tear_tiles(map:MapState) -> Array[Vector2i]:
+	if not is_instance_valid(map): return []
+	var map_id := map.get_instance_id()
+	if _tear_tile_cache.has(map_id): return _tear_tile_cache[map_id]
 	var tiles:Array[Vector2i] = []
 	for tear:Unit in open_tears(map): tiles.append(tear.tile())
+	_tear_tile_cache[map_id] = tiles
 	return tiles
 
 ## Does some open tear bridge these two tiles? Symmetric by construction.
 static func routes_between(map:MapState, from_tile:Vector2i, to_tile:Vector2i) -> bool:
 	if _computing: return false # see _computing
-	for tear_tile:Vector2i in tear_tiles(map):
+	var tiles := tear_tiles(map)
+	if tiles.is_empty(): return false # fast path: no open tear, no route - skip the sweep entirely.
+	for tear_tile:Vector2i in tiles:
 		if not _sees(map, from_tile, tear_tile): continue
 		if _sees(map, tear_tile, to_tile): return true
 	return false
@@ -88,8 +103,10 @@ static func tiles_visible_via_tears(map:MapState, from_tile:Vector2i) -> PackedI
 static func invalidate(map:MapState) -> void:
 	if not is_instance_valid(map):
 		_visibility_cache.clear()
+		_tear_tile_cache.clear()
 		return
 	_visibility_cache.erase(map.get_instance_id())
+	_tear_tile_cache.erase(map.get_instance_id())
 
 static func _visibility_of(map:MapState, tile:Vector2i) -> PackedInt64Array:
 	var map_id := map.get_instance_id()
