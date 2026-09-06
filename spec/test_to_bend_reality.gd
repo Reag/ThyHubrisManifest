@@ -239,9 +239,11 @@ func test_activating_the_bend_resolves_damage_from_the_followups_own_weapon():
 	# the context at followup_attack before delegating, the roll uses the real mw_assault_rifle
 	# (damage_dice "1d6"), and the forced roll of 4 lands as 4 damage.
 	#
-	# banshee (1,1) -> target (10,1) is 9, inside mw_assault_rifle's aim_range of 10 - a plain direct
-	# attack, since the stub doesn't route through the tear yet (that's a later task); the tear only
-	# needs to exist so buff_to_bend_reality offers the variant at all.
+	# banshee (1,1) -> tear (5,1) is 4, tear -> target (10,1) is 5, total 9 - inside mw_assault_rifle's
+	# aim_range of 10, so the bend reaches. Task 8 made activate() actually route through the tear pick
+	# (an earlier draft of this test predates that and queued only the target plan, back when the stub
+	# didn't route through the tear at all); this now queues the tear pick too so the real flow's second
+	# leg is what resolves damage.
 	var gear := _arm_banshee_with(&'mw_assault_rifle')
 	_place_frame(TEAR_FRAME, Vector2i(5,1))
 
@@ -255,7 +257,8 @@ func test_activating_the_bend_resolves_damage_from_the_followups_own_weapon():
 	Dice.CHEAT_ROLL_QUEUE.append_array([15, 4])
 
 	SpecFactory.current_responder.chosen_plan_queue = [
-		CompconPlan.create([], [], [target]),
+		CompconPlan.create([Vector2i(5,1)]), # the tear
+		CompconPlan.create([], [], [target]), # the target, from the tear
 	]
 	await game.execute_event(&'event_gear_activate', {
 		action = gear.get_solo_action(),
@@ -374,3 +377,85 @@ func test_an_intangible_banshee_can_still_pick_its_own_tear():
 	_place_frame(TEAR_FRAME, Vector2i(5,1))
 	assert_true(UnitTargeting.get_tiles_targetable(_bend_specific(gear)).has(Vector2i(5,1)),
 		'An INTANGIBLE Banshee can select its own tear.')
+
+func test_a_bend_hits_a_target_the_banshee_cannot_reach_directly():
+	# The target sits behind the range limit from the Banshee but within the remaining budget from
+	# the tear. Only a bend puts it in reach.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	var weapon_range:int = gear.get_solo_action().get_target_range(SpecificAction.create(banshee, gear, gear.get_solo_action()))
+	UnitTile.move_to(target, Vector2i(1 + weapon_range + 2, 1))
+	_place_frame(TEAR_FRAME, Vector2i(1 + weapon_range - 1, 1))
+	target.core.frame.stat.evasion = 0
+	target.core.frame.stat.armor = 0
+	target.core.full_repair()
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(1 + weapon_range - 1, 1)]), # the tear
+		CompconPlan.create([], [], [target]),                    # the target, from the tear
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20]
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+	assert_gt(target.current_damage(), 0, 'The bent attack reached a target out of direct range.')
+
+func test_cancelling_the_tear_pick_spends_nothing():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	SpecFactory.start_turn(game, banshee)
+	var actions_before:int = banshee.state.actions
+
+	SpecFactory.current_responder.chosen_plan_queue = [CompconPlan.create_aborted()]
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+	assert_eq(banshee.state.actions, actions_before,
+		'Cancelling the tear pick spends no action.')
+	assert_eq(target.current_damage(), 0, 'And deals no damage.')
+
+func test_no_bend_proxy_survives_the_activation():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(5,1)]),
+		CompconPlan.create([], [], [target]),
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20]
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+	for unit:Unit in game.map.get_all_units():
+		assert_false(TearRouting.is_bend_proxy(unit), 'No bend proxy is left on the map afterwards.')
+
+func test_the_pilots_real_weapon_is_unchanged_after_a_bend():
+	# THE SHARED-SUBRESOURCE GUARD. create_duplicate_for_variant is duplicate_deep(DEEP_DUPLICATE_NONE)
+	# (action.gd:94-99) - its own comment says subresources are NOT duplicated - so the followup's
+	# range_pattern is the SAME RangePattern object as the pilot's real weapon action's. Mutating
+	# followup_attack.range_pattern.value in place would permanently rewrite the pilot's actual weapon
+	# for the rest of the mission; only assigning a fresh RangePattern avoids that. Every other
+	# assertion in this file passes whether activate() mutates in place or assigns fresh - this is the
+	# only test that would catch the mistake.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	var real_action:ActionAttackWeapon = gear.get_solo_action()
+	var range_before:int = real_action.range_pattern.value if real_action.range_pattern else real_action.aim_range
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	target.core.frame.stat.evasion = 0
+	target.core.frame.stat.armor = 0
+	target.core.full_repair()
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(5,1)]),
+		CompconPlan.create([], [], [target]),
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20]
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+
+	var range_after:int = real_action.range_pattern.value if real_action.range_pattern else real_action.aim_range
+	assert_eq(range_after, range_before,
+		"The pilot's real weapon range is untouched by the bend's range-budget rewrite.")

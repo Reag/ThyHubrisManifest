@@ -76,8 +76,35 @@ func bendable_tear_tiles(specific:SpecificAction) -> Array[Vector2i]:
 		offerable.append(tear_tile)
 	return offerable
 
+const RELAY_BUFF_ID := &'buff_bend_relay'
+const PROXY_KEY := 'proxy_id'
+
 func activate(context:Context, activation:EventCore) -> void:
 	if activation.abort_when(not Action.is_valid(followup_attack)): return
+	var unit := context.unit
+
+	# No compcon movement on top of all this - Throughbolt does the same at action_throughbolt_line.gd:36.
+	context.object = null
+
+	var plan:CompconPlan = await TargetActionUtil.ask_for_targets(activation)
+	if activation.abort_without_targeting_plan(plan): return
+	var tear_tile:Vector2i = plan.target_tiles[0]
+
+	# THE RANGE BUDGET. The first leg is spent getting to the tear; whatever is left is what the
+	# weapon has past it. ASSIGN a fresh RangePattern - never mutate the existing one.
+	# create_duplicate_for_variant is duplicate_deep(DEEP_DUPLICATE_NONE), so subresources are SHARED
+	# with the pilot's real weapon and mutating one permanently rewrites their actual gun.
+	var first_leg:int = Tile.distance(unit.tile(), tear_tile)
+	var remaining:int = maxi(get_target_range(SpecificAction.from_context(context)) - first_leg, 0)
+	if followup_attack.range_pattern:
+		followup_attack.range_pattern = RangePattern.create(followup_attack.range_pattern.pattern, remaining)
+	else:
+		followup_attack.aim_range = remaining
+
+	var proxy := TargetActionUtil.create_targeting_proxy(tear_tile, unit, 1, TearRouting.BEND_PROXY_FRAME_ID)
+	var relay_buff := UnitCondition.apply_buff_id(activation, unit, RELAY_BUFF_ID, context.gear)
+	relay_buff.set_state(PROXY_KEY, proxy.core.persistent_id)
+
 	# Delegate with a context re-pointed at the FOLLOWUP, not the wrapper. SpecificAction.from_context
 	# rebuilds specific.action straight from context.action, and that is what event_unit_attack_declared
 	# and friends read damage_dice/aim_range/weapon_size/threat/tags from - not from `self`, even though
@@ -87,3 +114,6 @@ func activate(context:Context, activation:EventCore) -> void:
 	var followup_context := Context.clone(context, { action = followup_attack })
 	activation.context = followup_context
 	await followup_attack.activate(followup_context, activation)
+
+	if Unit.is_valid(proxy): proxy.remove_from_game()
+	if Unit.is_valid(unit): UnitCondition.clear_buffs(activation, unit, [relay_buff])

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/buff_bend_relay.gd" id="1_relay"]
+
+[resource]
+script = ExtResource("1_relay")
+until = 8
+to = &"set_attack_relay"
+is_onetime = true
+hide_from_player = true
