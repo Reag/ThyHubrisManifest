@@ -76,6 +76,13 @@ static func _append_valid(units:Array[Unit], unit:Unit) -> void:
 #
 # TO REMOVE THIS, once an engine can express dual tangibility - the Kraken genuinely holding both
 # states, and a held character genuinely gaining INTANGIBLE for the length of its turn:
+#   - STOP. THE WIDENED BRANCH IS NO LONGER THE KRAKEN'S ALONE. It now also carries the BANSHEE's
+#     tear hook - the `if not tear_bridges(...)` line inside the `if not tangibility_line_is_bridged`
+#     block - because GDScript permits only one can_affect per script and the Banshee had nowhere
+#     else to put it. See the BANSHEE banner at the bottom of this file. Deleting can_affect by
+#     following the steps below would silently take the tear window with it, and nothing at the
+#     deletion site would warn you. EXTRACT the tear hook into the replacement first: it belongs
+#     wherever "vanilla refused, and tangibility was the only objection" is decided.
 #   - delete can_affect outright: its self short-circuit, both cut-off guards, the widened branch and
 #     the bridged_by_the_black_sea local that exists only to feed that branch. Delete
 #     tangibility_is_the_only_objection and is_reachable_from_the_black_sea with it; both are
