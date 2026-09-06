@@ -604,8 +604,14 @@ func test_poisoned_soil_terrain_is_visible():
 # ============================== Banshee ==============================
 #
 # Variant frame cloning the SSC Death's Head license. Scaffold only: the three unique traits are
-# behaviourless Kits, the statblock is the Death's Head's, and there is no art yet - each of those
-# has a pending guard below so it cannot be quietly forgotten.
+# behaviourless Kits, the statblock is the Death's Head's, and there is no art yet.
+#
+# CORRECTED: this banner used to claim "each of those has a pending guard below". Two do - the art
+# guard and the copy guard - but the BEHAVIOURLESS TRAITS DO NOT. Their copy is written, so
+# test_banshee_effects_and_flavor_are_written pends only on the core power's blank effect/flavor and
+# says nothing about whether any trait actually does something. Nothing here would notice To Bend
+# Reality, To Twist Truth or Whispering shipping as empty Kits with complete tooltips. The statblock
+# guard is also gone by now - the frame has its own numbers.
 #
 # The mounts are NOT the Death's Head's: the Banshee carries a Main and a Heavy where the base frame
 # carries a Heavy and a Main/Aux, so the mount test below asserts the real loadout rather than

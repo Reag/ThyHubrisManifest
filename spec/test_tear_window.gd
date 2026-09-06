@@ -147,12 +147,20 @@ func test_the_window_is_symmetric():
 		'And the intangible can reach back. can_affect is asked from both sides.')
 
 func test_the_window_is_universal():
-	# The agreed reading: tears are terrain, not a personal periscope. Two characters who are not
-	# the Banshee route through the Banshee's tear, including enemies shooting back through it.
-	var solid := SpecFactory.create_unit(game.map, Vector2i(2,2), Faction.AI_ENEMY)
+	# The agreed reading: tears are terrain, not a personal periscope. Any character routes through
+	# any tear, including an enemy reaching back through the Banshee's own.
+	#
+	# The pair must be CROSS-FACTION as well as neither-is-the-Banshee. An earlier version put the
+	# second unit on AI_ENEMY alongside the ghost, making them allies - so it proved a friendly pair
+	# routes and said nothing at all about "enemies shooting back", which is the clause that costs
+	# the Banshee something.
+	var solid := SpecFactory.create_unit(game.map, Vector2i(2,2), Faction.PLAYER)
+	assert_true(UnitRelation.are_enemies(solid, ghost), 'Fixture: the pair really are enemies.')
+	assert_false(UnitRelation.can_affect(solid, ghost), 'Sanity: no window before the tear.')
+
 	_place_tear(Vector2i(6,6))
 	assert_true(UnitRelation.can_affect(solid, ghost),
-		'Any character routes through any tear.')
+		'A character that is not the Banshee routes through the Banshee tear, even as an enemy.')
 
 func test_the_kraken_tide_still_works():
 	# This file also carries the Kraken's tangibility workaround. Adding to it must not disturb that.
