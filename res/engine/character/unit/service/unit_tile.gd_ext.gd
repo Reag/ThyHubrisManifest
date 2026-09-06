@@ -50,6 +50,16 @@ static func is_tile_in_los(map:MapState, occupied_tiles:Array[Vector2i], from_he
 	var viewer:Unit = TearRouting.unit_with_persistent_id(map, whos_asking)
 	if not Unit.is_valid(viewer): return false
 
+	# A BEND PROXY IS NOT A WINDOW. To Bend Reality relays an attack through a proxy standing on a
+	# tear, governed by the trait's own rule (same tangibility, combined range), not by the tear
+	# window's. Without this, a bend proxy (always raw-tangible - it carries no status) reading as
+	# cross-tangible against an INTANGIBLE target - the Calendula case this trait exists to permit -
+	# would grant sight through ANY open tear, not just the one the player picked.
+	# cross_tangible_units already takes this off the LOS sweep above (get_tiles_in_los) and the
+	# range policing in get_tiles_within; this is the third seam, reachable directly via
+	# tilepicker_compcon.gd:396's unprecalculated LOS query.
+	if TearRouting.is_bend_proxy(viewer): return false
+
 	# The pair rule, applied against whoever is actually standing on the target tile. An empty tile
 	# has no one to be cross-tangible with, so it never routes - which is the point: a tear shows you
 	# things on the other side, not the ground behind a wall.

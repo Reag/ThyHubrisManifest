@@ -66,9 +66,12 @@ func bendable_tear_tiles(specific:SpecificAction) -> Array[Vector2i]:
 	var max_range:int = get_target_range(specific)
 	for tear_tile:Vector2i in TearRouting.tear_tiles(map):
 		# `>=` here, `>` on bends_within_range's combined-distance check - both correct, deliberately
-		# different. There this is the SUM of two legs and a total exactly at max_range still leaves a
-		# real (if zero-length-tolerant) second leg from the caller's chosen target. Here there is no
-		# second leg yet - this candidate tile IS the tear, not a target beyond it - so a tear sitting
+		# different, even though bends_within_range itself has no production caller (see its
+		# docstring): it is the reference predicate for the same rule this loop actually enforces in
+		# play, so the comparison it documents is still the right one to check this against. There
+		# this is the SUM of two legs and a total exactly at max_range still leaves a real (if
+		# zero-length-tolerant) second leg from the caller's chosen target. Here there is no second
+		# leg yet - this candidate tile IS the tear, not a target beyond it - so a tear sitting
 		# exactly at max_range would leave nothing for a follow-up target to reach, and is excluded.
 		# Do not "fix" one bound to match the other; they answer different questions.
 		if Tile.distance(from_tile, tear_tile) >= max_range: continue
@@ -187,14 +190,44 @@ func activate(context:Context, activation:EventCore) -> void:
 			var segment_two_flags:Array = context.flags.duplicate()
 			segment_two_flags.erase(Action.FLAG.CAN_FOLLOWUP)
 			segment_two_flags.append_array([Action.FLAG.HALF_DAMAGE, Action.FLAG.AS_FREEBIE, Action.FLAG.NO_SELF_HEAT])
+			# NO-OP deferred_spend, ONCE PER BEND NOT ONCE PER SEGMENT. Context.clone copies
+			# deferred_spend from the context it clones (context.gd:86), and run_deferred_spend is
+			# NOT one-shot (context.gd:42 - contrast event_unit_move.gd:78, which nulls it after
+			# calling). spend_actions_gain_heat calls it unconditionally once per activate()
+			# (unit_action.gd:219), and both segments here delegate to their own
+			# followup_attack.activate(). Left alone, segment two would inherit the SAME callable
+			# segment one already ran it through, and fire it a second time - doubling whatever a
+			# parent activation (CommonActionUtil.choose_and_use's child-activation path, reachable
+			# through COMP/CON, Scylla NHP, Slave Systems, Overwatch) deferred: its action points,
+			# its charge, and - since UnitAction.spend also calls spend_reaction unconditionally -
+			# its REACTION. Segment one keeps the parent's real deferred_spend (Context.clone's
+			# default); this is the idiom the codebase already uses elsewhere to silence a copied
+			# one (event_gear_choose_and_use.gd:59, event_unit_move.gd:78).
+			#
+			# LATENT, NOT GUARDED: UnitAction.spend (unit_action.gd:271-279) runs
+			# gear.spend_charge() and increment_action_usage_for_action for freebies too, so a
+			# charge-limited kinetic LINE weapon would ALSO spend two charges for one bend, same
+			# double-spend shape as the deferred_spend bug above. No vanilla weapon is both kinetic,
+			# LINE and charge-limited, so this cannot happen today - a comment is enough, this does
+			# not need its own guard.
 			var segment_two := Context.clone(context, {
 				action = followup_attack,
 				flags = segment_two_flags,
+				deferred_spend = func() -> void: pass,
 			})
 			activation.context = segment_two
 			await followup_attack.activate(segment_two, activation)
 	else:
-		if followup_attack.range_pattern:
+		# NARROWED TO CONE, NOT "ANY range_pattern" (finding A). get_target_range reads
+		# range_pattern.value as the RANGE only for LINE and CONE (action_attack_weapon.gd:202-203);
+		# LINE is handled in the branch above, so CONE is the only pattern left where rewriting
+		# .value is correct. For BLAST/BURST/CHAIN, .value is the AoE's RADIUS and the weapon's
+		# actual range lives in aim_range instead (ranged_distance, action_attack_weapon.gd:178-185)
+		# - rewriting .value for those would shrink the blast/burst/chain RADIUS to the remaining
+		# range budget while leaving the weapon's real reach (aim_range) uncapped. No vanilla
+		# kinetic BLAST/BURST/CHAIN weapon exists today, so this was unreachable in play, but it is
+		# a live trap for this mod's own future weapons.
+		if followup_attack.range_pattern and followup_attack.range_pattern.pattern == Lancer.AOE_TYPE.CONE:
 			followup_attack.range_pattern = RangePattern.create(followup_attack.range_pattern.pattern, remaining)
 		else:
 			followup_attack.aim_range = remaining

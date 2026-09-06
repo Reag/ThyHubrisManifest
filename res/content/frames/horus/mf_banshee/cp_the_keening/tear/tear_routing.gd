@@ -114,8 +114,12 @@ static func cross_tangible_units(map:MapState, viewer:Unit) -> Array[Unit]:
 	if not is_instance_valid(map) or not Unit.is_valid(viewer): return found
 	# A BEND PROXY IS NOT A WINDOW. To Bend Reality relays an attack through a proxy standing on a
 	# tear, and that attack is governed by the trait's own rule - same tangibility, combined range -
-	# not by the tear window's. Returning nothing here takes both the LOS widening above and the
-	# clause-7 range policing in unit_tile.gd_ext.gd off a bend in one place.
+	# not by the tear window's. Returning nothing here takes TWO of the window's THREE seams off a
+	# bend: the LOS sweep (get_tiles_in_los, above) and the clause-7 range policing in
+	# unit_tile.gd_ext.gd's get_tiles_within, both of which iterate this function. The THIRD seam -
+	# unit_tile.gd_ext.gd's is_tile_in_los override - does not call this function at all (it asks
+	# is_cross_tangible directly, since it only ever has one candidate pair to judge), so it carries
+	# its own bend-proxy exclusion at the top of that override instead.
 	if is_bend_proxy(viewer): return found
 	for unit:Unit in map.get_all_units():
 		if not Unit.is_valid(unit): continue
@@ -212,7 +216,14 @@ static func routes_within_range(map:MapState, from_tile:Vector2i, to_tile:Vector
 		if _sees(map, tear_tile, to_tile): return true
 	return false
 
-## TO BEND REALITY's range rule: "The combined distance must be within the weapon's range."
+## A REFERENCE PREDICATE for TO BEND REALITY's range rule: "The combined distance must be within
+## the weapon's range." NO PRODUCTION CALLER - the shipped range budget is enforced instead by
+## action_bend_reality.gd's bendable_tear_tiles (the tear pick's own distance filter) together with
+## the narrowed aim_range/range_pattern activate() applies to the followup. This function exists so
+## the rule itself can be pinned down and tested independently of that mechanism; only
+## test_to_bend_reality.gd calls it directly. Do not delete it as dead code on that account -
+## re-pointing the tests at the production path instead is a bigger change than a docstring fix
+## should carry.
 ##
 ## Same shape as routes_within_range with the half-range cap REMOVED, and deliberately a separate
 ## function rather than a parameterised one. Clause 7 belongs to the tear window and TBR is a

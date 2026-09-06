@@ -200,11 +200,15 @@ func test_no_tear_means_no_offer():
 		'With no tear open there is nothing to bend through, so the entry is not offered.')
 
 func test_a_bend_is_refused_when_the_second_leg_is_blocked():
-	# THE LOS REGRESSION GUARD. Every other test in this file runs on a flat, open map with the tear
-	# sitting directly on the line between the two points, so _sees_from and _sees are trivially true
-	# in every case - a regression that broke, swapped or short-circuited either sight check would
-	# pass the whole suite. This is the one geometry where sight, not distance, is the reason for the
-	# refusal.
+	# THE LOS REGRESSION GUARD FOR bends_within_range's SIGHT CHECK - not for anything a player
+	# touches. bends_within_range has no production caller (see its docstring in tear_routing.gd):
+	# the shipped range budget runs through bendable_tear_tiles plus the narrowed
+	# aim_range/range_pattern instead. What this guards is the shared _sees_from/_sees machinery
+	# bends_within_range exercises as the rule's reference predicate. Every other test in this file
+	# runs on a flat, open map with the tear sitting directly on the line between the two points, so
+	# _sees_from and _sees are trivially true in every case - a regression that broke, swapped or
+	# short-circuited either sight check would pass the whole suite. This is the one geometry where
+	# sight, not distance, is the reason for the refusal.
 	#
 	# banshee (1,1) -> tear (3,1) is 2; tear (3,1) -> target (10,1) is 7. Total 9, comfortably inside
 	# max_range 15 - the distance rule alone would allow this.
@@ -871,6 +875,48 @@ func test_a_bend_triggers_the_mounted_followup_exactly_once():
 	assert_eq(gears.secondary.get_uses_this_turn(gears.secondary.get_solo_action()), 1,
 		"The mount's pistol fired exactly once for one bend, not once per segment.")
 
+## THE DEFERRED_SPEND GUARD (blocker 2). Same class of bug as the self-heat and mounted-followup
+## doubles above, in the same place: a LINE bend runs TWO activations (segment 1 and segment 2), and
+## anything that survives Context.clone unmodified fires for BOTH unless activate() strips it.
+## Context.clone copies deferred_spend (context.gd:86), and run_deferred_spend is NOT one-shot
+## (context.gd:42 - contrast event_unit_move.gd:78, which nulls it after calling).
+## UnitAction.spend_actions_gain_heat calls it unconditionally once per followup_attack.activate()
+## call (unit_action.gd:219). CommonActionUtil.choose_and_use (common_action_util.gd:694-719) sets
+## exactly this on a CHILD activation so a parent (e.g. Flank/COMP-CON/Scylla NHP/Slave
+## Systems/Overwatch) doesn't spend its own actions until the child commits - so a bent LINE weapon
+## fired through one of those doubled the parent's action points, its charge, and its REACTION for
+## one bend, before this fix.
+##
+## Simulated the same way choose_and_use actually wires it: passing `deferred_spend` straight into
+## the event_gear_activate params dict (mirroring common_action_util.gd:710-720), which Context.create
+## routes to context.deferred_spend via its own special-cased handling (context.gd:99-100).
+func test_a_bent_line_runs_the_parent_activations_deferred_spend_once_not_twice():
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
+	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)
+	for victim:Unit in [near, far]:
+		victim.core.frame.stat.evasion = 0
+		victim.core.frame.stat.armor = 0
+		victim.core.full_repair()
+	_place_frame(TEAR_FRAME, Vector2i(4,1))
+
+	var deferred_spend_calls := [0]
+	var count_deferred_spend:Callable = func() -> void: deferred_spend_calls[0] += 1
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(4,1)]),  # the tear
+		CompconPlan.create([Vector2i(9,1)]),  # segment 2's direction
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20, 20, 4, 4] # both attacks hit; both damage rolls fixed
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+		deferred_spend = count_deferred_spend,
+	})
+
+	assert_eq(deferred_spend_calls[0], 1,
+		"A parent activation's deferred_spend runs once per bend, not once per segment.")
+
 ## get_values points the VARIANT's title/description at these keys (not the trait's own
 ## gear.mt_to_bend_reality.name/.effect, which label the group) so the menu states the two-attack
 ## cost instead of special-casing it. See buff_to_bend_reality.gd:get_values.
@@ -893,3 +939,36 @@ func test_a_bend_proxy_sees_no_cross_tangible_units():
 		'A tangible Banshee still sees the INTANGIBLE target as cross-tangible.')
 	assert_eq(TearRouting.cross_tangible_units(game.map, proxy).size(), 0,
 		'A bend proxy sees nobody as cross-tangible - the tear window does not apply to a bend.')
+
+func test_a_bend_proxy_gains_no_sight_through_the_third_los_seam():
+	# THE THIRD SEAM (blocker 1). test_a_bend_proxy_sees_no_cross_tangible_units above proves
+	# cross_tangible_units returns nothing for a bend proxy, which is enough to take the widening off
+	# the LOS sweep (get_tiles_in_los) and the clause-7 range policing (get_tiles_within) - both
+	# iterate that function. is_tile_in_los is a THIRD seam that does NOT go through
+	# cross_tangible_units at all: it calls TearRouting.is_cross_tangible(viewer, occupant) directly
+	# on RAW status. A bend proxy always reads raw-tangible - create_targeting_proxy gives it no
+	# statuses - so against an INTANGIBLE target it reads as cross-tangible, and without its own
+	# bend-proxy exclusion the override grants sight through ANY open tear, not just the one the
+	# player actually picked for the bend.
+	#
+	# Geometry: banshee (1,1) and target (10,1), both INTANGIBLE - the Calendula case this trait
+	# exists to permit. A wall at x=6 (y=1..3, height 4) blocks BOTH the direct proxy -> target line
+	# and TEAR1 (5,1, where the proxy stands, as it would for a real bend) -> target - so neither
+	# ordinary sight nor the "chosen" tear reaches the target. TEAR2 (5,5) is a SECOND open tear that
+	# bridges anyway: the proxy sees TEAR2 (straight up column x=5, never crosses the wall), and TEAR2
+	# sees the target (crosses x=6 at y~4.2, clear of the wall's y=1..3 span). Only the bug lets TEAR2
+	# answer for a pick the player never made.
+	SpecFactory.apply(banshee, Lancer.STATUS.INTANGIBLE)
+	SpecFactory.apply(target, Lancer.STATUS.INTANGIBLE)
+	_place_frame(TEAR_FRAME, Vector2i(5,1)) # TEAR1 - the "chosen" tear, itself blocked from the target
+	_place_frame(TEAR_FRAME, Vector2i(5,5)) # TEAR2 - a second open tear that bridges anyway
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
+
+	SpecFactory.set_tiles_elevation(game.map, 4, [Vector2i(6,1), Vector2i(6,2), Vector2i(6,3)])
+	game.map.calculate_los_blockers()
+	TearRouting.invalidate(game.map) # the cached sweep is stale the moment terrain changes underneath it
+
+	var from_height:int = UnitTile.effective_height(proxy, true, proxy.tile())
+	assert_false(
+		UnitTile.is_tile_in_los(game.map, [proxy.tile()], from_height, target.tile(), proxy.core.persistent_id),
+		'A bend proxy gains no sight of an INTANGIBLE target through a tear it was never routed through.')
