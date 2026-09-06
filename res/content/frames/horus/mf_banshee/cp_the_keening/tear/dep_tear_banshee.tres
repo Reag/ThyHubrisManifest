@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="Frame" format=3]
+
+[ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="1_frame"]
+[ext_resource type="Script" uid="uid://bxpc46igtsmvw" path="res://engine/character/unit/statblock.gd" id="2_statblock"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="3_kit"]
+[ext_resource type="Texture2D" uid="uid://b2uwbqv83u60k" path="res://assets/frames/shared/dep_missing_frame.png" id="4_sprite"]
+[ext_resource type="Resource" uid="uid://cwkwhcnkc3nvc" path="res://content/gear/shared/invulnerability/mt_invulnerable.tres" id="5_mt_invulnerable"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/mt_tear_banshee.tres" id="6_mt_tear"]
+
+[sub_resource type="Resource" id="Resource_tear_stat"]
+script = ExtResource("2_statblock")
+size = 1
+metadata/_custom_type_script = "uid://bxpc46igtsmvw"
+
+[resource]
+script = ExtResource("1_frame")
+sprites = Array[Texture2D]([ExtResource("4_sprite")])
+traits = Array[ExtResource("3_kit")]([ExtResource("6_mt_tear"), ExtResource("5_mt_invulnerable")])
+stat = SubResource("Resource_tear_stat")
+entity_type = 2
+is_obstruction = false
+is_deactivated_on_owner_death = false
+metadata/_custom_type_script = "uid://daycu0mqh1rbq"
