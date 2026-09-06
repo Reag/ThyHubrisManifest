@@ -197,3 +197,4 @@ gear.mt_tear_banshee.trigger,
 gear.mt_tear_banshee.action_tear_close.name,Close Tear
 gear.mt_tear_banshee.action_tear_close.effect,"Close this void tear."
 frame.dep_tear_banshee.name,Void Tear
+gear.buff_tear_invisibility.name,Seen Through A Tear

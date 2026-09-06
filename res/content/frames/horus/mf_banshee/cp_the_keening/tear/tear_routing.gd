@@ -151,6 +151,22 @@ static func tiles_visible_via_tears(map:MapState, viewer:Unit, from_tile:Vector2
 				Tile.add_to_bitwise_array(reachable, tile)
 	return reachable
 
+## CLAUSE 6's predicate: "Attacks that pass through a tear treat targets as INVISIBLE."
+##
+## Deliberately the SAME question clauses 4 and 5 ask, so the two can never drift apart. That is not
+## just tidiness - it is the reason the predicate is correct. A cross-tangible pair has NO ordinary
+## interaction at all: can_affect refuses them outright unless a tear bridges the pair. So for any
+## pair this returns true for, the attack is necessarily going through the tear; there is no second
+## route it could have taken instead.
+##
+## The eye height is the ATTACKER's, matching how the seam measures the viewer's leg.
+static func attack_routes_through_tear(attacker:Unit, target:Unit) -> bool:
+	if not is_cross_tangible(attacker, target): return false
+	if not is_instance_valid(attacker.map): return false
+	var from_tile:Vector2i = attacker.tile()
+	var height:int = UnitTile.effective_height(attacker, true, from_tile)
+	return routes_between(attacker.map, from_tile, target.tile(), height)
+
 ## Resolve a `whos_asking` persistent id back to its unit. See _unit_by_id_cache.
 static func unit_with_persistent_id(map:MapState, persistent_id:StringName) -> Unit:
 	if not is_instance_valid(map) or persistent_id == &'': return null
