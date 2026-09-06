@@ -79,6 +79,15 @@ func bendable_tear_tiles(specific:SpecificAction) -> Array[Vector2i]:
 const RELAY_BUFF_ID := &'buff_bend_relay'
 const PROXY_KEY := 'proxy_id'
 
+## THE RANGE BUDGET, extracted out of activate() so the arithmetic is directly testable. Nothing on
+## the mocked-CompconPlan path a spec normally exercises ever re-derives or checks range (see
+## test_to_bend_reality.gd's Gap 2 comment for why), so this needs its own tests rather than relying
+## on damage landing as proof. The first leg is spent getting to the tear; whatever is left, clamped
+## at zero, is what the weapon has past it for the followup to spend.
+func remaining_range_after(specific:SpecificAction, tear_tile:Vector2i) -> int:
+	var first_leg:int = Tile.distance(specific.unit.tile(), tear_tile)
+	return maxi(get_target_range(specific) - first_leg, 0)
+
 func activate(context:Context, activation:EventCore) -> void:
 	if activation.abort_when(not Action.is_valid(followup_attack)): return
 	var unit := context.unit
@@ -90,12 +99,10 @@ func activate(context:Context, activation:EventCore) -> void:
 	if activation.abort_without_targeting_plan(plan): return
 	var tear_tile:Vector2i = plan.target_tiles[0]
 
-	# THE RANGE BUDGET. The first leg is spent getting to the tear; whatever is left is what the
-	# weapon has past it. ASSIGN a fresh RangePattern - never mutate the existing one.
-	# create_duplicate_for_variant is duplicate_deep(DEEP_DUPLICATE_NONE), so subresources are SHARED
-	# with the pilot's real weapon and mutating one permanently rewrites their actual gun.
-	var first_leg:int = Tile.distance(unit.tile(), tear_tile)
-	var remaining:int = maxi(get_target_range(SpecificAction.from_context(context)) - first_leg, 0)
+	# ASSIGN a fresh RangePattern - never mutate the existing one. create_duplicate_for_variant is
+	# duplicate_deep(DEEP_DUPLICATE_NONE), so subresources are SHARED with the pilot's real weapon and
+	# mutating one permanently rewrites their actual gun.
+	var remaining:int = remaining_range_after(SpecificAction.from_context(context), tear_tile)
 	if followup_attack.range_pattern:
 		followup_attack.range_pattern = RangePattern.create(followup_attack.range_pattern.pattern, remaining)
 	else:

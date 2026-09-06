@@ -438,6 +438,13 @@ func test_the_pilots_real_weapon_is_unchanged_after_a_bend():
 	# for the rest of the mission; only assigning a fresh RangePattern avoids that. Every other
 	# assertion in this file passes whether activate() mutates in place or assigns fresh - this is the
 	# only test that would catch the mistake.
+	#
+	# THIS ONLY COVERS THE `aim_range` BRANCH. mw_assault_rifle has no range_pattern at all
+	# (content/gear/gms/weapons/mw_assault_rifle.tres), so activate() takes the `else` arm and copies
+	# an int onto the duplicate - which cannot corrupt anything shared. See
+	# test_the_pilots_real_line_weapons_range_pattern_is_unchanged_after_a_bend below for the other
+	# arm, the one that actually shares a subresource. Do not delete either as redundant with the
+	# other; together they are the only cover for the two branches of that `if`.
 	var gear := _arm_banshee_with(&'mw_assault_rifle')
 	var real_action:ActionAttackWeapon = gear.get_solo_action()
 	var range_before:int = real_action.range_pattern.value if real_action.range_pattern else real_action.aim_range
@@ -459,3 +466,159 @@ func test_the_pilots_real_weapon_is_unchanged_after_a_bend():
 	var range_after:int = real_action.range_pattern.value if real_action.range_pattern else real_action.aim_range
 	assert_eq(range_after, range_before,
 		"The pilot's real weapon range is untouched by the bend's range-budget rewrite.")
+
+func test_the_pilots_real_line_weapons_range_pattern_is_unchanged_after_a_bend():
+	# THE OTHER BRANCH OF THE SHARED-SUBRESOURCE GUARD. test_the_pilots_real_weapon_is_unchanged_after_a_bend
+	# above only exercises activate()'s `aim_range` branch, because mw_assault_rifle has no
+	# range_pattern at all - an int copied onto the duplicate cannot corrupt anything shared.
+	# mw_rail_rifle IS a kinetic LINE weapon with a real range_pattern SubResource
+	# (content/gear/ssc/weapons/mw_rail_rifle.tres: pattern = 2 [LINE], value = 10), so arming the
+	# Banshee with it exercises the OTHER arm: `followup_attack.range_pattern = RangePattern.create(...)`.
+	# create_duplicate_for_variant shares subresources with the pilot's real action
+	# (action.gd:94-99), so if that arm ever mutated `followup_attack.range_pattern.value` in place
+	# instead of assigning a fresh RangePattern, it would permanently rewrite the pilot's real weapon's
+	# range - and every other assertion in this file, including the assault-rifle guard above, would
+	# still pass. Do not delete this test as redundant with that one; they cover two different arms of
+	# the same `if` in activate().
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	var real_action:ActionAttackWeapon = gear.get_solo_action()
+	assert_not_null(real_action.range_pattern, 'Sanity check: mw_rail_rifle really has a range_pattern.')
+	var range_before:int = real_action.range_pattern.value
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	target.core.frame.stat.evasion = 0
+	target.core.frame.stat.armor = 0
+	target.core.full_repair()
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(5,1)]),
+		CompconPlan.create([], [], [target]),
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20]
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+
+	assert_eq(real_action.range_pattern.value, range_before,
+		"The pilot's real LINE weapon's range_pattern is untouched by the bend's range-budget rewrite.")
+
+## GAP 2: THE RANGE-BUDGET ARITHMETIC. test_a_bend_hits_a_target_the_banshee_cannot_reach_directly
+## below LOOKS like it proves the budget works, but it does not: SpecFactory's choose_compcon_plan
+## pops a queued CompconPlan and returns it with no re-validation, CompconPlan.is_valid_with_targets_alt
+## never checks range, and Action.can_target_unit never checks range either - so that test would pass
+## unchanged if the entire range-budget block were deleted, or computed with the wrong formula. These
+## tests call remaining_range_after directly, which is the only thing that actually exercises the rule.
+##
+## _bend_specific composes the real variant (needs one real tear open just to pass
+## check_if_passive_applies's gate), then remaining_range_after is called with an arbitrary tear_tile
+## - it never looks at whether that tile is an actual tear, only at distance and the weapon's range -
+## so the composed action can be reused across several hypothetical geometries.
+func test_remaining_range_after_a_close_tear_leaves_most_of_the_range():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1)) # any open tear satisfies the offer gate
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+	var max_range:int = bend_action.get_target_range(bend)
+
+	var close_tear := Vector2i(2,1) # first leg 1
+	var remaining:int = bend_action.remaining_range_after(bend, close_tear)
+	assert_eq(remaining, max_range - 1,
+		'A tear one tile from the Banshee leaves nearly the whole weapon range.')
+
+func test_remaining_range_after_a_far_tear_leaves_little_range():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+	var max_range:int = bend_action.get_target_range(bend)
+
+	var far_tear := Vector2i(1 + max_range - 1, 1) # first leg max_range - 1
+	var remaining:int = bend_action.remaining_range_after(bend, far_tear)
+	assert_eq(remaining, 1,
+		'A tear one short of the weapon range leaves only one tile of budget.')
+
+func test_remaining_range_after_a_tear_at_max_range_leaves_zero():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+	var max_range:int = bend_action.get_target_range(bend)
+
+	var boundary_tear := Vector2i(1 + max_range, 1) # first leg == max_range exactly
+	var remaining:int = bend_action.remaining_range_after(bend, boundary_tear)
+	assert_eq(remaining, 0,
+		'A tear exactly at the weapon range leaves nothing past it.')
+
+func test_remaining_range_after_a_tear_beyond_max_range_clamps_to_zero_not_negative():
+	# THE CLAMP. A tear exactly at max range (above) already lands on 0 with or without maxi() -
+	# max_range - max_range is 0 either way. Only a tear PAST the weapon's range actually exercises the
+	# clamp: without it this would go negative, and a negative "remaining range" assigned onto
+	# aim_range or a RangePattern is nonsense the engine has never been asked to handle.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+	var max_range:int = bend_action.get_target_range(bend)
+
+	var beyond_tear := Vector2i(1 + max_range + 3, 1) # first leg max_range + 3
+	var remaining:int = bend_action.remaining_range_after(bend, beyond_tear)
+	assert_eq(remaining, 0,
+		'A tear past the weapon range still clamps to zero, not a negative budget.')
+
+func test_remaining_range_after_first_leg_plus_remaining_equals_full_range():
+	# THE INVARIANT. Whatever the geometry (short of the clamp kicking in), the first leg plus what's
+	# left over must add back up to the weapon's whole range - an off-by-one in either direction breaks
+	# this even though the individual close/far cases above might still look plausible in isolation.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var bend_action = bend.action
+	var max_range:int = bend_action.get_target_range(bend)
+
+	for first_leg:int in [1, 3, max_range - 1]:
+		var tear_tile := Vector2i(1 + first_leg, 1)
+		var remaining:int = bend_action.remaining_range_after(bend, tear_tile)
+		assert_eq(first_leg + remaining, max_range,
+			'First leg %d + remaining %d must equal the full range %d.' % [first_leg, remaining, max_range])
+
+func test_activation_narrows_the_followups_range_to_the_computed_budget():
+	# THE END-TO-END CHECK. The direct tests above prove remaining_range_after's arithmetic in
+	# isolation; this proves activate() actually calls it and applies the result to the followup that
+	# damage resolution delegates to - the real path a mocked CompconPlan travels, which per the Gap 2
+	# analysis above never touches range on its own.
+	#
+	# game.execute_event (Level.execute_event, level.gd:97) returns void - every other test in this
+	# file discards it - so there is no handle on the finished EventCore to read context.action back
+	# from. Level.execute_event_block (level.gd:100-109) is what it calls, and does nothing more than
+	# add an EventBlock under Events and await block.execute(); this reproduces exactly that, but keeps
+	# the block instead of discarding it, so event_cores[0].context - which action_bend_reality.activate
+	# re-points at the followup before delegating (activation.context = followup_context) - is still
+	# readable right after the await, before the block is freed the same way execute_event_block does.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	var weapon_range:int = gear.get_solo_action().get_target_range(SpecificAction.create(banshee, gear, gear.get_solo_action()))
+	var tear_tile := Vector2i(5,1) # first leg 4 from banshee (1,1)
+	var first_leg:int = Tile.distance(banshee.tile(), tear_tile)
+	_place_frame(TEAR_FRAME, tear_tile)
+	target.core.frame.stat.evasion = 0
+	target.core.frame.stat.armor = 0
+	target.core.full_repair()
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([tear_tile]),
+		CompconPlan.create([], [], [target]),
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20]
+
+	var block := EventBlock.create(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+	game.Events.add_child(block)
+	await block.execute()
+
+	var followup:ActionAttackWeapon = block.event_cores[0].context.action
+	if is_instance_valid(block) and not block.is_queued_for_deletion(): block.queue_free()
+
+	assert_not_null(followup, 'The finished event core still carries the followup as its context action.')
+	assert_eq(followup.aim_range, weapon_range - first_leg,
+		"The followup's narrowed aim_range equals the weapon's range minus the first leg to the tear.")
