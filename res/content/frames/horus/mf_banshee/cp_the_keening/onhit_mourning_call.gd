@@ -22,7 +22,7 @@ func on_hit(activation:EventCore, attacked_unit:Unit) -> void:
 
 	# Don't ask the player to pay a core point for a teleport that cannot happen. The teleport
 	# itself is Task 2's job; this only needs the check so the prompt is honest.
-	if not _has_free_adjacent_tile(unit): return
+	if not _has_free_adjacent_tile(unit, attacked_unit): return
 
 	var confirmed:bool = await choice_bus.quick_yesno(
 		unit.tile(),
@@ -32,10 +32,22 @@ func on_hit(activation:EventCore, attacked_unit:Unit) -> void:
 
 	await CommonActionUtil.choose_and_use(activation, mourning_call, [mourning_call])
 
-func _has_free_adjacent_tile(unit:Unit) -> bool:
-	var movement_type := MovementType.create_for_involuntary(unit)
+# The teleport lands next to the TARGET, not next to the Banshee -- so the check has to walk
+# target_unit's neighbours, not teleporting_unit's. (This was Defect 1: the old code checked
+# teleporting_unit's own neighbours, which is nearly always free at ranged distance and
+# validated nothing.)
+#
+# If teleporting_unit is ALREADY adjacent to target_unit, one of target_unit's adjacent tiles is
+# teleporting_unit's own current tile. Occupation.calculate_for explicitly excludes a unit from
+# blocking its own current tile (pathfinder.gd's "other_unit == unit: return false"), so that
+# tile still reads as standable and this correctly returns true -- the teleport is then a no-op
+# rather than "impossible", which is the right call: the Banshee doesn't need a free tile to
+# stay exactly where it already is. Occupying_size (2+ frames) is likewise already handled by
+# Occupation/is_tile_standable, so no extra size-specific logic is needed here.
+func _has_free_adjacent_tile(teleporting_unit:Unit, target_unit:Unit) -> bool:
+	var movement_type := MovementType.create_for_involuntary(teleporting_unit)
 	movement_type.teleport = true
-	var katamari := Katamari.create(unit)
-	for tile:Vector2i in UnitTile.get_adjacent_tiles(unit):
-		if Pathfinder.is_tile_standable(unit, tile, movement_type, katamari): return true
+	var katamari := Katamari.create(teleporting_unit)
+	for tile:Vector2i in UnitTile.get_adjacent_tiles(target_unit):
+		if Pathfinder.is_tile_standable(teleporting_unit, tile, movement_type, katamari): return true
 	return false

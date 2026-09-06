@@ -61,7 +61,7 @@ func _attack_with_roll(attacker:Unit, weapon_id:StringName, target_unit:Unit, di
 func test_a_ranged_hit_offers_mourning_call_and_accepting_runs_it():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
-	var target := SpecFactory.create_unit(game.map, Vector2i(1, 6), Faction.AI_ENEMY)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY) # on the 5x5 test map, away from the banshee at (1,1) so it keeps free neighbours
 	target.core.full_repair()
 
 	# SpecFactory.ChoiceBusResponder.chosen_yesnos defaults to true, so the prompt is auto-accepted.
@@ -83,7 +83,7 @@ func test_a_melee_hit_does_not_offer_mourning_call():
 func test_accepting_spends_the_core_point_and_a_quick_action():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
-	var target := SpecFactory.create_unit(game.map, Vector2i(1, 6), Faction.AI_ENEMY)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY) # on the 5x5 test map, away from the banshee at (1,1) so it keeps free neighbours
 	target.core.full_repair()
 
 	var actions_before:int = banshee.state.actions
@@ -109,7 +109,7 @@ func test_accepting_spends_the_core_point_and_a_quick_action():
 func test_declining_costs_nothing():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
-	var target := SpecFactory.create_unit(game.map, Vector2i(1, 6), Faction.AI_ENEMY)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY) # on the 5x5 test map, away from the banshee at (1,1) so it keeps free neighbours
 	target.core.full_repair()
 
 	SpecFactory.current_responder.chosen_yesnos = false # decline the prompt
@@ -128,6 +128,44 @@ func test_declining_costs_nothing():
 	)
 	assert_true(banshee.core.has_core_power, 'Declining leaves the core point unspent.')
 
+## Defect 1 regression: on_hit's pre-check was asking whether the BANSHEE has a free neighbouring
+## tile, not the TARGET -- nearly always true at range, so the guard validated nothing. This boxes
+## the target into a corner so none of its on-map neighbours are free, and leaves
+## SpecFactory.current_responder.chosen_yesnos at its default `true` (see the class default at
+## spec_factory.gd:373) rather than declining -- that is what makes this a real regression test: if
+## the broken guard is checking the banshee's own (mostly-free) tiles instead, the prompt WOULD be
+## offered and auto-accepted, and Mourning Call would run. Only a guard that genuinely checks the
+## target's neighbours stops it here.
+func test_the_prompt_is_not_offered_when_the_target_has_no_free_adjacent_tile():
+	var banshee := _arm_banshee(Vector2i(4, 4)) # far corner, so the banshee's own tile is never one of the target's neighbours
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(0, 0), Faction.AI_ENEMY) # opposite corner -- only 3 tiles are on-map neighbours (Tile.DIRECTIONS is 8-way, clipped by map.shape.is_playable)
+	target.core.full_repair()
+
+	# Occupy all 3 of the target's on-map neighbours with other units. Frame.is_obstruction
+	# defaults to true (frame.gd:64), and Pathfinder.Occupation.calculate_for treats a present,
+	# non-shareable obstruction unit as an invalid_endpoint (pathfinder.gd:106-132) -- so a plain
+	# SpecFactory unit standing on each tile is sufficient to make it unstandable, no terrain needed.
+	var target_neighbors := UnitTile.get_adjacent_tiles(target)
+	assert_eq(target_neighbors.size(), 3, 'sanity: a corner tile on a 5x5 map has exactly 3 on-map neighbours.')
+	for blocker_tile:Vector2i in target_neighbors:
+		SpecFactory.create_unit(game.map, blocker_tile, Faction.AI_ENEMY)
+
+	var actions_before:int = banshee.state.actions
+	assert_true(banshee.core.has_core_power, 'sanity: the Banshee starts with a core point to spend.')
+	var weapon:GearCore = banshee.get_gear(RANGED_WEAPON_ID)
+	var weapon_specific := SpecificAction.create(banshee, weapon, weapon.get_solo_action())
+	var weapon_cost:int = weapon_specific.action.get_action_cost(weapon_specific)
+
+	await _attack(banshee, RANGED_WEAPON_ID, target)
+
+	assert_false(_mourning_call_ran(banshee), 'Boxed in with no free adjacent tile, the prompt is not offered (and so never auto-accepted) at all.')
+	assert_eq(
+		banshee.state.actions, actions_before - weapon_cost,
+		'Not being offered spends only the weapon\'s own cost -- nothing extra for Mourning Call.'
+	)
+	assert_true(banshee.core.has_core_power, 'Not being offered leaves the core point unspent.')
+
 
 # ============================================================================
 # Task 2: clauses 3-6 -- what activate() actually does. THE TRAP: event_unit_attack.gd calls
@@ -139,9 +177,10 @@ func test_declining_costs_nothing():
 func test_it_teleports_the_banshee_adjacent_to_the_target():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
-	# NOT (1,6) like Task 1's fixture -- the test map is only Tile.MIN_MAP_DIMENSION (5x5), so (1,6)
-	# sits off it. Task 1's tests never move anyone so that never mattered; teleporting adjacent needs
-	# a real, on-map tile with real neighbors.
+	# The test map is only Tile.MIN_MAP_DIMENSION (5x5); Task 1's fixtures used to place targets at
+	# (1,6), which sits off it. That never mattered there because those tests never moved anyone,
+	# but teleporting adjacent needs a real, on-map tile with real neighbors -- so all of Task 1's
+	# fixtures were brought onto the board too (see the fix for Defect 1's off-map fixture bug).
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
 	target.core.full_repair()
 
