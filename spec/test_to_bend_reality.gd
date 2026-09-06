@@ -166,6 +166,39 @@ func test_no_tear_means_no_bend():
 	assert_false(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(3,1), 1, 10),
 		'With no tear open nothing bends, whatever the range.')
 
+## Arms the Banshee with the given weapon and gets it fully wired: frame swapped via
+## change_mech_frame (not core.frame = load(...), which skips regenerate_derived_gear and leaves the
+## trait's passive unreachable), gear equipped, repaired, and passive buffs applied.
+func _arm_banshee_with(weapon_id:StringName) -> GearCore:
+	banshee.core.change_mech_frame(load('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'))
+	var gear := banshee.core.equip_system(weapon_id)
+	banshee.core.full_repair()
+	SpecFactory.apply_passive_buffs(banshee)
+	return gear
+
+func _variant_keys_on(gear:GearCore) -> Array:
+	var specific := SpecificAction.create(banshee, gear, gear.get_solo_action())
+	var keys:Array = []
+	for group:VariantActionGroup in specific.action.get_alternate_actions(specific): keys.append(group.key)
+	return keys
+
+func test_a_kinetic_weapon_is_offered_the_bend():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_true(_variant_keys_on(gear).has(&'to_bend_reality'),
+		'A kinetic weapon offers To Bend Reality when a tear is open.')
+
+func test_a_non_kinetic_weapon_is_not_offered_the_bend():
+	var gear := _arm_banshee_with(&'mw_thermal_pistol')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_false(_variant_keys_on(gear).has(&'to_bend_reality'),
+		'An energy weapon is not offered To Bend Reality.')
+
+func test_no_tear_means_no_offer():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	assert_false(_variant_keys_on(gear).has(&'to_bend_reality'),
+		'With no tear open there is nothing to bend through, so the entry is not offered.')
+
 func test_a_bend_is_refused_when_the_second_leg_is_blocked():
 	# THE LOS REGRESSION GUARD. Every other test in this file runs on a flat, open map with the tear
 	# sitting directly on the line between the two points, so _sees_from and _sees are trivially true

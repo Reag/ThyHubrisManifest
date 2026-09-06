@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/buff_to_bend_reality.gd" id="1_buff"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/action_bend_reality.tres" id="2_action"]
+
+[resource]
+script = ExtResource("1_buff")
+bend_action = ExtResource("2_action")
+to = &"variant_actions"
+hide_from_player = true

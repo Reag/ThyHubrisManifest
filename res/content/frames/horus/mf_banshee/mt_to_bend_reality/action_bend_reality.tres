@@ -1,0 +1,7 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/action_bend_reality.gd" id="1_bend"]
+
+[resource]
+script = ExtResource("1_bend")
+localization_key_override = "mt_to_bend_reality"
