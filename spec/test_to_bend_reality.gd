@@ -139,6 +139,19 @@ func test_a_bend_over_the_combined_range_is_refused():
 	assert_false(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 8),
 		'The combined distance must be within the weapon range.')
 
+func test_a_bend_exactly_at_the_combined_range_is_allowed():
+	# THE BOUNDARY. bends_within_range rejects with `> max_range`, so a combined distance EXACTLY
+	# equal to max_range must still be allowed. test_a_bend_inside_the_combined_range_is_allowed
+	# leaves a margin below the boundary and test_a_bend_over_the_combined_range_is_refused sits one
+	# past it, but nothing exercises the boundary itself. A later edit that tightened the comparison
+	# to `>=` would silently start refusing legal bends, and every other test in this file would stay
+	# green. THE EQUALITY IS THE POINT - do not "tidy" this into an unequal distance.
+	#
+	# banshee (1,1) -> tear (5,1) is 4; tear -> target (10,1) is 5. Total 9 == 9.
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_true(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 9),
+		'A combined distance exactly equal to max_range is allowed, not refused.')
+
 func test_a_bend_is_not_capped_at_half_range_after_the_tear():
 	# THE DIFFERENCE FROM CLAUSE 7, asserted directly so the two rules cannot drift together.
 	# banshee (1,1) -> tear (2,1) is 1; tear -> target (10,1) is 8. Total 9 <= 10, but 8 is well over
@@ -152,3 +165,32 @@ func test_a_bend_is_not_capped_at_half_range_after_the_tear():
 func test_no_tear_means_no_bend():
 	assert_false(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(3,1), 1, 10),
 		'With no tear open nothing bends, whatever the range.')
+
+func test_a_bend_is_refused_when_the_second_leg_is_blocked():
+	# THE LOS REGRESSION GUARD. Every other test in this file runs on a flat, open map with the tear
+	# sitting directly on the line between the two points, so _sees_from and _sees are trivially true
+	# in every case - a regression that broke, swapped or short-circuited either sight check would
+	# pass the whole suite. This is the one geometry where sight, not distance, is the reason for the
+	# refusal.
+	#
+	# banshee (1,1) -> tear (3,1) is 2; tear (3,1) -> target (10,1) is 7. Total 9, comfortably inside
+	# max_range 15 - the distance rule alone would allow this.
+	_place_frame(TEAR_FRAME, Vector2i(3,1))
+
+	# Sanity check first: with no wall yet, the same geometry bends fine. This is what proves the
+	# eventual refusal below comes from the wall, not from the numbers.
+	assert_true(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 15),
+		'Sanity check: this geometry bends fine before any wall exists.')
+
+	# A wall between the tear and the target only - the banshee's own leg to the tear (x=1 to x=3)
+	# never crosses x=6, so this blocks the SECOND leg exclusively. Height 4, not 2: per the project's
+	# known trap, UnitTile.effective_height is floor plus the unit's own body, so a unit standing on
+	# flat ground sees straight over a height-2 wall. Three tiles stacked in y, matching the fixture
+	# proven to block a straight line in test_tear_window.gd.
+	SpecFactory.set_tiles_elevation(game.map, 4, [Vector2i(6,1), Vector2i(6,2), Vector2i(6,3)])
+	game.map.calculate_los_blockers()
+	TearRouting.invalidate(game.map) # the cached sweep is stale the moment terrain changes underneath it
+
+	assert_false(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 15),
+		'The tear -> target leg is blocked by the wall, so the bend fails even though the combined ' +
+		'distance is well within range. A broken or short-circuited sight check would miss this.')
