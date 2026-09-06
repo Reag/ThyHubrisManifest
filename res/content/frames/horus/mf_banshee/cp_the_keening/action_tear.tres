@@ -1,10 +1,13 @@
-[gd_resource type="Resource" script_class="ActionSystem" format=3]
+[gd_resource type="Resource" script_class="ActionSystemDeploy" format=3]
 
-[ext_resource type="Script" uid="uid://cvvlk0g0af1lk" path="res://engine/character/gear_action/action_system.gd" id="1_action_system"]
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/action_tear.gd" id="1_action_tear"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/dep_tear_banshee.tres" id="2_dep_tear"]
 
 [resource]
-script = ExtResource("1_action_system")
+script = ExtResource("1_action_tear")
 action_type = 1
 consumes_cp = false
 usage_group = &"action_tear"
-metadata/_custom_type_script = "uid://cvvlk0g0af1lk"
+deployable_frame = ExtResource("2_dep_tear")
+deploy_to_sensors = true
+needs_los = true

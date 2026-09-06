@@ -35,3 +35,40 @@ func test_the_frame_id_matches_what_routing_looks_for():
 	# finding nothing, which looks exactly like "tears do not work".
 	assert_eq((load(TEAR_PATH) as Frame).compcon_id, TearRouting.TEAR_FRAME_ID,
 		'The frame id and the routing constant agree.')
+
+# --- creation ---
+
+var game:Gamemaster
+var banshee:Unit
+
+func before_each():
+	game = SpecFactory.setup_gamemaster(self, true, SpecFactory.create_combat(Landscape.create_default(Vector2i(12,12))))
+	banshee = SpecFactory.create_unit(game.map, Vector2i(1,1))
+	# change_mech_frame, not a raw core.frame assignment: the latter skips
+	# core.loadout.regenerate_derived_gear, so get_gear(&'cp_the_keening') finds nothing and
+	# SpecFactory.use silently no-ops ("Could not find gear for cp_the_keening").
+	banshee.core.change_mech_frame(load('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'))
+	banshee.state.overcharge_actions = 99 # do not run out of actions mid-spec
+	banshee.update_cached_values_and_token(SpecFactory.dummy_event())
+
+func test_using_tear_places_a_tear():
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'One tear on the map.')
+
+func test_the_tear_lands_where_it_was_aimed():
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	var tears := TearRouting.open_tears(game.map)
+	if tears.is_empty(): return fail_test('A tear was placed.')
+	assert_eq(tears[0].tile(), Vector2i(4,4), 'It is where the player put it.')
+
+func test_tear_reaches_sensors_not_a_fixed_range():
+	# Clause 1 says "within SENSORS", which scales with the pilot. ActionSystemDeploy has an export
+	# for exactly this, so it needs no code - but nothing else would notice a hardcoded number.
+	var action:ActionSystemDeploy = ContentLibrary.get_kit(&'cp_the_keening').get_action(&'action_tear')
+	assert_true(action.deploy_to_sensors, 'Tear deploys to sensor range.')
+
+func test_the_cap_is_enforced():
+	for i:int in TearRouting.MAX_TEARS + 3:
+		await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(3 + (i % 8), 3 + (i / 8))])
+	assert_lte(TearRouting.open_tears(game.map).size(), TearRouting.MAX_TEARS,
+		'Never more than MAX_TEARS tears exist.')
