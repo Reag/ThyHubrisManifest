@@ -173,7 +173,12 @@ static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerabilit
 			or bridged_by_the_black_sea
 		)
 		if not tangibility_line_is_bridged:
-			return false
+			# BANSHEE (Tear) hook. GDScript has no way to layer a second `can_affect` in this same
+			# file - see the BANSHEE banner at the bottom of the file for why - so the tear check is
+			# wired in HERE, at the one point that already means "the Tide did not bridge this pair
+			# and tangibility is the only remaining objection". A tear only ever turns this `false`
+			# into a `true`; it changes nothing about the Kraken's own rule above.
+			if not tear_bridges(origin_unit, target_unit): return false
 	return true
 
 ## What a cut-off character may still touch: the Kraken holding it, and anything genuinely INTANGIBLE.
@@ -309,3 +314,51 @@ static func get_weapons_that_can_overwatch(
 	):
 		return [] as Array[SpecificAction]
 	return super.get_weapons_that_can_overwatch(from_unit, target_unit, use_normal_range_instead_of_threat)
+
+# ============================================================================================
+# BANSHEE (Tear). A tear is a window between tangible and intangible space.
+#
+#   "They are visible to both tangible and INTANGIBLE characters, and act as a window between
+#    tangible and intangible space."
+#
+# vanilla refuses any interaction across the tangibility line (unit_relation.gd:397). A tear
+# overturns that for one pairing, in both directions, when the line between them routes through it.
+#
+# UNIVERSAL by agreement: any character routes through any tear, including enemies shooting the
+# Banshee through its own. So this deliberately does NOT check whether either unit is a Banshee.
+#
+# NOTE this file already carries the Kraken's tangibility workaround, which widens the same
+# function. The two compose: each only ever turns a NO into a YES, never the reverse.
+#
+# INTEGRATION NOTE, a deviation from the original task brief: the brief called for a second
+# top-level `can_affect` in this file, chaining to the Kraken's via `super.can_affect`. GDScript
+# refuses that outright with a parse error - "Function can_affect has the same name as a previously
+# declared function" (verified: it silently killed the WHOLE extension, taking the Kraken's own
+# suite down with it) - because two functions of that name would live in the SAME script/class, not
+# in a super/subclass pair. There is only one `can_affect` per script, and this file already has one
+# (the Kraken's, above).
+#
+# So `tear_bridges` below is called from INSIDE the Kraken's `can_affect`, at the single point that
+# already means "the Tide did not bridge this pairing and tangibility is the only remaining
+# objection" - see the one added line there. That preserves the brief's intended order (the Kraken's
+# widening runs first; a tear is only consulted if the Kraken did not already allow the pairing)
+# without a second function of the same name, and it is the reason this section has no `can_affect`
+# of its own.
+#
+# Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-06-banshee-tear-design.md
+# ============================================================================================
+
+const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
+
+## Would can_affect have said yes but for the tangibility line, with a tear bridging it? Called from
+## the Kraken's can_affect above, at the point where every other objection has already been ruled
+## out and tangibility is the last thing standing between the pair.
+##
+## Ordered for cost. can_affect runs inside AI targeting loops and per-tile filtering, so the cheap
+## status comparison runs before any tear lookup, and a map with no tears pays almost nothing.
+static func tear_bridges(origin_unit:Unit, target_unit:Unit) -> bool:
+	if not Unit.is_valid(origin_unit) or not Unit.is_valid(target_unit): return false
+	# Only ever relevant across the line. A same-tangibility pair is vanilla's business.
+	if origin_unit.has_status(Lancer.STATUS.INTANGIBLE) == target_unit.has_status(Lancer.STATUS.INTANGIBLE): return false
+	if not is_instance_valid(origin_unit.map): return false
+	return TearRouting.routes_between(origin_unit.map, origin_unit.tile(), target_unit.tile())

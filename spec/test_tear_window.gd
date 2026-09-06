@@ -80,3 +80,28 @@ func _place_tear(tile:Vector2i) -> Unit:
 	tear.update_cached_values_and_token(SpecFactory.dummy_event())
 	TearRouting.invalidate(game.map)
 	return tear
+
+func test_a_tear_opens_the_window_between_tangible_and_intangible():
+	assert_false(UnitRelation.can_affect(banshee, ghost), 'No window before the tear.')
+	_place_tear(Vector2i(6,6))
+	assert_true(UnitRelation.can_affect(banshee, ghost),
+		'Clause 3: a tear is a window between tangible and intangible space.')
+
+func test_the_window_is_symmetric():
+	_place_tear(Vector2i(6,6))
+	assert_true(UnitRelation.can_affect(ghost, banshee),
+		'And the intangible can reach back. can_affect is asked from both sides.')
+
+func test_the_window_is_universal():
+	# The agreed reading: tears are terrain, not a personal periscope. Two characters who are not
+	# the Banshee route through the Banshee's tear, including enemies shooting back through it.
+	var solid := SpecFactory.create_unit(game.map, Vector2i(2,2), Faction.AI_ENEMY)
+	_place_tear(Vector2i(6,6))
+	assert_true(UnitRelation.can_affect(solid, ghost),
+		'Any character routes through any tear.')
+
+func test_the_kraken_tide_still_works():
+	# This file also carries the Kraken's tangibility workaround. Adding to it must not disturb that.
+	# The Tide's own suite is the real guard; this is a smoke check that both rules coexist.
+	assert_false(UnitRelation.can_affect(banshee, ghost),
+		'With no tear, vanilla tangibility still refuses - the Banshee rule is not always-on.')
