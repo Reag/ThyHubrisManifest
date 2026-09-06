@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Frame" format=3]
+
+[ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="1_frame"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
+[ext_resource type="Texture2D" uid="uid://7clwqhuim6x2" path="res://assets/icons/empty.png" id="3_empty"]
+[ext_resource type="Resource" uid="uid://d0o7enanuy6q2" path="res://content/gear/shared/statblock_zero.tres" id="4_statblock"]
+[ext_resource type="Resource" uid="uid://bqxqipyvnnm5e" path="res://content/gear/shared/die_on_owner_death/mt_die_on_owner_death.tres" id="5_die"]
+
+[resource]
+script = ExtResource("1_frame")
+sprites = Array[Texture2D]([ExtResource("3_empty")])
+traits = Array[ExtResource("2_kit")]([ExtResource("5_die")])
+stat = ExtResource("4_statblock")
+entity_type = 2
+is_obstruction = false
+metadata/_custom_type_script = "uid://daycu0mqh1rbq"

@@ -33,6 +33,10 @@ const MAX_TEARS := 15
 
 const TEAR_FRAME_ID := &'dep_tear_banshee'
 
+## The bend proxy's frame. TBR relays an attack through a proxy standing on a tear, and that proxy
+## must be tellable from every other targeting proxy on the map - see effective_tangibility.
+const BEND_PROXY_FRAME_ID := &'dep_bend_proxy_banshee'
+
 ## Sentinel for "no explicit eye height given, fall back to the cached terrain-level sweep".
 const NO_HEIGHT := -1
 
@@ -73,6 +77,29 @@ static var _computing := false
 
 # ---------------------------------------------------------------------------- the pair rule
 
+static func is_tear(unit:Unit) -> bool: return _frame_id(unit) == TEAR_FRAME_ID
+static func is_bend_proxy(unit:Unit) -> bool: return _frame_id(unit) == BEND_PROXY_FRAME_ID
+
+## Tangibility as it should be JUDGED, which is not always the tangibility a unit carries.
+##
+## TargetActionUtil.create_targeting_proxy spawns a unit with NO statuses - it inherits faction and
+## owner and nothing else - so an attack relayed through a bend proxy is always tangible however the
+## Banshee stands. can_affect reads has_status straight off the unit (unit_relation.gd:397), so
+## without this a bend would launder tangibility in BOTH directions: refusing an INTANGIBLE Banshee
+## its INTANGIBLE target, and permitting it a tangible one that To Bend Reality forbids.
+##
+## Reading through rather than applying the status is deliberate. UnitCondition.apply_status for
+## INTANGIBLE runs handle_intangibilty_changing (unit_condition.gd:256-288), which strips buffs,
+## detaches the katamari, plays an FX on unit.token.Bumper and queues valid-spot movement - far too
+## much for a stand-in that lives for one activation. event_unit_intangible is not a lighter door:
+## it CALLS apply_status at :34 and exists only for a reaction PRE hook.
+static func effective_tangibility(unit:Unit) -> bool:
+	if not Unit.is_valid(unit): return false
+	if is_bend_proxy(unit):
+		var owner_unit:Unit = unit.get_owner_unit()
+		if Unit.is_valid(owner_unit): return owner_unit.has_status(Lancer.STATUS.INTANGIBLE)
+	return unit.has_status(Lancer.STATUS.INTANGIBLE)
+
 ## Exactly one of the two is INTANGIBLE. The whole of clauses 4 and 5's precondition, in one place so
 ## both seams and any later caller ask the same question.
 static func is_cross_tangible(a:Unit, b:Unit) -> bool:
@@ -88,7 +115,7 @@ static func cross_tangible_units(map:MapState, viewer:Unit) -> Array[Unit]:
 	for unit:Unit in map.get_all_units():
 		if not Unit.is_valid(unit): continue
 		if unit == viewer: continue
-		if _frame_id(unit) == TEAR_FRAME_ID: continue
+		if is_tear(unit): continue
 		if is_cross_tangible(viewer, unit): found.append(unit)
 	return found
 
@@ -99,7 +126,7 @@ static func open_tears(map:MapState) -> Array[Unit]:
 	var tears:Array[Unit] = []
 	for unit:Unit in map.get_all_units():
 		if not Unit.is_valid(unit): continue
-		if _frame_id(unit) == TEAR_FRAME_ID: tears.append(unit)
+		if is_tear(unit): tears.append(unit)
 	return tears
 
 static func tear_tiles(map:MapState) -> Array[Vector2i]:
