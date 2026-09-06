@@ -24,9 +24,15 @@ const MAX_TEARS := 15
 
 const TEAR_FRAME_ID := &'dep_tear_banshee'
 
-## tile -> the tiles visible from it. Keyed by TILE, not by unit, because get_tiles_in_los_alt
-## depends only on the tile and the map - never on who is looking. That is what makes the cache
-## collapse the units x tears multiplier to a bitwise OR.
+## map instance id -> (tile -> the tiles visible from it). Keyed by TILE within a map, not by unit,
+## because get_tiles_in_los_alt depends only on the tile and the map - never on who is looking. That
+## is what makes the cache collapse the units x tears multiplier to a bitwise OR.
+##
+## The outer level exists because a single GUT run creates many MapStates across spec files, and
+## tile (2,2) on one map is not tile (2,2) on another - a bare tile-keyed dictionary would let a
+## stale entry from an earlier map answer a query against a later one. Keying on
+## map.get_instance_id() ties every cached entry to the exact map it was computed against, so two
+## maps sharing a coordinate never collide.
 static var _visibility_cache:Dictionary = {}
 
 ## REENTRANCY GUARD, and it is load-bearing rather than defensive.
@@ -73,18 +79,29 @@ static func tiles_visible_via_tears(map:MapState, from_tile:Vector2i) -> PackedI
 		Tile.add_bitwise_array(reachable, _visibility_of(map, tear_tile))
 	return reachable
 
-## Drop the cache. Call whenever a tear moves, opens or closes, or terrain changes.
+## Drop the cache for one map. Call whenever a tear moves, opens or closes, or terrain changes on
+## that map. Scoped to `map` rather than a blanket clear, so invalidating one map's tear in the
+## middle of a run (or a spec's after_each) never throws away another map's still-valid entries.
+##
+## If `map` is no longer valid there is nothing to key on, so fall back to clearing everything -
+## better to recompute than to leak a dead map's instance id forever.
 static func invalidate(map:MapState) -> void:
-	_visibility_cache.clear()
+	if not is_instance_valid(map):
+		_visibility_cache.clear()
+		return
+	_visibility_cache.erase(map.get_instance_id())
 
 static func _visibility_of(map:MapState, tile:Vector2i) -> PackedInt64Array:
-	if _visibility_cache.has(tile): return _visibility_cache[tile]
+	var map_id := map.get_instance_id()
+	var by_tile:Dictionary = _visibility_cache.get(map_id, {})
+	if by_tile.has(tile): return by_tile[tile]
 	# The guard must wrap the sweep, because get_tiles_in_los_alt re-enters our own is_tile_in_los
 	# override. Restored in a defer-equivalent below rather than at every early return.
 	_computing = true
 	var visible := UnitTile.get_tiles_in_los_alt(map, tile)
 	_computing = false
-	_visibility_cache[tile] = visible
+	by_tile[tile] = visible
+	_visibility_cache[map_id] = by_tile
 	return visible
 
 static func _sees(map:MapState, from_tile:Vector2i, to_tile:Vector2i) -> bool:

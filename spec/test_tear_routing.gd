@@ -73,6 +73,41 @@ func test_routing_terminates_when_the_los_seam_calls_back_into_it():
 	assert_lt(Time.get_ticks_msec() - start, 5000,
 		'Fifty routing queries finish promptly - no runaway reentry.')
 
+func test_visibility_cache_is_scoped_per_map():
+	# Regression for the pre-fix cache: it was a flat Dictionary keyed on Vector2i tile alone, with
+	# nothing tying an entry to the MapState it was computed against. A single GUT run creates many
+	# maps across spec files, and tile (6,6) on one map is not tile (6,6) on another - so whichever
+	# map populated that tile's entry first would silently answer for every other map afterward.
+	#
+	# This does not need a real tear (and so does not need dep_tear_banshee.tres, which Task 3 has
+	# not built yet): the bug lives in the cache underneath routing, in _visibility_of, so it can be
+	# exercised directly without going through open_tears at all.
+	var map_a:MapState = game.map
+	var game_b:Gamemaster = SpecFactory.setup_gamemaster(self, true, SpecFactory.create_combat(Landscape.create_default(Vector2i(12,12))))
+	var map_b:MapState = game_b.map
+	assert_ne(map_a.get_instance_id(), map_b.get_instance_id(), 'Sanity: the two maps are distinct instances.')
+
+	# Populate map A's cache for (6,6), then poison that entry with the blank bitwise array - a value
+	# no real sweep of an open, unobstructed 12x12 map would ever produce for its center tile. Against
+	# the OLD tile-only cache this poisoned entry IS the entry for (6,6), full stop, on any map.
+	TearRouting._visibility_of(map_a, Vector2i(6,6))
+	TearRouting._visibility_cache[map_a.get_instance_id()][Vector2i(6,6)] = Tile.create_blank_bitwise_array()
+
+	# Map B has never been queried before. If the cache were still tile-only, this call would return
+	# map A's poisoned entry instead of doing a real sweep.
+	var visible_b := TearRouting._visibility_of(map_b, Vector2i(6,6))
+	assert_false(Tile.is_bitwise_array_empty(visible_b),
+		'Map B computes its own visibility for (6,6) rather than inheriting map A\'s poisoned entry.')
+
+	# invalidate(map) honouring its argument: dropping map A must not touch map B.
+	TearRouting.invalidate(map_a)
+	assert_false(TearRouting._visibility_cache.has(map_a.get_instance_id()),
+		'invalidate(map_a) drops map A\'s entries.')
+	assert_true(TearRouting._visibility_cache.has(map_b.get_instance_id()),
+		'invalidate(map_a) must leave map B\'s entries untouched.')
+
+	TearRouting.invalidate(map_b)
+
 ## Place a tear-frame deployable at a tile. Task 3 builds the real resource; until then this spec
 ## fails at load, which is the correct RED.
 func _place_tear(tile:Vector2i) -> Unit:
