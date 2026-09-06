@@ -55,3 +55,18 @@ func test_a_bend_proxy_reads_its_owners_tangibility():
 	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
 	assert_false(proxy.has_status(Lancer.STATUS.INTANGIBLE), 'The proxy really has no status of its own.')
 	assert_true(TearRouting.effective_tangibility(proxy), 'But it reads through to its INTANGIBLE owner.')
+
+func test_a_bend_proxy_owned_by_tangible_unit_reads_as_tangible():
+	# Bug catching test: an implementation that ignored the owner and just returned true for any bend
+	# proxy would pass the existing suite, since it only tested intangible owners. This test ensures
+	# the owner's tangibility is actually consulted.
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
+	assert_false(proxy.has_status(Lancer.STATUS.INTANGIBLE), 'The proxy has no status of its own.')
+	assert_false(TearRouting.effective_tangibility(proxy), 'It reads through to its tangible owner.')
+
+func test_a_bend_proxy_with_no_owner_reads_its_own_status():
+	# The fallback is intentional: effective_tangibility reads the owner if one exists, and falls back
+	# to the unit itself if not. This test pins the fallback as deliberate.
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1))
+	assert_false(proxy.has_status(Lancer.STATUS.INTANGIBLE), 'A freshly-placed proxy has no status.')
+	assert_false(TearRouting.effective_tangibility(proxy), 'Without an owner, it reads its own status.')
