@@ -870,3 +870,12 @@ func test_a_bend_triggers_the_mounted_followup_exactly_once():
 
 	assert_eq(gears.secondary.get_uses_this_turn(gears.secondary.get_solo_action()), 1,
 		"The mount's pistol fired exactly once for one bend, not once per segment.")
+
+## get_values points the VARIANT's title/description at these keys (not the trait's own
+## gear.mt_to_bend_reality.name/.effect, which label the group) so the menu states the two-attack
+## cost instead of special-casing it. See buff_to_bend_reality.gd:get_values.
+func test_the_variant_strings_are_localized():
+	assert_ne(tr('gear.mt_to_bend_reality.variant.name'), 'gear.mt_to_bend_reality.variant.name',
+		'The variant name resolves. If it does not, a stale mod zip is shadowing the working tree.')
+	assert_ne(tr('gear.mt_to_bend_reality.variant.effect'), 'gear.mt_to_bend_reality.variant.effect',
+		'The variant description resolves.')

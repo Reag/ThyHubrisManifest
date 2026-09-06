@@ -47,8 +47,8 @@ func get_values(core:BuffCore, context:Context) -> Context:
 	)
 	group.append(VariantAction.create(
 		VARIANT_KEY,
-		tr('gear.mt_to_bend_reality.name'),
-		tr('gear.mt_to_bend_reality.effect'),
+		tr('gear.mt_to_bend_reality.variant.name'),
+		tr('gear.mt_to_bend_reality.variant.effect'),
 		null,
 		func(modified_weapon:ActionAttackWeapon):
 			var bend:ActionAttackWeapon = bend_action.create_duplicate_for_variant()
