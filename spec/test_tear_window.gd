@@ -45,6 +45,12 @@ func test_line_of_sight_is_widened_through_a_tear():
 	game.map.calculate_los_blockers()
 
 	var hidden_tile := Vector2i(4,1)
+	# An INTANGIBLE occupant, because the pair rule requires one. Clause 5 is "tangible characters
+	# can draw line of sight to INTANGIBLE characters if the line passes through a tear" - a tear
+	# does not reveal empty ground, it reveals what is standing on the other side of the window.
+	var hidden_ghost := SpecFactory.create_unit(game.map, hidden_tile, Faction.AI_ENEMY)
+	SpecFactory.apply(hidden_ghost, Lancer.STATUS.INTANGIBLE)
+
 	var before := UnitTile.get_tiles_in_los(banshee)
 	assert_false(Tile.in_bitwise_array(before, hidden_tile),
 		'Sanity check: the wall genuinely blocks direct sight to the hidden tile.')
@@ -72,6 +78,9 @@ func test_get_tiles_within_falls_back_through_a_tear():
 	SpecFactory.set_tiles_elevation(game.map, 4, [Vector2i(2,1), Vector2i(2,2), Vector2i(2,3)])
 	game.map.calculate_los_blockers()
 	var hidden_tile := Vector2i(4,1)
+	# Intangible occupant for the pair rule - see the note in the sweep test above.
+	var hidden_ghost := SpecFactory.create_unit(game.map, hidden_tile, Faction.AI_ENEMY)
+	SpecFactory.apply(hidden_ghost, Lancer.STATUS.INTANGIBLE)
 
 	# No precalculated_los argument: use_precalculated_los is false inside get_tiles_within, so it
 	# calls UnitTile.is_tile_in_los itself - the fallback path, not the sweep test_line_of_sight_is
@@ -112,7 +121,7 @@ func test_the_seam_is_inert_when_no_tear_is_open():
 	game.map.calculate_los_blockers()
 	var hidden_tile := Vector2i(4,1)
 
-	var contribution := TearRouting.tiles_visible_via_tears(game.map, banshee.tile())
+	var contribution := TearRouting.tiles_visible_via_tears(game.map, banshee, banshee.tile())
 	assert_true(Tile.is_bitwise_array_empty(contribution), 'Routing adds nothing with no tears open.')
 
 	var los := UnitTile.get_tiles_in_los(banshee)
@@ -150,3 +159,21 @@ func test_the_kraken_tide_still_works():
 	# The Tide's own suite is the real guard; this is a smoke check that both rules coexist.
 	assert_false(UnitRelation.can_affect(banshee, ghost),
 		'With no tear, vanilla tangibility still refuses - the Banshee rule is not always-on.')
+
+func test_a_tangible_pair_gets_no_periscope_through_the_seam():
+	# THE PERISCOPE REGRESSION, at the seam rather than in the library. Before the pair gate existed,
+	# an open tear widened line of sight for EVERY unit towards EVERY tile, so two ordinary tangible
+	# mechs could shoot each other around a corner. Proven with a failing spec, then fixed.
+	#
+	# Uses the same height-4 wall as the widening test, so "not otherwise visible" is a real state.
+	SpecFactory.set_tiles_elevation(game.map, 4, [Vector2i(2,1), Vector2i(2,2), Vector2i(2,3)])
+	game.map.calculate_los_blockers()
+	var hidden_tile := Vector2i(4,1)
+	var solid := SpecFactory.create_unit(game.map, hidden_tile, Faction.AI_ENEMY)
+
+	assert_false(Tile.in_bitwise_array(UnitTile.get_tiles_in_los(banshee), hidden_tile),
+		'Sanity: the wall blocks the tangible pair before any tear exists.')
+
+	_place_tear(Vector2i(4,0))
+	assert_false(Tile.in_bitwise_array(UnitTile.get_tiles_in_los(banshee), hidden_tile),
+		'A tangible pair sees nothing through a tear - clauses 4 and 5 both need a mismatch.')

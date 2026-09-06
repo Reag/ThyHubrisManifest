@@ -106,19 +106,25 @@ func test_closing_frees_a_slot_against_the_cap():
 		'Closing one frees a slot.')
 
 func test_closing_a_tear_shuts_its_window():
-	# The close action must drop the routing cache, not merely delete the unit. The caches are keyed
-	# on TILE, so a closed tear whose entry survives keeps answering routed queries as though the
-	# window were still open - and nothing about the map would look wrong. This is the assertion that
-	# notices; test_closing_a_tear_removes_it above would pass with a stale cache.
+	# The close action must drop the routing caches, not merely delete the unit. They are keyed on
+	# TILE, so a closed tear whose entry survived keeps answering routed queries as though the window
+	# were still open - and nothing about the map would look wrong. This is what notices;
+	# test_closing_a_tear_removes_it above would pass with a stale cache.
+	#
+	# Asserted through can_affect rather than through the routing library directly, because that is
+	# the user-visible effect: with the tear gone, the tangible Banshee can no longer touch the ghost.
+	var ghost := SpecFactory.create_unit(game.map, Vector2i(9,9), Faction.AI_ENEMY)
+	SpecFactory.apply(ghost, Lancer.STATUS.INTANGIBLE)
+	assert_false(UnitRelation.can_affect(banshee, ghost), 'Sanity: no window before the tear.')
+
 	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
 	var tears := TearRouting.open_tears(game.map)
 	if tears.is_empty(): return fail_test('A tear was placed to close.')
-	assert_false(Tile.is_bitwise_array_empty(TearRouting.tiles_visible_via_tears(game.map, banshee.tile())),
-		'Sanity check: the open tear does route before it is closed.')
+	assert_true(UnitRelation.can_affect(banshee, ghost), 'Sanity: the open tear does bridge them.')
 
 	await SpecFactory.use_solo(game, tears[0], &'mt_tear_banshee')
-	assert_true(Tile.is_bitwise_array_empty(TearRouting.tiles_visible_via_tears(game.map, banshee.tile())),
-		'A closed tear routes nothing - its cache entry went with it.')
+	assert_false(UnitRelation.can_affect(banshee, ghost),
+		'A closed tear bridges nothing - its cache entry went with it.')
 
 func test_closing_is_a_quick_action():
 	var action:Action = ContentLibrary.get_kit(&'mt_tear_banshee').get_action(&'action_tear_close')

@@ -40,24 +40,40 @@ func test_routing_is_symmetric():
 		TearRouting.routes_between(game.map, Vector2i(11,11), Vector2i(1,1)),
 		'Routing gives the same answer in both directions.')
 
-func test_tiles_visible_via_tears_includes_what_the_tear_can_see():
+func test_tiles_visible_via_tears_reaches_a_cross_tangible_unit():
+	# tiles_visible_via_tears returns the tiles of units the viewer may LEGITIMATELY route to, not
+	# every tile a tear happens to see. Clauses 4 and 5 both require a tangibility mismatch, so a
+	# cross-tangible occupant is what makes a tile reachable at all.
+	var viewer := SpecFactory.create_unit(game.map, Vector2i(1,1))
+	var ghost := SpecFactory.create_unit(game.map, Vector2i(11,11), Faction.AI_ENEMY)
+	SpecFactory.apply(ghost, Lancer.STATUS.INTANGIBLE)
 	_place_tear(Vector2i(6,6))
-	var via := TearRouting.tiles_visible_via_tears(game.map, Vector2i(1,1))
-	assert_true(Tile.in_bitwise_array(via, Vector2i(11,11)),
-		'A tile the tear can see is reachable through it.')
 
-func test_an_unobstructed_viewer_routes_through_the_tear():
-	# The first leg is ordinary line of sight and terrain blocks it normally - the agreed relaxation
-	# removed the terrain-ignoring clauses, so this is the whole rule.
+	var via := TearRouting.tiles_visible_via_tears(game.map, viewer, viewer.tile())
+	assert_true(Tile.in_bitwise_array(via, ghost.tile()),
+		'An intangible character on the far side of a tear is reachable through it.')
+
+func test_a_same_tangibility_unit_is_never_reachable_through_a_tear():
+	# THE PERISCOPE REGRESSION. Before this gate existed, an open tear widened line of sight for
+	# every unit on the map towards every tile - so two ordinary tangible mechs, neither of them a
+	# Banshee, could shoot each other around a corner. No clause grants that: clause 4 is intangible
+	# to tangible, clause 5 is tangible to intangible, and both require a MISMATCH.
+	var viewer := SpecFactory.create_unit(game.map, Vector2i(1,1))
+	var solid := SpecFactory.create_unit(game.map, Vector2i(11,11), Faction.AI_ENEMY)
 	_place_tear(Vector2i(6,6))
-	var via := TearRouting.tiles_visible_via_tears(game.map, Vector2i(1,1))
-	assert_false(Tile.is_bitwise_array_empty(via), 'An unobstructed viewer routes.')
+
+	var via := TearRouting.tiles_visible_via_tears(game.map, viewer, viewer.tile())
+	assert_false(Tile.in_bitwise_array(via, solid.tile()),
+		'A tangible pair gets nothing from a tear - it is a window, not a periscope.')
 
 func test_routing_contributes_nothing_when_no_tear_is_open():
 	# Inertness, asserted directly rather than by comparing two identical calls. Every other frame in
 	# the game runs through this code path, so "contributes nothing" is the load-bearing property.
-	assert_true(Tile.is_bitwise_array_empty(TearRouting.tiles_visible_via_tears(game.map, Vector2i(1,1))),
-		'With no tears open, routing adds no tiles at all.')
+	var viewer := SpecFactory.create_unit(game.map, Vector2i(1,1))
+	var ghost := SpecFactory.create_unit(game.map, Vector2i(11,11), Faction.AI_ENEMY)
+	SpecFactory.apply(ghost, Lancer.STATUS.INTANGIBLE)
+	assert_true(Tile.is_bitwise_array_empty(TearRouting.tiles_visible_via_tears(game.map, viewer, viewer.tile())),
+		'With no tears open, routing adds no tiles at all - even for a pair that would qualify.')
 
 func test_routing_terminates_when_the_los_seam_calls_back_into_it():
 	# THE RECURSION GUARD. unit_tile.gd_ext.gd overrides is_tile_in_los to consult this library, and
