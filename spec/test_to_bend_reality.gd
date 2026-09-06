@@ -266,3 +266,49 @@ func test_activating_the_bend_resolves_damage_from_the_followups_own_weapon():
 
 	assert_eq(target.current_damage(), 4,
 		"The bend resolved with the followup's real 1d6, not the wrapper's empty damage_dice.")
+
+## Compose the bend variant onto a weapon and hand back the SpecificAction the player would get.
+##
+## Must go through generate_composed_action. VariantActionGroup.get_variant_specifics looks like the
+## obvious helper and is WRONG for this: at variant_action_group.gd:96 it calls
+## `variant_action.modify.call(modified_action)` and DISCARDS the return value, so for a variant that
+## REPLACES the action - which ours does, and Throughbolt's does - it hands back the pilot's weapon
+## duplicate rather than the wrapper. Tests built on it would exercise the weapon's own targeting and
+## never touch the tear pick at all.
+##
+## Index 1, not 0: get_variant_actions() inserts a blank "no modification" entry at index 0 for any
+## blankable group, and ours is blankable so the player can always shoot normally.
+func _bend_specific(gear:GearCore) -> SpecificAction:
+	var specific := SpecificAction.create(banshee, gear, gear.get_solo_action())
+	var groups := specific.action.get_alternate_actions(specific)
+	if groups.is_empty(): return null
+	var chosen:Dictionary[StringName, int] = { &'to_bend_reality': 1 }
+	var composed := VariantActionGroup.generate_composed_action(groups, specific.action, chosen)
+	return SpecificAction.create(banshee, gear, composed)
+
+func test_only_tears_are_offerable_for_the_pick():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	var bend := _bend_specific(gear)
+	assert_not_null(bend, 'The bend variant exists.')
+	var tiles := UnitTargeting.get_tiles_targetable(bend)
+	assert_true(tiles.has(Vector2i(5,1)), 'The tear tile is offerable.')
+	assert_false(tiles.has(Vector2i(10,1)), 'The enemy is NOT offerable - the first pick is a tear.')
+	assert_eq(tiles.size(), 1, 'Exactly one tear is offerable. Got: %s' % [tiles])
+
+func test_a_tear_out_of_weapon_range_is_not_offerable():
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(19,19))
+	var bend := _bend_specific(gear)
+	assert_eq(UnitTargeting.get_tiles_targetable(bend).size(), 0,
+		'A tear further away than the weapon range cannot be bent through.')
+
+func test_an_intangible_banshee_can_still_pick_its_own_tear():
+	# Targeting normally filters through can_affect, and an INTANGIBLE Banshee is cross-tangible with
+	# its own (tangible) tear. Overriding the tile set sidesteps that filter entirely. Asserted
+	# because the failure mode is silent - the tear simply would not highlight.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	SpecFactory.apply(banshee, Lancer.STATUS.INTANGIBLE)
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_true(UnitTargeting.get_tiles_targetable(_bend_specific(gear)).has(Vector2i(5,1)),
+		'An INTANGIBLE Banshee can select its own tear.')
