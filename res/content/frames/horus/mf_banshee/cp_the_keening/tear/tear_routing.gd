@@ -112,6 +112,11 @@ static func is_cross_tangible(a:Unit, b:Unit) -> bool:
 static func cross_tangible_units(map:MapState, viewer:Unit) -> Array[Unit]:
 	var found:Array[Unit] = []
 	if not is_instance_valid(map) or not Unit.is_valid(viewer): return found
+	# A BEND PROXY IS NOT A WINDOW. To Bend Reality relays an attack through a proxy standing on a
+	# tear, and that attack is governed by the trait's own rule - same tangibility, combined range -
+	# not by the tear window's. Returning nothing here takes both the LOS widening above and the
+	# clause-7 range policing in unit_tile.gd_ext.gd off a bend in one place.
+	if is_bend_proxy(viewer): return found
 	for unit:Unit in map.get_all_units():
 		if not Unit.is_valid(unit): continue
 		if unit == viewer: continue

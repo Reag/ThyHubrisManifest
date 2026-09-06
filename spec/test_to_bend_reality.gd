@@ -879,3 +879,17 @@ func test_the_variant_strings_are_localized():
 		'The variant name resolves. If it does not, a stale mod zip is shadowing the working tree.')
 	assert_ne(tr('gear.mt_to_bend_reality.variant.effect'), 'gear.mt_to_bend_reality.variant.effect',
 		'The variant description resolves.')
+
+func test_a_bend_proxy_sees_no_cross_tangible_units():
+	# One line in cross_tangible_units takes BOTH the tear's LOS widening and its clause-7 range
+	# policing off a bend, because tiles_visible_via_tears and the get_tiles_within override both
+	# iterate it. A bend sees plain vanilla geometry measured from the tear, which is what the trait
+	# text describes.
+	SpecFactory.apply(target, Lancer.STATUS.INTANGIBLE)
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
+
+	assert_eq(TearRouting.cross_tangible_units(game.map, banshee).size(), 1,
+		'A tangible Banshee still sees the INTANGIBLE target as cross-tangible.')
+	assert_eq(TearRouting.cross_tangible_units(game.map, proxy).size(), 0,
+		'A bend proxy sees nobody as cross-tangible - the tear window does not apply to a bend.')
