@@ -678,7 +678,16 @@ func test_the_keening_has_two_parts_with_the_right_economy():
 
 	var by_id := {}
 	for action:Action in kit.actions: by_id[action.get_id()] = action
-	assert_eq(by_id.keys(), BANSHEE_CORE_POWER_MODES, 'It is exactly its two parts.')
+
+	# The raw action list is no longer "exactly its two parts". Clause 8's Move Tear also lives on
+	# this Kit, because it is a verb of Tear rather than a third mode of the core power - it is
+	# described inside Tear's own effect text, and it overrides show_in_tooltip -> false so the gear
+	# tooltip still reads as two abilities. Assert on what the PLAYER is shown, then pin the total
+	# separately: filtering alone would let a fourth action, or a typo'd id on a hidden one, through
+	# unnoticed, which is why both assertions are kept.
+	var player_facing:Array = kit.actions.filter(func(action:Action) -> bool: return action.show_in_tooltip(kit)) 		.map(func(action:Action) -> StringName: return action.get_id())
+	assert_eq(player_facing, BANSHEE_CORE_POWER_MODES, 'It shows the player exactly its two parts.')
+	assert_eq(kit.actions.size(), 3, 'Two player-facing parts plus the hidden Move Tear verb, and nothing else.')
 
 	var tear:Action = by_id.get(BANSHEE_TEAR)
 	if Action.is_valid(tear):

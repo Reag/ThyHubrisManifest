@@ -1,0 +1,15 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/action_tear_move.gd" id="1_move"]
+[ext_resource type="Script" uid="uid://df1yicp7kbf3x" path="res://engine/character/gear_action/resources/target_requirements.gd" id="2_reqs"]
+
+[sub_resource type="Resource" id="Resource_move_reqs"]
+script = ExtResource("2_reqs")
+
+[resource]
+script = ExtResource("1_move")
+action_type = 3
+consumes_cp = false
+usage_group = &"action_tear_move"
+target_requirements_override = SubResource("Resource_move_reqs")
+emit_text_popcorn_on_use = true

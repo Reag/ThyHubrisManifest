@@ -198,3 +198,5 @@ gear.mt_tear_banshee.action_tear_close.name,Close Tear
 gear.mt_tear_banshee.action_tear_close.effect,"Close this void tear."
 frame.dep_tear_banshee.name,Void Tear
 gear.buff_tear_invisibility.name,Seen Through A Tear
+gear.cp_the_keening.action_tear_move.name,Move Tear
+gear.cp_the_keening.action_tear_move.effect,"Expend your base movement to move one of your void tears up to your speed. This does not count as taking an action."
