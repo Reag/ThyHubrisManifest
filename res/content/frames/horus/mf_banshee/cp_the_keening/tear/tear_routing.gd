@@ -229,6 +229,25 @@ static func bends_within_range(map:MapState, from_tile:Vector2i, to_tile:Vector2
 		if _sees(map, tear_tile, to_tile): return true
 	return false
 
+## Plain, UNROUTED line of sight between two tiles - no tear waypoint, just the ordinary sweep (or a
+## height-aware check when from_height is given). A thin wrapper around _sees_from rather than a
+## reimplementation, so it shares that function's cache and inherits this file's _computing guard.
+##
+## Exists because the bend pick's FIRST leg (Banshee -> candidate tear) must be ordinary sight, never
+## sight bent through some OTHER open tear. action_bend_reality.gd's bendable_tear_tiles used to test
+## a candidate tear by calling bends_within_range with the tear as both waypoint and destination,
+## relying on los(tear -> tear) being trivially true so only the from -> tear leg actually mattered.
+## That reasoning breaks the moment more than one tear is open: bends_within_range loops over EVERY
+## open tear as a candidate waypoint, so a second tear W could bridge sight to a tear T the Banshee
+## cannot actually see (banshee -> W -> T), offering T for the pick even though the real first leg
+## (banshee -> T, unrouted) is blocked. MAX_TEARS is 15, so more than one open tear is the normal
+## case, not an edge one. Use this helper for any "can the viewer plainly see this tile" question that
+## must not itself be tear-routed.
+static func sees_between(map:MapState, from_tile:Vector2i, to_tile:Vector2i, from_height:int = NO_HEIGHT) -> bool:
+	if _computing: return false # see _computing
+	if not is_instance_valid(map): return false
+	return _sees_from(map, from_tile, to_tile, from_height)
+
 ## CLAUSE 6's predicate: "Attacks that pass through a tear treat targets as INVISIBLE."
 ##
 ## Deliberately the SAME question clauses 4 and 5 ask, so the two can never drift apart. That is not

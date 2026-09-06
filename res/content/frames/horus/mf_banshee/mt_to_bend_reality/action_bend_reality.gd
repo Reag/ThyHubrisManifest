@@ -27,18 +27,36 @@ func get_target_requirements(specific:SpecificAction) -> TargetRequirements:
 	var reqs := TargetRequirements.new()
 	reqs.count = 1
 	reqs.can_target_empty_tiles = true
-	reqs.targetable_tiles_override = func(
+	var tear_tiles_fn := func(
 		override_specific:SpecificAction,
 		_picks_so_far:Array[TargetingPick] = [],
 		_from_tile := Tile.INVALID,
 		_precalculated_los:PackedInt64Array = []
 	) -> Array[Vector2i]:
 		return bendable_tear_tiles(override_specific)
+	reqs.targetable_tiles_override = tear_tiles_fn
+	# UnitTargeting.get_tiles_targetable (the clickable tiles) reads targetable_tiles_override above,
+	# but UnitTargeting.get_tiles_in_range - the ground overlay tilepicker_compcon.gd:431 feeds to
+	# show_range_bitwise, i.e. what the player actually SEES highlighted - reads range_tiles_override
+	# instead. They are two independent fields read by two different callers. Leaving this one unset
+	# meant the player saw the weapon's ordinary range highlighted during the tear pick, while only
+	# the tear tiles actually responded to a click. Same callable as above so the two answers can
+	# never drift apart.
+	reqs.range_tiles_override = tear_tiles_fn
 	return reqs
 
 ## Every open tear this attack could bend through: in line of sight from the Banshee, and near enough
 ## that SOMETHING is still reachable past it. A tear exactly at the range limit leaves a zero-length
 ## second leg, which is legal but useless, so the bound is `<` rather than `<=`.
+##
+## THE FIRST LEG MUST BE PLAIN SIGHT, NOT ROUTED. TearRouting.sees_between answers "can the Banshee
+## plainly see this tile", asking nothing about other open tears. Using TearRouting.bends_within_range
+## here instead - the earlier, buggy version of this function did, passing the candidate tear as both
+## waypoint and destination - would let a SECOND open tear bridge sight to a candidate the Banshee
+## cannot actually see (banshee -> other tear -> candidate), offering a tear that is not really
+## visible. See sees_between's docstring for the full story. This also flattens what used to be a
+## nested loop - bendable_tear_tiles over every tear, each calling bends_within_range which itself
+## loops every tear again, up to 225 evaluations at MAX_TEARS - into one pass.
 func bendable_tear_tiles(specific:SpecificAction) -> Array[Vector2i]:
 	var offerable:Array[Vector2i] = []
 	if not Unit.is_valid(specific.unit) or not is_instance_valid(specific.unit.map): return offerable
@@ -47,8 +65,14 @@ func bendable_tear_tiles(specific:SpecificAction) -> Array[Vector2i]:
 	var from_height:int = UnitTile.effective_height(specific.unit, true, from_tile)
 	var max_range:int = get_target_range(specific)
 	for tear_tile:Vector2i in TearRouting.tear_tiles(map):
+		# `>=` here, `>` on bends_within_range's combined-distance check - both correct, deliberately
+		# different. There this is the SUM of two legs and a total exactly at max_range still leaves a
+		# real (if zero-length-tolerant) second leg from the caller's chosen target. Here there is no
+		# second leg yet - this candidate tile IS the tear, not a target beyond it - so a tear sitting
+		# exactly at max_range would leave nothing for a follow-up target to reach, and is excluded.
+		# Do not "fix" one bound to match the other; they answer different questions.
 		if Tile.distance(from_tile, tear_tile) >= max_range: continue
-		if not TearRouting.bends_within_range(map, from_tile, tear_tile, from_height, max_range): continue
+		if not TearRouting.sees_between(map, from_tile, tear_tile, from_height): continue
 		offerable.append(tear_tile)
 	return offerable
 

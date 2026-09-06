@@ -297,11 +297,73 @@ func test_only_tears_are_offerable_for_the_pick():
 	assert_eq(tiles.size(), 1, 'Exactly one tear is offerable. Got: %s' % [tiles])
 
 func test_a_tear_out_of_weapon_range_is_not_offerable():
+	# NOT independent evidence the range filter works: "zero tiles offered" is indistinguishable from
+	# "the override does nothing at all" - this passed even before bendable_tear_tiles existed. It
+	# only means something read alongside test_only_tears_are_offerable_for_the_pick, which proves the
+	# override actually offers a tear when one is in range. Together they show the filter includes the
+	# in-range tear and excludes the out-of-range one; alone, this test proves nothing.
 	var gear := _arm_banshee_with(&'mw_assault_rifle')
 	_place_frame(TEAR_FRAME, Vector2i(19,19))
 	var bend := _bend_specific(gear)
 	assert_eq(UnitTargeting.get_tiles_targetable(bend).size(), 0,
 		'A tear further away than the weapon range cannot be bent through.')
+
+func test_a_tear_the_banshee_cannot_see_is_not_offered_even_when_another_tear_bridges_to_it():
+	# THE NESTED-ROUTING REGRESSION GUARD (finding 1). Every other test in this file places exactly
+	# one tear, which is why they all passed against the buggy implementation: bendable_tear_tiles used
+	# to test a candidate tear T by calling TearRouting.bends_within_range(banshee, T), passing T as
+	# BOTH waypoint and destination, relying on los(T -> T) being trivially true so only the
+	# banshee -> T leg actually mattered. That reasoning breaks with a second tear open, because
+	# bends_within_range loops over EVERY open tear as a candidate waypoint - so a second tear W that
+	# the Banshee CAN see, and which can itself see T, bridges sight to T (banshee -> W -> T) and gets
+	# T incorrectly offered, even though the real first leg (banshee -> T, unrouted) is blocked. The
+	# first leg is ordinary weapon sight and must never be tear-routed.
+	#
+	# Geometry: banshee at (1,1). A height-4 wall at x=6 (y=1..3) blocks the row y=1 - per the
+	# project's known trap, UnitTile.effective_height is floor plus the unit's own body, so a unit on
+	# flat ground sees straight over a height-2 wall; height 4 is unambiguous. Height-2 pattern matches
+	# test_a_bend_is_refused_when_the_second_leg_is_blocked above.
+	#
+	# T (10,1): banshee -> T is the horizontal line y=1, x 1->10, which crosses the wall at (6,1) and
+	# is blocked. Distance 9, under mw_assault_rifle's range of 10, so only sight excludes it.
+	#
+	# W (5,5): banshee -> W is the diagonal y=x, x maxing out at 5 - it never reaches the wall's
+	# column (x=6) at all, so the Banshee sees W directly. W -> T crosses x=6 at y~=4.2, clear of the
+	# wall's y=1..3 span, so W can also see T directly. Both legs also stay cheap: dist(banshee,W)=4,
+	# dist(W,T)=5, total 9 <= the weapon's range of 10, so bends_within_range's own distance filter
+	# does not reject the bridge either. Under the buggy code this is exactly the bridge: banshee sees
+	# W, W sees T, so T reads reachable even though banshee can never see it directly.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(10,1)) # T - blocked from the banshee directly
+	_place_frame(TEAR_FRAME, Vector2i(5,5)) # W - visible, and bridges to T
+
+	SpecFactory.set_tiles_elevation(game.map, 4, [Vector2i(6,1), Vector2i(6,2), Vector2i(6,3)])
+	game.map.calculate_los_blockers()
+	TearRouting.invalidate(game.map) # the cached sweep is stale the moment terrain changes underneath it
+
+	var bend := _bend_specific(gear)
+	var tiles := UnitTargeting.get_tiles_targetable(bend)
+	assert_false(tiles.has(Vector2i(10,1)),
+		'T is not offered: the Banshee cannot plainly see it, even though W could bridge to it.')
+	assert_true(tiles.has(Vector2i(5,5)),
+		'W is still offered: the Banshee genuinely sees it directly.')
+
+func test_the_range_highlight_matches_the_pick():
+	# THE OVERLAY REGRESSION GUARD (finding 2). get_tiles_targetable (the clickable tiles, asserted by
+	# test_only_tears_are_offerable_for_the_pick above) and get_tiles_in_range (the ground highlight
+	# tilepicker_compcon.gd feeds to show_range_bitwise - what the player actually SEES) read two
+	# DIFFERENT TargetRequirements fields: targetable_tiles_override and range_tiles_override
+	# respectively. Setting only the first left the player seeing the weapon's full ordinary range
+	# highlighted during the tear pick, while only the tear tile actually responded to a click - a
+	# player-visible discrepancy between what looks selectable and what is. This asserts the highlight
+	# side directly, so a future edit that sets one override and not the other regresses here even if
+	# it never touches the click-target test.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	var bend := _bend_specific(gear)
+	var tiles := UnitTargeting.get_tiles_in_range(bend)
+	assert_eq(tiles, [Vector2i(5,1)] as Array[Vector2i],
+		'The range highlight shows only the tear tile, matching the click target exactly.')
 
 func test_an_intangible_banshee_can_still_pick_its_own_tear():
 	# Targeting normally filters through can_affect, and an INTANGIBLE Banshee is cross-tangible with
