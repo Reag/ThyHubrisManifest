@@ -84,8 +84,11 @@ const PROXY_KEY := 'proxy_id'
 ## test_to_bend_reality.gd's Gap 2 comment for why), so this needs its own tests rather than relying
 ## on damage landing as proof. The first leg is spent getting to the tear; whatever is left, clamped
 ## at zero, is what the weapon has past it for the followup to spend.
-func remaining_range_after(specific:SpecificAction, tear_tile:Vector2i) -> int:
-	var first_leg:int = Tile.distance(specific.unit.tile(), tear_tile)
+## `first_leg` lets a caller that has already computed the distance (line_segment_lengths, below) hand
+## it over instead of paying for Tile.distance a second time; -1 (the default) means "not known yet,
+## compute it here" so every existing external caller - direct spec calls included - is unaffected.
+func remaining_range_after(specific:SpecificAction, tear_tile:Vector2i, first_leg:int = -1) -> int:
+	if first_leg < 0: first_leg = Tile.distance(specific.unit.tile(), tear_tile)
 	return maxi(get_target_range(specific) - first_leg, 0)
 
 ## THE LINE SPLIT, extracted out of activate() for the same reason as remaining_range_after above -
@@ -98,7 +101,7 @@ func remaining_range_after(specific:SpecificAction, tear_tile:Vector2i) -> int:
 ## is defined as "whatever's left of the range budget after x is spent."
 func line_segment_lengths(specific:SpecificAction, tear_tile:Vector2i) -> Vector2i:
 	var first_leg:int = Tile.distance(specific.unit.tile(), tear_tile)
-	var remaining:int = remaining_range_after(specific, tear_tile)
+	var remaining:int = remaining_range_after(specific, tear_tile, first_leg)
 	return Vector2i(first_leg, remaining)
 
 func activate(context:Context, activation:EventCore) -> void:
@@ -145,20 +148,51 @@ func activate(context:Context, activation:EventCore) -> void:
 		activation.context = segment_one
 		await followup_attack.activate(segment_one, activation)
 
-		relay_buff = UnitCondition.apply_buff_id(activation, unit, RELAY_BUFF_ID, context.gear)
-		relay_buff.set_state(PROXY_KEY, proxy.core.persistent_id)
+		# THE ABORT GUARD (finding 3). The codebase's own precedent for this exact pattern checks
+		# `not activation.aborted` before continuing (action_attack_weapon.gd:61's mounted-followup
+		# gate). Without it: a declined friendly-fire/no-targets confirmation on segment 1 still applied
+		# the relay buff and prompted the player for segment 2's direction - a pointless prompt for an
+		# attack that can never resolve - before the sticky `aborted` flag finally bailed out inside
+		# segment 2's own activate(). Unit.is_valid(unit) covers the other trace: the Banshee dying
+		# mid-resolution (e.g. a retaliation reaction) leaves activation.aborted false but the unit gone,
+		# and without this check the proxy on the tear would keep firing after its owner was destroyed.
+		# Falling straight through to the cleanup below - rather than an early `return` - is deliberate:
+		# the one-shot relay buff (never applied on this path, so the clear below is a no-op) and the
+		# proxy removal must still run either way.
+		if not activation.aborted and Unit.is_valid(unit):
+			relay_buff = UnitCondition.apply_buff_id(activation, unit, RELAY_BUFF_ID, context.gear)
+			relay_buff.set_state(PROXY_KEY, proxy.core.persistent_id)
 
-		# SEGMENT 2: from the proxy on the tear (relayed, above), the remaining length, HALF damage.
-		# The player's second pick supplies this segment's direction/target. AS_FREEBIE keeps it from
-		# charging a second action - the same flag action_attack_weapon.gd:64-79 uses for mounted
-		# followups. first_leg + remaining == the line's normal length (remaining_range_after's contract).
-		followup_attack.range_pattern = RangePattern.create(pattern, remaining)
-		var segment_two := Context.clone(context, {
-			action = followup_attack,
-			flags = context.flags.duplicate() + [Action.FLAG.HALF_DAMAGE, Action.FLAG.AS_FREEBIE],
-		})
-		activation.context = segment_two
-		await followup_attack.activate(segment_two, activation)
+			# SEGMENT 2: from the proxy on the tear (relayed, above), the remaining length, HALF damage.
+			# The player's second pick supplies this segment's direction/target. AS_FREEBIE keeps it from
+			# charging a second action - the same flag action_attack_weapon.gd:64-79 uses for mounted
+			# followups. NO_SELF_HEAT keeps it from charging a second dose of self-heat (finding 2):
+			# spend_actions_gain_heat runs once per segment and self-heat is only skipped by this flag
+			# (unit_action.gd:228-229), so without it a self-heating weapon like mw_rail_rifle cost the
+			# Banshee heat twice for one bend. first_leg + remaining == the line's normal length
+			# (remaining_range_after's contract).
+			#
+			# CAN_FOLLOWUP IS STRIPPED, NOT CARRIED FORWARD (finding 1). ActionAttackWeapon.activate
+			# queues the mount's opposite weapon as a followup whenever CAN_FOLLOWUP is set and
+			# IS_FOLLOWUP is not (action_attack_weapon.gd:59-82) - context.flags.duplicate() would
+			# otherwise carry CAN_FOLLOWUP through from the player's original weapon-fire context into
+			# BOTH segments, so a paired mount's opposite weapon fired a second time for one bend (free,
+			# and at half damage, since HALF_DAMAGE also propagates into the followup's own flags at
+			# action_attack_weapon.gd:74). Segment 1 keeps CAN_FOLLOWUP - it is the attack the player
+			# actually initiated - so it alone gets to trigger the mount's followup. .erase() over
+			# IS_FOLLOWUP: the same idiom already used at common_action_util.gd:683, and IS_FOLLOWUP
+			# carries other meaning elsewhere (action_breach_ram_breacher_prone.gd:76 - "hijacked to
+			# signify one attack only") that segment 2 has no business claiming.
+			followup_attack.range_pattern = RangePattern.create(pattern, remaining)
+			var segment_two_flags:Array = context.flags.duplicate()
+			segment_two_flags.erase(Action.FLAG.CAN_FOLLOWUP)
+			segment_two_flags.append_array([Action.FLAG.HALF_DAMAGE, Action.FLAG.AS_FREEBIE, Action.FLAG.NO_SELF_HEAT])
+			var segment_two := Context.clone(context, {
+				action = followup_attack,
+				flags = segment_two_flags,
+			})
+			activation.context = segment_two
+			await followup_attack.activate(segment_two, activation)
 	else:
 		if followup_attack.range_pattern:
 			followup_attack.range_pattern = RangePattern.create(followup_attack.range_pattern.pattern, remaining)

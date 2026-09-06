@@ -746,3 +746,127 @@ func test_the_pilots_real_weapon_is_not_rewritten_by_a_bend():
 	})
 	assert_eq(real_action.range_pattern.value, length_before,
 		'The pilot\'s real weapon still has its original line length after a bend.')
+
+## THE SELF-HEAT GUARD (finding 2). spend_actions_gain_heat runs once per followup_attack.activate()
+## call (unit_action.gd:214-229), and self-heat is gated only by Action.FLAG.NO_SELF_HEAT - AS_FREEBIE
+## (unit_action.gd:242) does not touch it. Segment 2 is AS_FREEBIE (so it doesn't cost a second
+## action) but, before this fix, was NOT NO_SELF_HEAT - so a self-heating LINE weapon charged the
+## Banshee heat once for segment 1 and AGAIN for segment 2, for one bend that should cost one weapon's
+## worth of heat.
+func test_a_bend_costs_self_heat_once_not_once_per_segment():
+	var gear := _arm_banshee_with(&'mw_rail_rifle') # self_heat_dice "1" (content/gear/ssc/weapons/mw_rail_rifle.tres)
+	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
+	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)
+	for victim:Unit in [near, far]:
+		victim.core.frame.stat.evasion = 0
+		victim.core.frame.stat.armor = 0
+		victim.core.full_repair()
+	_place_frame(TEAR_FRAME, Vector2i(4,1))
+
+	assert_eq(banshee.core.current.heat, 0, 'Sanity check: the Banshee starts at zero heat.')
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(4,1)]),  # the tear
+		CompconPlan.create([Vector2i(9,1)]),  # segment 2's direction
+	]
+	Dice.CHEAT_ROLL_QUEUE = [20, 20, 4, 4] # both attacks hit; both damage rolls fixed
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+
+	assert_eq(banshee.core.current.heat, 1,
+		"One bend with mw_rail_rifle's self_heat_dice \"1\" costs exactly 1 heat, not 2.")
+
+## THE ABORT GUARD (finding 3). Segment 1 travels from the Banshee straight to an EMPTY tear tile with
+## nothing standing on that line, so ActionAttack.activate's own "attack anyway with no targets?"
+## confirmation (TargetActionUtil.confirm_aoe_no_targets, action_attack.gd:247) prompts the player
+## before committing. Declining it sets activation.aborted and returns before spend_actions ever runs -
+## segment 1 never happened. Without the abort guard, activate() sails on regardless: it applies the
+## relay buff to a Banshee that never fired, and prompts the player AGAIN for segment 2's direction,
+## for an attack that can never resolve - only the sticky aborted flag inside segment 2's own
+## delegated activate() finally bails out.
+##
+## CompconPlan.create_aborted() (the lever the brief suggested) does not reach segment 1: its own
+## target_tiles are PRE-FILLED by the wrapper (Context.clone(..., {target_tiles = [tear_tile]})), so
+## TargetActionUtil.ask_for_targets_alt treats it as "was_supplied_a_target" and never consults the
+## player/queue at all for segment 1 - only a genuinely-queued CompconPlan for the WRAPPER's own tear
+## pick, or segment 2's un-supplied direction pick, ever pop chosen_plan_queue. Declining the
+## no-targets confirmation is the lever that actually reaches inside segment 1's own activate().
+func test_a_bend_aborts_cleanly_when_segment_one_declines_the_no_targets_confirmation():
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(4,1)) # empty line (1,1)->(4,1): nothing to hit, nothing to confirm past
+	target.core.frame.stat.evasion = 0
+	target.core.frame.stat.armor = 0
+	target.core.full_repair()
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(4,1)]), # the tear pick - the ONLY plan queued
+	]
+	SpecFactory.current_responder.chosen_yesnos = false # decline "attack anyway with no targets?"
+	Dice.CHEAT_ROLL_QUEUE = [20, 20, 4, 4] # would-be rolls for both segments; untouched if the guard holds
+
+	var choices_before:int = SpecFactory.current_responder.choices_made
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+
+	assert_eq(SpecFactory.current_responder.choices_made, choices_before + 2,
+		'Exactly two choices were consulted - the tear pick and the decline. No second targeting ' +
+		'prompt for segment 2 was ever consumed.')
+	assert_eq(target.current_damage(), 0, 'No damage reached the target - the bend never resolved.')
+
+## Finding 1's fixture: a Banshee with a real MAIN+AUX paired mount, a LINE kinetic rifle on the
+## primary slot and a pistol on the secondary - so ActionAttackWeapon's own mounted-followup logic
+## (action_attack_weapon.gd:59-82, which reads unit.core.loadout.get_mount_for_gear(gear)) actually has
+## something to find. _arm_banshee_with's ordinary equip_system path never touches loadout.mounts at
+## all - get_mount_for_gear would return null for gear equipped that way - so it cannot exercise this.
+##
+## Mirrors test_secondary_aux_attack.gd's own setup (append a mount type to the frame, full_repair to
+## materialize it, equip both slots directly on the MountCore, full_repair again so charges are real) -
+## the base game's own precedent for testing this exact mechanism. The frame is duplicated first (and
+## its mount_types array duplicated too, since Resource.duplicate() alone doesn't guarantee that for
+## every Godot version) rather than mutating the cached res://.../mf_banshee.tres in place, so this
+## doesn't leak an extra mount type into every other test in this file that also loads that path.
+func _arm_banshee_with_paired_mount(primary_id:StringName, secondary_id:StringName) -> Dictionary:
+	var frame:Frame = load('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres').duplicate()
+	frame.mount_types = frame.mount_types.duplicate()
+	frame.mount_types.append(ContentLibrary.get_mount(&'mount_main_aux'))
+	banshee.core.change_mech_frame(frame)
+	var mount:MountCore = banshee.core.loadout.mounts.back()
+	var primary_gear := mount.equip_primary(primary_id)
+	var secondary_gear := mount.equip_secondary(secondary_id)
+	banshee.core.full_repair()
+	SpecFactory.apply_passive_buffs(banshee)
+	return { primary = primary_gear, secondary = secondary_gear }
+
+## THE MOUNTED-FOLLOWUP GUARD (finding 1). Normal player weapon fire sets CAN_FOLLOWUP
+## (phase_ui_player_action.gd:176). Before this fix, BOTH of a LINE bend's segments could trigger
+## ActionAttackWeapon's mounted-followup logic: segment 1 via Context.clone (which carries flags
+## through untouched), segment 2 via context.flags.duplicate() plus its own additions - neither
+## stripped CAN_FOLLOWUP or set IS_FOLLOWUP. One bend fired the mount's opposite weapon twice.
+##
+## GearCore.get_uses_this_turn is the observable: increment_action_usage_for_per_turn
+## (action_attack_weapon.gd:70) runs unconditionally the instant a followup is QUEUED, before that
+## queued attack even rolls to hit - so it counts how many times the followup was triggered,
+## independent of what the dice do afterwards. No target is placed on either leg on purpose: the
+## "attack anyway with no targets?" confirmation defaults to yes (ChoiceBusResponder.chosen_yesnos
+## starts true), and the followup trigger itself does not care whether the main attack connected -
+## only whether it aborted (see action_attack_weapon.gd:61's `not activation.aborted` gate).
+func test_a_bend_triggers_the_mounted_followup_exactly_once():
+	var gears := _arm_banshee_with_paired_mount(&'mw_rail_rifle', &'mw_pistol')
+	_place_frame(TEAR_FRAME, Vector2i(4,1))
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([Vector2i(4,1)]), # the tear
+		CompconPlan.create([Vector2i(9,1)]), # segment 2's direction
+	]
+	await game.execute_event(&'event_gear_activate', {
+		action = gears.primary.get_solo_action(), gear = gears.primary, unit = banshee,
+		string = 'to_bend_reality',
+		flags = [Action.FLAG.CAN_FOLLOWUP],
+	})
+
+	assert_eq(gears.secondary.get_uses_this_turn(gears.secondary.get_solo_action()), 1,
+		"The mount's pistol fired exactly once for one bend, not once per segment.")
