@@ -227,3 +227,42 @@ func test_a_bend_is_refused_when_the_second_leg_is_blocked():
 	assert_false(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 15),
 		'The tear -> target leg is blocked by the wall, so the bend fails even though the combined ' +
 		'distance is well within range. A broken or short-circuited sight check would miss this.')
+
+func test_activating_the_bend_resolves_damage_from_the_followups_own_weapon():
+	# THE CONTEXT-DELEGATION REGRESSION GUARD (finding 2). action_bend_reality.activate used to hand
+	# followup_attack.activate() the WRAPPER'S OWN context. SpecificAction.from_context rebuilds
+	# specific.action straight from context.action, and that is what event_unit_attack_declared reads
+	# damage_dice/reliable_damage/tags from when it rolls base damage - NOT `self`, even though `self`
+	# (the object activate() runs on) is already the followup. With the wrapper's context still in
+	# play, damage_dice was '' (the wrapper's own unset default from action_bend_reality.tres) and the
+	# base d6 roll below would resolve to 0 regardless of what was queued. Once activate() re-points
+	# the context at followup_attack before delegating, the roll uses the real mw_assault_rifle
+	# (damage_dice "1d6"), and the forced roll of 4 lands as 4 damage.
+	#
+	# banshee (1,1) -> target (10,1) is 9, inside mw_assault_rifle's aim_range of 10 - a plain direct
+	# attack, since the stub doesn't route through the tear yet (that's a later task); the tear only
+	# needs to exist so buff_to_bend_reality offers the variant at all.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+
+	target.core.frame.stat.evasion = 0
+	target.core.frame.stat.armor = 0
+	target.core.full_repair()
+
+	# [to-hit d20, base damage 1d6]. Evasion 0 means any non-fumble roll hits, so 15 is a safe,
+	# unambiguous (non-crit, non-fumble) forced hit; 4 is comfortably clear of the rifle's reliable-2
+	# floor, so a mis-delegated 0-damage roll can't be mistaken for a reliable minimum kicking in.
+	Dice.CHEAT_ROLL_QUEUE.append_array([15, 4])
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([], [], [target]),
+	]
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(),
+		gear = gear,
+		unit = banshee,
+		string = 'to_bend_reality' # force the variant
+	})
+
+	assert_eq(target.current_damage(), 4,
+		"The bend resolved with the followup's real 1d6, not the wrapper's empty damage_dice.")
