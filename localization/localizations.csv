@@ -140,21 +140,53 @@ gear.mt_poisoned_soil.action_poisoned_soil_disarm.name,Poisoned Soil
 gear.mt_poisoned_soil.action_poisoned_soil_disarm.effect,"Stop tracking at the end of your turn, even if you never moved."
 ,
 frame.mf_banshee.name,Banshee
-frame.mf_banshee.flavor,
-frame.mf_banshee.flavor.short,
+frame.mf_banshee.flavor,">//DATALOG RECOVERY: CM1/T-5015-03-29-02:47:11/L-BG-[EXPUNGED]
+>//PLAYBACK START:
+CM1: “-cornucopian war hero apparently, but all we care abou-”
+CM3: “Did you hear that?”
+CM2: “Hear what?”
+CM3: “That whistle, like wind maybe? It’s getting louder.”
+CM2: “Not wind, no atmosphere.”
+CM5: “I think Midnight-3’s losing it. (Laughter.)”
+CM3: “I know what I’m hearing, jackass. I think I hear a voice.”
+CM2: “Could it be radio static? System leak maybe?”
+CM3: “You know 1 would kill me if I let that happen.”
+CM1: “I would.”
+CM5: “Hey 4, help me slap some- 4? You know we have to stay moving.”
+CM1: “Midnight-4, no sightseeing.”
+CM3: “What? It keeps getting louder!”
+CM1: “Midnight-4, fall in. Now.”
+CM2: “Is her mech shut down?”
+CM1: “Midnight-5, go get Midnight-4 before we-”
+CM3: “My ears! Please! Make it stop!”
+CM1: “Midnight-3 turn off your boosters! What the hell are you doing?”
+CM3: “It won’t stop! Fuck, I need to- I need- Agh!”
+CM1: “Midnight-2, get 3 back here! Midnight-5, status on Midnight-4!”
+CM1: “Son of a bitch, Midnight-5 say something!” [CM1 Burner ignition].
+CM1: “Report! Someone! Repor-” [CM1 HULL BREACH]
+CM3: “(Heavy breathing. Laughter.) It stopped, oh thank Ancestors it stopped. I’m on my way back. I’m sorry, I don’t know what came over me. That howling was just-”
+CM3: “Sir?”
+>//PLAYBACK END"
+frame.mf_banshee.flavor.short,Intangible Interloper
 gear.mt_to_bend_reality.name,To Bend Reality
-gear.mt_to_bend_reality.effect,
+gear.mt_to_bend_reality.effect,"Instead of changing an attacks tangibility, you can use tears to change an attack’s trajectory. When attacking with a kinetic weapon, draw range and line of sight from yourself to a tear, and the remaining range and line of sight from the tear to your target. The combined distance must be within the weapon’s range.
+Line attacks can be broken into two segments this way, drawing the first segment to the tear, and the second from the tear itself. Characters hit by the second segment take half damage on a hit. The combined length of both lines must be equal to the line’s normal length."
 gear.mt_to_bend_reality.trigger,
 gear.mt_to_twist_truth.name,To Twist Truth
-gear.mt_to_twist_truth.effect,
+gear.mt_to_twist_truth.effect,"When you check for INVISIBILITY, you may reroll the result."
 gear.mt_to_twist_truth.trigger,
 gear.mt_whispering.name,Whispering
-gear.mt_whispering.effect,
+gear.mt_whispering.effect,"As a protocol, the Banshee can become INTANGIBLE until the start of its next turn."
 gear.mt_whispering.trigger,
 gear.cp_the_keening.name,The Keening
 gear.cp_the_keening.effect,
 gear.cp_the_keening.flavor,
 gear.cp_the_keening.action_tear.name,Tear
-gear.cp_the_keening.action_tear.effect,
+gear.cp_the_keening.action_tear.effect,"Create a void tear in a free space within SENSORS. Tears are undamageable Size 1 objects that do not cause obstruction. They are visible to both tangible and INTANGIBLE characters, and act as a window between tangible and intangible space.
+Intangible characters can draw line of sight to tangible targets if the line passes through a tear. Terrain and tangible objects do not exist in intangible space, and so do not block line of sight before passing through a tear.
+Tangible characters can draw line of sight to Intangible characters if the line passes through a tear. Terrain and tangible objects do not block line of sight after passing through the tear.
+Attacks that pass through a tear treat targets as INVISIBLE. An attack cannot travel more than half its maximum range after passing through a tear. 
+You may expend your base movement to move the tear up to your speed. This does not count as taking an action. You can close the tear as a quick action."
 gear.cp_the_keening.action_mourning_call.name,Mourning Call
-gear.cp_the_keening.action_mourning_call.effect,
+gear.cp_the_keening.action_mourning_call.effect,"After hitting a target with a ranged attack, you may activate your core to teleport to a space adjacent to the target, become tangible, and deal 4 AP KINETIC to the target, or 6 if the attack critically hit. You may do so even while IMMOBILIZED.
+If this damage destroys the target, they leave behind no wreckage, you become INTANGIBLE, and you may move a void tear anywhere within SENSORS. 1/scene after destroying a target this way, regain your core point."
