@@ -70,3 +70,34 @@ func test_a_bend_proxy_with_no_owner_reads_its_own_status():
 	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1))
 	assert_false(proxy.has_status(Lancer.STATUS.INTANGIBLE), 'A freshly-placed proxy has no status.')
 	assert_false(TearRouting.effective_tangibility(proxy), 'Without an owner, it reads its own status.')
+
+func test_a_bend_reaches_an_intangible_target_when_the_banshee_is_intangible():
+	# THE CALENDULA CASE. Both parties INTANGIBLE - which happens when a Calendula has execrated the
+	# target, or Weighing of Inequitable Hearts has caught it. The proxy carries no status, so
+	# vanilla can_affect sees tangible-vs-intangible and refuses; effective tangibility rescues it.
+	SpecFactory.apply(banshee, Lancer.STATUS.INTANGIBLE)
+	SpecFactory.apply(target, Lancer.STATUS.INTANGIBLE)
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
+	assert_true(UnitRelation.can_affect(proxy, target),
+		'An INTANGIBLE Banshee bends at an INTANGIBLE target.')
+
+func test_a_bend_cannot_cross_the_tangibility_line_outward():
+	# THE MODE SWITCH. "Instead of changing an attack's tangibility" - a bend never crosses the line.
+	# Vanilla can_affect ALLOWS this pair (tangible proxy, tangible target), so only the early
+	# refusal can stop it. Without it, a bend would be a strictly better tear window: no INVISIBLE
+	# check and no half-range cap.
+	SpecFactory.apply(banshee, Lancer.STATUS.INTANGIBLE)
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
+	assert_false(UnitRelation.can_affect(proxy, target),
+		'An INTANGIBLE Banshee cannot bend at a tangible target.')
+
+func test_a_bend_cannot_cross_the_tangibility_line_inward():
+	SpecFactory.apply(target, Lancer.STATUS.INTANGIBLE)
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
+	assert_false(UnitRelation.can_affect(proxy, target),
+		'A tangible Banshee cannot bend at an INTANGIBLE target - that is what the window is for.')
+
+func test_a_bend_between_two_tangible_parties_is_ordinary():
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
+	assert_true(UnitRelation.can_affect(proxy, target),
+		'Tangible Banshee, tangible target: nothing special, and nothing broken.')
