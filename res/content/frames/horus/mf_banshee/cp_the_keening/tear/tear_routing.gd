@@ -151,6 +151,35 @@ static func tiles_visible_via_tears(map:MapState, viewer:Unit, from_tile:Vector2
 				Tile.add_to_bitwise_array(reachable, tile)
 	return reachable
 
+## CLAUSE 7's rule: "An attack cannot travel more than half its maximum range after passing through
+## a tear."
+##
+## The text caps the post-tear leg and is silent on the total. Agreed reading (2026-09-06): a tear
+## REDIRECTS reach rather than extending it, so the whole route must also fit inside the weapon's
+## normal range. Both conditions:
+##
+##     dist(shooter -> tear) + dist(tear -> target) <= max_range
+##     dist(tear -> target)                        <= half of max_range
+##
+## Util.half is the engine's own halving and rounds UP (Util.half(1) == 1), so an odd range is
+## generous to the shooter - consistent with how the rest of the engine halves things.
+##
+## Ordered for cost deliberately: the two distance comparisons are arithmetic on tiles, while each
+## _sees call can trigger a full-map sweep. Cheap rejects first.
+static func routes_within_range(map:MapState, from_tile:Vector2i, to_tile:Vector2i, from_height:int, max_range:int) -> bool:
+	if _computing: return false
+	if not is_instance_valid(map): return false
+	var tiles := tear_tiles(map)
+	if tiles.is_empty(): return false
+	var half:int = Util.half(max_range)
+	for tear_tile:Vector2i in tiles:
+		var after:int = Tile.distance(tear_tile, to_tile)
+		if after > half: continue
+		if Tile.distance(from_tile, tear_tile) + after > max_range: continue
+		if not _sees_from(map, from_tile, tear_tile, from_height): continue
+		if _sees(map, tear_tile, to_tile): return true
+	return false
+
 ## CLAUSE 6's predicate: "Attacks that pass through a tear treat targets as INVISIBLE."
 ##
 ## Deliberately the SAME question clauses 4 and 5 ask, so the two can never drift apart. That is not

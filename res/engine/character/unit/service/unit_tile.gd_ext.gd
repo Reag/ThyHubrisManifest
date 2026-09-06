@@ -64,6 +64,53 @@ static func is_tile_in_los(map:MapState, occupied_tiles:Array[Vector2i], from_he
 		if TearRouting.routes_between(map, occupied_tile, target_tile, from_height): return true
 	return false
 
+## CLAUSE 7: "An attack cannot travel more than half its maximum range after passing through a tear."
+##
+## Widening sight cannot do this on its own. Range is a BOX around the shooter (unit_tile.gd:580-583),
+## so a routed target beyond that box is never even considered however well it can be seen - and a
+## routed target inside it is allowed at any post-tear distance, which clause 7 forbids. Both halves
+## need fixing, and this is the only function that knows max_range.
+##
+## EVERY cross-tangible target is governed by it, whether or not vanilla sight happens to reach the
+## tile. That is not a shortcut - it follows from the pair rule. A cross-tangible pair has NO
+## ordinary interaction at all: can_affect refuses them outright unless a tear bridges them
+## (unit_relation.gd:397). So if such an attack is legal, it is legal BECAUSE of a tear, and it is
+## therefore "an attack that passes through a tear" even when the target stands in plain view.
+##
+## An earlier version skipped tiles vanilla sight already granted, reasoning that those attacks were
+## not going through the tear. On an open map that is every tile, so clause 7 never applied and an
+## over-range routed target stayed targetable. Same argument as clause 6's predicate, which had it
+## right; this did not.
+##
+## Skipped entirely when the caller does not care about sight (`consider_line_of_sight` false), since
+## routing is a line-of-sight concept - that caller wants raw reach.
+static func get_tiles_within(
+	unit:Unit,
+	max_range:int,
+	consider_line_of_sight:bool = true,
+	consider_elevation:bool = true,
+	from_tile := Tile.INVALID,
+	precalculated_los:PackedInt64Array = []
+) -> Array[Vector2i]:
+	var tiles := super.get_tiles_within(unit, max_range, consider_line_of_sight, consider_elevation, from_tile, precalculated_los)
+	if not consider_line_of_sight: return tiles
+	if not Unit.is_valid(unit) or not is_instance_valid(unit.map): return tiles
+	if unit.has_status(Lancer.STATUS.BLINDED): return tiles
+
+	var map:MapState = unit.map
+	if TearRouting.tear_tiles(map).is_empty(): return tiles # nothing to police or add
+
+	var viewer_tile:Vector2i = unit.tile() if from_tile == Tile.INVALID else from_tile
+	var from_height:int = UnitTile.effective_height(unit, true, viewer_tile)
+
+	for other:Unit in TearRouting.cross_tangible_units(map, unit):
+		for tile:Vector2i in other.occupied_tiles():
+			var qualifies := TearRouting.routes_within_range(map, viewer_tile, tile, from_height, max_range)
+			var present := tiles.has(tile)
+			if qualifies and not present: tiles.append(tile)
+			elif present and not qualifies: tiles.erase(tile)
+	return tiles
+
 ## Cache invalidation hook, NOT a behaviour change - super is called unmodified and its result is
 ## untouched.
 ##
