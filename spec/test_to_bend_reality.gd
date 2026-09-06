@@ -6,6 +6,11 @@ const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/h
 const TEAR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/dep_tear_banshee.tres'
 const PROXY_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/dep_bend_proxy_banshee.tres'
 
+## The Kraken's Tide, per test_the_all_consuming_tide.gd. Applying it directly is the house pattern
+## for a unit standing in for "a Kraken with the Tide up" - counts_as_every_tangibility keys off this
+## buff alone, not off the Kraken frame, so it needs no Kraken to test.
+const TIDE_BUFF_ID := &'buff_the_all_consuming_tide'
+
 var game:Gamemaster
 var banshee:Unit
 var target:Unit
@@ -101,6 +106,26 @@ func test_a_bend_between_two_tangible_parties_is_ordinary():
 	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
 	assert_true(UnitRelation.can_affect(proxy, target),
 		'Tangible Banshee, tangible target: nothing special, and nothing broken.')
+
+func test_a_bend_reaches_a_kraken_with_the_tide_up_even_though_it_reads_tangible():
+	# THE COMPOSITION CASE. TearRouting.effective_tangibility knows nothing about the Tide - it
+	# compares raw INTANGIBLE status, and the Tide never touches the Kraken's real status (see the
+	# tangibility workaround banner in unit_relation.gd_ext.gd). So an INTANGIBLE Banshee's proxy
+	# reads intangible while a Tide-raised Kraken still reads tangible: exactly the mismatch the mode
+	# switch above exists to refuse, unless the refusal is exempted for a party that counts as every
+	# tangibility.
+	#
+	# The SAME Banshee attacking the SAME Kraken DIRECTLY, with no proxy at all, already succeeds -
+	# super refuses on the identical raw mismatch, and counts_as_every_tangibility bridges it in the
+	# widened branch (test_the_kraken_can_reach_an_intangible_character,
+	# test_the_all_consuming_tide.gd). Routing the identical interaction through a bend must not flip
+	# the answer: a Kraken with the Tide up counts as every tangibility, so it matches whatever the far
+	# end of the bend is, proxy included.
+	SpecFactory.apply(banshee, Lancer.STATUS.INTANGIBLE)
+	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
+	SpecFactory.apply_buff(target, TIDE_BUFF_ID)
+	assert_true(UnitRelation.can_affect(proxy, target),
+		'An INTANGIBLE Banshee bends at a Kraken with the Tide up, same as a direct attack would.')
 
 func test_a_bend_inside_the_combined_range_is_allowed():
 	# banshee (1,1) -> tear (5,1) is 4; tear -> target (10,1) is 5. Total 9 <= 10.
