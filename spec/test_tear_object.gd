@@ -43,6 +43,17 @@ var banshee:Unit
 
 func before_each():
 	game = SpecFactory.setup_gamemaster(self, true, SpecFactory.create_combat(Landscape.create_default(Vector2i(12,12))))
+
+	# SpecFactory GAP, not optional bookkeeping. setup_gamemaster with make_fresh_gamemaster = true
+	# returns early (spec_factory.gd:29-33) and never assigns campaign_core - the shared, non-fresh
+	# path a few lines below it does. Anything reaching event_unit_die then dies on
+	# `context.map.campaign_core.get_lancer_by_id(...)` (event_service.gd:80) with
+	# `Nonexistent function get_lancer_by_id in base Nil` - which surfaces as "the tear did not
+	# disappear", i.e. broken content rather than a missing fixture. This is what the non-fresh path
+	# would have done for us.
+	game.campaign_core = CampaignCore.create(SpecFactory.create_campaign_base())
+	game.map.campaign_core = game.campaign_core
+
 	banshee = SpecFactory.create_unit(game.map, Vector2i(1,1))
 	# change_mech_frame, not a raw core.frame assignment: the latter skips
 	# core.loadout.regenerate_derived_gear, so get_gear(&'cp_the_keening') finds nothing and
@@ -75,3 +86,40 @@ func test_the_cap_is_enforced():
 		await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(3 + (i % 8), 3 + (i / 8))])
 	assert_eq(TearRouting.open_tears(game.map).size(), TearRouting.MAX_TEARS,
 		'Attempting more than MAX_TEARS tears lands at exactly MAX_TEARS.')
+
+func test_closing_a_tear_removes_it():
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	var tears := TearRouting.open_tears(game.map)
+	if tears.is_empty(): return fail_test('A tear was placed to close.')
+	await SpecFactory.use_solo(game, tears[0], &'mt_tear_banshee')
+	assert_eq(TearRouting.open_tears(game.map).size(), 0, 'The tear is gone.')
+
+func test_closing_frees_a_slot_against_the_cap():
+	# Otherwise a player who fills the cap and then tidies up is permanently locked out - the cap
+	# would be a lifetime budget rather than a limit on how many are open at once.
+	for i:int in TearRouting.MAX_TEARS:
+		await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(3 + (i % 8), 3 + (i / 8))])
+	var tears := TearRouting.open_tears(game.map)
+	if tears.is_empty(): return fail_test('Tears were placed.')
+	await SpecFactory.use_solo(game, tears[0], &'mt_tear_banshee')
+	assert_lt(TearRouting.open_tears(game.map).size(), TearRouting.MAX_TEARS,
+		'Closing one frees a slot.')
+
+func test_closing_a_tear_shuts_its_window():
+	# The close action must drop the routing cache, not merely delete the unit. The caches are keyed
+	# on TILE, so a closed tear whose entry survives keeps answering routed queries as though the
+	# window were still open - and nothing about the map would look wrong. This is the assertion that
+	# notices; test_closing_a_tear_removes_it above would pass with a stale cache.
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	var tears := TearRouting.open_tears(game.map)
+	if tears.is_empty(): return fail_test('A tear was placed to close.')
+	assert_false(Tile.is_bitwise_array_empty(TearRouting.tiles_visible_via_tears(game.map, banshee.tile())),
+		'Sanity check: the open tear does route before it is closed.')
+
+	await SpecFactory.use_solo(game, tears[0], &'mt_tear_banshee')
+	assert_true(Tile.is_bitwise_array_empty(TearRouting.tiles_visible_via_tears(game.map, banshee.tile())),
+		'A closed tear routes nothing - its cache entry went with it.')
+
+func test_closing_is_a_quick_action():
+	var action:Action = ContentLibrary.get_kit(&'mt_tear_banshee').get_action(&'action_tear_close')
+	assert_eq(action.get_action_type(null), Lancer.ACTION.QUICK, 'Clause 8: a quick action.')

@@ -190,3 +190,10 @@ You may expend your base movement to move the tear up to your speed. This does n
 gear.cp_the_keening.action_mourning_call.name,Mourning Call
 gear.cp_the_keening.action_mourning_call.effect,"After hitting a target with a ranged attack, you may activate your core to teleport to a space adjacent to the target, become tangible, and deal 4 AP KINETIC to the target, or 6 if the attack critically hit. You may do so even while IMMOBILIZED.
 If this damage destroys the target, they leave behind no wreckage, you become INTANGIBLE, and you may move a void tear anywhere within SENSORS. 1/scene after destroying a target this way, regain your core point."
+,
+gear.mt_tear_banshee.name,Void Tear
+gear.mt_tear_banshee.effect,
+gear.mt_tear_banshee.trigger,
+gear.mt_tear_banshee.action_tear_close.name,Close Tear
+gear.mt_tear_banshee.action_tear_close.effect,"Close this void tear."
+frame.dep_tear_banshee.name,Void Tear
