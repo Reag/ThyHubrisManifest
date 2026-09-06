@@ -207,6 +207,28 @@ static func routes_within_range(map:MapState, from_tile:Vector2i, to_tile:Vector
 		if _sees(map, tear_tile, to_tile): return true
 	return false
 
+## TO BEND REALITY's range rule: "The combined distance must be within the weapon's range."
+##
+## Same shape as routes_within_range with the half-range cap REMOVED, and deliberately a separate
+## function rather than a parameterised one. Clause 7 belongs to the tear window and TBR is a
+## different mode; keeping them apart means neither can drift when the other is edited.
+##
+## Note this asks nothing about tangibility. The same-tangibility precondition lives in can_affect,
+## where the pair is known - see unit_relation.gd_ext.gd's bend_proxy_tangibility_differs.
+##
+## Ordered for cost, like its neighbour: arithmetic on tiles first, since each _sees call can trigger
+## a full-map sweep.
+static func bends_within_range(map:MapState, from_tile:Vector2i, to_tile:Vector2i, from_height:int, max_range:int) -> bool:
+	if _computing: return false # see _computing
+	if not is_instance_valid(map): return false
+	var tiles := tear_tiles(map)
+	if tiles.is_empty(): return false
+	for tear_tile:Vector2i in tiles:
+		if Tile.distance(from_tile, tear_tile) + Tile.distance(tear_tile, to_tile) > max_range: continue
+		if not _sees_from(map, from_tile, tear_tile, from_height): continue
+		if _sees(map, tear_tile, to_tile): return true
+	return false
+
 ## CLAUSE 6's predicate: "Attacks that pass through a tear treat targets as INVISIBLE."
 ##
 ## Deliberately the SAME question clauses 4 and 5 ask, so the two can never drift apart. That is not

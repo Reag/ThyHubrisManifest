@@ -101,3 +101,29 @@ func test_a_bend_between_two_tangible_parties_is_ordinary():
 	var proxy := _place_frame(PROXY_FRAME, Vector2i(5,1), banshee)
 	assert_true(UnitRelation.can_affect(proxy, target),
 		'Tangible Banshee, tangible target: nothing special, and nothing broken.')
+
+func test_a_bend_inside_the_combined_range_is_allowed():
+	# banshee (1,1) -> tear (5,1) is 4; tear -> target (10,1) is 5. Total 9 <= 10.
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_true(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 10),
+		'A bend whose two legs sum to within the weapon range is allowed.')
+
+func test_a_bend_over_the_combined_range_is_refused():
+	# banshee (1,1) -> tear (5,1) is 4; tear -> target (10,1) is 5. Total 9 > 8.
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_false(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 8),
+		'The combined distance must be within the weapon range.')
+
+func test_a_bend_is_not_capped_at_half_range_after_the_tear():
+	# THE DIFFERENCE FROM CLAUSE 7, asserted directly so the two rules cannot drift together.
+	# banshee (1,1) -> tear (2,1) is 1; tear -> target (10,1) is 8. Total 9 <= 10, but 8 is well over
+	# half of 10 - which routes_within_range refuses and bends_within_range must not.
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	assert_false(TearRouting.routes_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 10),
+		'The tear window still caps its post-tear leg at half range.')
+	assert_true(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(10,1), 1, 10),
+		'A bend does not - clause 7 does not carry over.')
+
+func test_no_tear_means_no_bend():
+	assert_false(TearRouting.bends_within_range(game.map, Vector2i(1,1), Vector2i(3,1), 1, 10),
+		'With no tear open nothing bends, whatever the range.')
