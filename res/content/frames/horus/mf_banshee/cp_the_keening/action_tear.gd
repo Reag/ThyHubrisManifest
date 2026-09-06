@@ -18,6 +18,14 @@ func is_available_to_activate(unit:Unit, gear:GearCore) -> bool:
 	return TearRouting.open_tears(unit.map).size() < TearRouting.MAX_TEARS
 
 func activate(context:Context, activation:EventCore) -> void:
+	# Count before and after rather than trusting the base class's return value or exceptions: a
+	# cancelled or invalid target, or a level exit, can make super.activate() abort having placed
+	# nothing, and however it signals that internally is not something this file should have to know.
+	var tears_before := TearRouting.open_tears(context.map).size()
 	await super.activate(context, activation)
-	# A new tear changes what every tear-routed query answers, and the cache is keyed on tile.
-	TearRouting.invalidate(context.map)
+	var tears_after := TearRouting.open_tears(context.map).size()
+	# Only invalidate when a tear actually changed what every tear-routed query answers. The cache
+	# is keyed on tile, but rebuilding it is the expensive sweep the cache exists to avoid - no
+	# point paying that cost for an activation that placed nothing.
+	if tears_after != tears_before:
+		TearRouting.invalidate(context.map)

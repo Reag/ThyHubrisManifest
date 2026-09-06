@@ -68,7 +68,10 @@ func test_tear_reaches_sensors_not_a_fixed_range():
 	assert_true(action.deploy_to_sensors, 'Tear deploys to sensor range.')
 
 func test_the_cap_is_enforced():
+	# Exact equality, not assert_lte: assert_lte alone would also pass an over-strict
+	# implementation that stops short of the cap (e.g. refusing after just one tear). Attempting
+	# more than the cap must land at EXACTLY MAX_TEARS, catching both directions.
 	for i:int in TearRouting.MAX_TEARS + 3:
 		await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(3 + (i % 8), 3 + (i / 8))])
-	assert_lte(TearRouting.open_tears(game.map).size(), TearRouting.MAX_TEARS,
-		'Never more than MAX_TEARS tears exist.')
+	assert_eq(TearRouting.open_tears(game.map).size(), TearRouting.MAX_TEARS,
+		'Attempting more than MAX_TEARS tears lands at exactly MAX_TEARS.')
