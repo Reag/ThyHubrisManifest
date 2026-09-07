@@ -19,6 +19,16 @@
 # the intended 25% - do not simplify this into a deterministic ignore.
 extends Buff
 
+## Only roll when invisibility is actually in play - i.e. when
+## UnitCondition.get_invisibility_summary would otherwise compute `is_invisible = true` for this
+## attack. THIS IS NOT MERELY AN OPTIMISATION: Dice.roll_d6() has an observable side effect beyond
+## its return value - it pops one entry off the shared Dice.CHEAT_ROLL_QUEUE whenever that queue is
+## non-empty (dice.gd:33-35), and that queue is also how OTHER specs pin exact rolls for their own
+## attacks. A roll on every attack, invisible target or not, silently eats one queued value per
+## Banshee attack and desyncs every roll after it for whoever queued them - this is exactly what
+## made spec/test_to_bend_reality.gd flake. Skipping the roll when it cannot matter is therefore
+## required for correctness of the wider test suite (and the game's shared RNG stream generally),
+## not just a speed-up - do not "simplify" this back into an unconditional roll.
 func check_if_passive_applies(core:BuffCore, context:Context) -> bool:
 	# The Banshee's OWN attacks only. UnitCondition.get_invisibility_summary
 	# (unit_condition.gd:446-469) asks BOTH the attacker (context.unit) and the target
@@ -26,4 +36,26 @@ func check_if_passive_applies(core:BuffCore, context:Context) -> bool:
 	# also fire when the Banshee is the one being shot AT - halving the chance an attack against an
 	# INVISIBLE Banshee misses, which is not what the trait is for.
 	if core.get_owner_unit(context.map) != context.unit: return false
+
+	# THE GATE. get_invisibility_summary (unit_condition.gd:446-469) computes `is_invisible` from
+	# TWO sources - the target's Lancer.STATUS.INVISIBLE, and Buff.TO.TREAT_AS_INVISIBLE buffs on
+	# EITHER party (e.g. buff_tear_invisibility, which is how the Banshee's own tear-attacks reach
+	# this trait - the target carries no INVISIBLE status at all in that case). Mirror both sources
+	# here: if neither is present, nothing in this attack is going to consult IGNORE_INVISIBLE
+	# buffs at all, so the roll cannot change anything - don't make it.
+	#
+	# NO RECURSION: TREAT_AS_INVISIBLE is a different Buff.TO key from IGNORE_INVISIBLE, so
+	# UnitCondition.get_buffs_to below does not re-enter this function. Confirmed by reading
+	# buff_tear_invisibility.gd, the only TREAT_AS_INVISIBLE buff in this mod - its
+	# check_if_passive_applies only calls TearRouting.attack_routes_through_tear, never
+	# UnitCondition.get_buffs_to or anything IGNORE_INVISIBLE-related.
+	var invisibility_in_play := context.target_unit.has_status(Lancer.STATUS.INVISIBLE)
+	if not invisibility_in_play:
+		for party:Unit in [context.unit, context.target_unit]:
+			if not Unit.is_valid(party): continue
+			if not UnitCondition.get_buffs_to(party, Buff.TO.TREAT_AS_INVISIBLE, context).is_empty():
+				invisibility_in_play = true
+				break
+	if not invisibility_in_play: return false
+
 	return Dice.roll_d6() <= 3

@@ -69,3 +69,42 @@ func test_without_the_trait_equipped_invisibility_is_never_ignored():
 	var summary := UnitCondition.get_invisibility_summary(_attack_context())
 	assert_false(summary.ignores_invisible,
 		'Without To Twist Truth equipped, invisibility is never ignored, whatever the roll.')
+
+## THE STRAY-ROLL FIX. Proves the corruption directly: if the trait rolled unconditionally, this
+## queued [1] would be popped and the queue would come back empty. It must come back untouched,
+## because nothing in this attack is invisible at all - the target here carries no INVISIBLE
+## status and no TREAT_AS_INVISIBLE buff. This is exactly what was silently eating queued rolls
+## out from under spec/test_to_bend_reality.gd (a rail rifle's 1d6+1 damage roll), one Banshee
+## attack at a time.
+##
+## Reverting the gate in buff_to_twist_truth.gd back to the bare `return Dice.roll_d6() <= 3`
+## makes this fail: Dice.CHEAT_ROLL_QUEUE ends up [] instead of [1]. Confirmed 2026-09-07 (see
+## D:\DEV\lancer-tactics-claude\.superpowers\sdd\ttt-stray-roll-fix.md for the failure output).
+func test_no_die_is_rolled_when_nothing_is_invisible():
+	_arm_banshee()
+	var visible_target := SpecFactory.create_unit(game.map, Vector2i(5,3), Faction.AI_ENEMY)
+	Dice.CHEAT_ROLL_QUEUE = [1]
+	var context := Context.create({unit = banshee, target_unit = visible_target, map = game.map})
+	UnitCondition.get_invisibility_summary(context)
+	assert_eq(Dice.CHEAT_ROLL_QUEUE, [1],
+		'Nothing is invisible in this attack, so the trait must not touch the dice queue at all.')
+
+## THE CASE THE TRAIT EXISTS FOR. get_invisibility_summary treats a TREAT_AS_INVISIBLE buff on
+## either party as equivalent to the INVISIBLE status (unit_condition.gd:456-457) - that is how the
+## Banshee's own tear-attacks (buff_tear_invisibility, a TREAT_AS_INVISIBLE buff with no real
+## geometry wired up here) reach this trait at all, with no STATUS.INVISIBLE anywhere in sight.
+## Wiring an actual tear into this fixture is a lot of unrelated setup (TearRouting geometry, a
+## second frame placed on the map) just to prove the gate reads TREAT_AS_INVISIBLE - so this uses
+## vanilla's buff_flicker_field_projector (content/gear/ssc/systems/ms_flicker_field_projector),
+## a plain `to = &"treat_as_invisible"` buff whose own check_if_passive_applies only requires the
+## holder to be the attack's target - same shape as buff_tear_invisibility from the gate's point of
+## view, without needing a tear on the map.
+func test_the_trait_still_fires_for_a_target_made_invisible_only_by_a_treat_as_invisible_buff():
+	_arm_banshee()
+	var buffed_target := SpecFactory.create_unit(game.map, Vector2i(5,3), Faction.AI_ENEMY)
+	SpecFactory.apply_buff(buffed_target, &'buff_flicker_field_projector')
+	Dice.CHEAT_ROLL_QUEUE = [1] # <=3 -> ignore invisibility
+	var context := Context.create({unit = banshee, target_unit = buffed_target, map = game.map})
+	var summary := UnitCondition.get_invisibility_summary(context)
+	assert_true(summary.ignores_invisible,
+		'A TREAT_AS_INVISIBLE buff on the target, with no INVISIBLE status at all, still opens the gate and lets the trait fire.')

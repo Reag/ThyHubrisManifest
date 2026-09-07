@@ -200,19 +200,19 @@ func test_it_deals_4_on_a_hit():
 	# isolate Mourning Call's contribution by subtraction, rather than assuming the weapon deals
 	# zero (mw_smartgun does not -- damage_dice = "4", flat).
 	#
-	# Dice queue order per attack is THREE values, not two: buff_to_twist_truth.gd's
-	# check_if_passive_applies unconditionally calls Dice.roll_d6() every time the Banshee attacks
-	# (attack_util.gd's invisibility check consults it before the attack roll even starts), so the
-	# first value popped is that d6, not the attack roll. [dummy, base_roll_d20, accuracy_d6].
+	# Dice queue order per attack is two values: [base_roll_d20, accuracy_d6]. Nothing in this fixture
+	# is invisible (no INVISIBLE status, no TREAT_AS_INVISIBLE buff), so buff_to_twist_truth.gd's
+	# check_if_passive_applies gate never fires and never touches Dice.CHEAT_ROLL_QUEUE -- there is no
+	# extra die to account for here.
 	SpecFactory.current_responder.chosen_yesnos = false
-	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [6, 15, 1]) # hits (evasion 8), does not crit (<20)
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits (evasion 8), does not crit (<20)
 	var weapon_only_damage:int = target.current_damage()
 	assert_false(_mourning_call_ran(banshee), 'sanity: the declined baseline did not run Mourning Call.')
 
 	target.core.full_repair()
 	await SpecFactory.start_turn(game, banshee) # refresh the actions the baseline attack spent
 	SpecFactory.current_responder.chosen_yesnos = true
-	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [6, 15, 1]) # same hit, still not a crit
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # same hit, still not a crit
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran this time.')
 	assert_eq(
@@ -227,17 +227,17 @@ func test_it_deals_6_on_a_crit_and_not_10():
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
-	# Same three-value queue shape as test_it_deals_4_on_a_hit (see its comment): [dummy_for_
-	# to_twist_truth, base_roll_d20, accuracy_d6]. A natural 20 crits regardless of accuracy.
+	# Same two-value queue shape as test_it_deals_4_on_a_hit (see its comment): [base_roll_d20,
+	# accuracy_d6]. A natural 20 crits regardless of accuracy.
 	SpecFactory.current_responder.chosen_yesnos = false
-	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [6, 20, 1]) # natural 20 -- guaranteed crit
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [20, 1]) # natural 20 -- guaranteed crit
 	var weapon_only_damage:int = target.current_damage()
 	assert_false(_mourning_call_ran(banshee), 'sanity: the declined baseline did not run Mourning Call.')
 
 	target.core.full_repair()
 	await SpecFactory.start_turn(game, banshee)
 	SpecFactory.current_responder.chosen_yesnos = true
-	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [6, 20, 1]) # same guaranteed crit
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [20, 1]) # same guaranteed crit
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran this time.')
 	assert_eq(
