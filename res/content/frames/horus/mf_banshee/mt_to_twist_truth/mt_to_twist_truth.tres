@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="Kit" format=3]
+[gd_resource type="Resource" script_class="Kit" format=3 uid="uid://dsbchtxxdt61h"]
 
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_563pn"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="1_kit"]
 [ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="2_passive"]
 [ext_resource type="Script" uid="uid://dy4kg537rc55e" path="res://engine/character/gear_passive/passive_buff_applicator.gd" id="3_applicator"]
@@ -9,7 +10,6 @@
 [sub_resource type="Resource" id="Resource_applicator"]
 script = ExtResource("3_applicator")
 applied_buffs = Array[ExtResource("4_buff_script")]([ExtResource("5_buff")])
-apply_at_the_start_of_combat = true
 
 [resource]
 script = ExtResource("1_kit")
