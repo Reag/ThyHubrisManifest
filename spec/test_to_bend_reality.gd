@@ -169,11 +169,27 @@ func test_no_tear_means_no_bend():
 ## Arms the Banshee with the given weapon and gets it fully wired: frame swapped via
 ## change_mech_frame (not core.frame = load(...), which skips regenerate_derived_gear and leaves the
 ## trait's passive unreachable), gear equipped, repaired, and passive buffs applied.
+##
+## THE MOURNING CALL GUARD. change_mech_frame grants the whole frame, not just To Bend Reality - so
+## it also grants cp_the_keening's Mourning Call. Mourning Call triggers after any ranged hit, and
+## SpecFactory.ChoiceBusResponder auto-answers its "you may" prompt yes (chosen_yesnos starts true).
+## On a kill its clause 9 relocates a void tear - which corrupts the bent line's geometry mid-test,
+## since this whole file's assertions depend on the tear staying exactly where the test placed it.
+## Whether the target dies (and so whether the relocation fires) depends on the damage rolls, so left
+## unguarded this fails intermittently, about one run in eight, with segment 2 of a bent line hitting
+## nothing. Setting has_core_power = false makes Mourning Call unaffordable (consumes_cp = true on
+## action_mourning_call.tres, gated at unit_action.gd:145) regardless of what the dice do, so this
+## file tests To Bend Reality in isolation. This is a fixture concern, not a nerf: in real play a
+## Banshee firing a bent line SHOULD be offered Mourning Call, same as it should be offered anything
+## else the core point allows - see spec/test_mourning_call.gd for that behaviour's own coverage.
 func _arm_banshee_with(weapon_id:StringName) -> GearCore:
 	banshee.core.change_mech_frame(load('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'))
 	var gear := banshee.core.equip_system(weapon_id)
 	banshee.core.full_repair()
-	SpecFactory.apply_passive_buffs(banshee)
+	SpecFactory.apply_passive_buffs(banshee) # this ALSO calls full_repair() internally, resetting
+	                                          # has_core_power = true (unit_printer.gd:76) - so the
+	                                          # guard below must come after this call, not before it
+	banshee.core.has_core_power = false # see the Mourning Call guard above
 	return gear
 
 func _variant_keys_on(gear:GearCore) -> Array:
@@ -842,7 +858,10 @@ func _arm_banshee_with_paired_mount(primary_id:StringName, secondary_id:StringNa
 	var primary_gear := mount.equip_primary(primary_id)
 	var secondary_gear := mount.equip_secondary(secondary_id)
 	banshee.core.full_repair()
-	SpecFactory.apply_passive_buffs(banshee)
+	SpecFactory.apply_passive_buffs(banshee) # also calls full_repair() internally - see the Mourning
+	                                          # Call guard on _arm_banshee_with above
+	banshee.core.has_core_power = false # same guard as _arm_banshee_with: this also arms the whole
+	                                     # frame, including cp_the_keening's Mourning Call
 	return { primary = primary_gear, secondary = secondary_gear }
 
 ## THE MOUNTED-FOLLOWUP GUARD (finding 1). Normal player weapon fire sets CAN_FOLLOWUP
