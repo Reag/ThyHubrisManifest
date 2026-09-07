@@ -147,6 +147,20 @@ static func tear_tiles(map:MapState) -> Array[Vector2i]:
 	_tear_tile_cache[map_id] = tiles
 	return tiles
 
+## Every open tear this UNIT owns. Ownership matters: routing is universal by design, but "who may
+## reach in and drag a tear around" is not - nobody may move a tear they didn't place.
+##
+## Extracted from action_tear_move.gd's private _movable_tears (clause 8's own move verb) so it and
+## Mourning Call's wider relocation (clause 9, action_mourning_call.gd's _maybe_relocate_tear) answer
+## "which tears are mine" identically, rather than maintaining two copies of the same ownership check
+## that could quietly drift apart.
+static func owned_tears(unit:Unit) -> Array[Unit]:
+	var mine:Array[Unit] = []
+	if not Unit.is_valid(unit) or not is_instance_valid(unit.map): return mine
+	for tear:Unit in open_tears(unit.map):
+		if tear.state.is_owned_by(unit): mine.append(tear)
+	return mine
+
 # ---------------------------------------------------------------------------- routing
 
 ## Does some open tear bridge these two tiles? PURE GEOMETRY - it asks nothing about tangibility, so

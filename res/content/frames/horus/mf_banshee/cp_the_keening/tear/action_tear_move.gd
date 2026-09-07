@@ -31,7 +31,7 @@ func is_available_to_activate(unit:Unit, gear:GearCore) -> bool:
 	if not super.is_available_to_activate(unit, gear): return false
 	if not Unit.is_valid(unit): return false
 	# Nothing to move.
-	if _movable_tears(unit).is_empty(): return false
+	if TearRouting.owned_tears(unit).is_empty(): return false
 	# A unit with no base movement cannot spend base movement.
 	var base:int = unit.core.get_speed_max()
 	if base <= 0: return false
@@ -42,7 +42,7 @@ func activate(context:Context, activation:EventCore) -> void:
 	var unit:Unit = context.unit
 	if activation.abort_without_unit(unit): return
 
-	var tears := _movable_tears(unit)
+	var tears := TearRouting.owned_tears(unit)
 	if activation.abort_when(tears.is_empty()): return
 
 	# The Shepherd pick, verbatim in shape: highlight the candidates, then ask.
@@ -65,15 +65,6 @@ func activate(context:Context, activation:EventCore) -> void:
 	# spent their turn's movement.
 	if Unit.is_valid(unit):
 		unit.core.current.speed = maxi(0, unit.core.current.speed - base)
-
-## Every open tear this unit owns. Ownership matters: clause 8 is the Banshee's verb, and routing
-## being universal does not mean anyone may reach in and drag someone else's tear around.
-func _movable_tears(unit:Unit) -> Array[Unit]:
-	var mine:Array[Unit] = []
-	if not Unit.is_valid(unit) or not is_instance_valid(unit.map): return mine
-	for tear:Unit in TearRouting.open_tears(unit.map):
-		if tear.state.is_owned_by(unit): mine.append(tear)
-	return mine
 
 ## The movement loop, following Shepherd's shape. Repeats until the lent budget runs out or the
 ## player declines a further leg, so "up to your speed" can be spent in pieces.

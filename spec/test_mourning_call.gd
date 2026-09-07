@@ -9,6 +9,8 @@
 # build against the actual cp_the_keening trait rather than a standalone probe kit.
 extends GutTest
 
+const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
+
 const BANSHEE_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'
 const RANGED_WEAPON_ID := &'mw_smartgun' # weapon_type unset -> defaults to RIFLE (ranged)
 const MELEE_WEAPON_ID := &'mw_tactical_melee_weapon' # weapon_type = MELEE, aim_range = 0
@@ -409,3 +411,143 @@ func test_it_finishes_off_a_target_the_weapon_already_wounded():
 	)
 	assert_eq(_wreck_count(), wrecks_before, 'Killed specifically by Mourning Call: no wreckage.')
 	assert_true(banshee.has_status(Lancer.STATUS.INTANGIBLE), 'Killed specifically by Mourning Call: the Banshee ends INTANGIBLE.')
+
+
+# ============================================================================
+# Task 4: clauses 9-10, the kill rider's tail end. "...you may move a void tear anywhere within
+# SENSORS. 1/scene after destroying a target this way, regain your core point." Both only run from
+# the kill branch Task 3 already proved out, so these reuse that exact fixture shape (structure = 1,
+# health = 8, a non-crit [15, 1] roll -- the weapon's own 4 leaves exactly 4, Mourning Call's own 4
+# finishes it) and add only what each clause needs on top.
+# ============================================================================
+
+func test_a_kill_lets_the_banshee_relocate_a_tear_within_sensors():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	# Room for action_tear's own quick action on top of the weapon attack + Mourning Call (3 quick
+	# actions total against a turn's default budget of 2) -- the same fix test_tear_move.gd uses to
+	# combine a tear action with something else in one turn.
+	banshee.state.overcharge_actions = 99
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1
+	target.core.frame.stat.health = 8 # see the Task 4 header
+	target.core.full_repair()
+
+	# Placed in the FAR corner, away from (0,0): UnitTile.get_tiles_within fills its candidate array
+	# starting from the low corner of its bounding box, so with the Banshee's huge default sensor
+	# range covering the whole 5x5 board, (0,0) is what choose_target_tiles's front()-picking test
+	# responder ends up choosing -- a tile the tear does NOT already occupy, so the resulting move is
+	# a real relocation rather than a same-tile no-op the engine would abort.
+	await SpecFactory.use(game, banshee, KEENING_KIT_ID, &'action_tear', [Vector2i(4, 4)])
+	var tears:Array[Unit] = TearRouting.open_tears(game.map)
+	assert_eq(tears.size(), 1, 'sanity: exactly one tear was placed.')
+	var tear:Unit = tears.front()
+
+	# Capture what was actually OFFERED to the relocation pick, without displacing SpecFactory's own
+	# responder -- it still answers the request (front of the candidate list, same as every other
+	# choose_target_tiles fixture in this mod; see action_bind_thy_flesh.gd's choose_anchor_tile), so
+	# there is exactly one thing "the chosen tile" can mean here: the front of what we captured.
+	#
+	# assign(), NOT `=` -- a GDScript lambda captures an outer local by a COPY of its value at
+	# creation time, so reassigning the captured slot inside the lambda never reaches the outer
+	# variable. Mutating the array IN PLACE (same object, same capture) does.
+	var offered_tiles:Array[Vector2i] = []
+	var capture_offer := func(_request, _specific, from_tiles):
+		offered_tiles.assign(from_tiles)
+	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits (evasion 8), does not crit, kills
+
+	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
+	assert_false(offered_tiles.is_empty(), 'sanity: the relocation prompt actually offered candidate tiles.')
+	assert_eq(tear.tile(), offered_tiles.front(), 'The tear moves to the chosen tile within sensor range.')
+
+func test_a_tile_beyond_sensors_is_not_offerable():
+	var banshee := _arm_banshee(Vector2i(0, 0))
+	# A private copy: load(BANSHEE_FRAME) is shared (cached) across every test in this file via
+	# _arm_banshee, so mutating sensor_range on it directly would leak a shrunk Banshee sensor range
+	# into every OTHER test that arms one afterward. duplicate(true) deep-copies the Statblock
+	# sub-resource too, so this mutation is private to this test alone.
+	banshee.core.frame = banshee.core.frame.duplicate(true)
+	banshee.core.frame.stat.sensor_range = 1 # shrinks SENSORS so the 5x5 test map's far corner is out of range
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	banshee.state.overcharge_actions = 99 # see the sibling test above
+
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1
+	target.core.frame.stat.health = 8
+	target.core.full_repair()
+
+	await SpecFactory.use(game, banshee, KEENING_KIT_ID, &'action_tear', [Vector2i(1, 1)]) # inside the shrunk range
+	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'sanity: the tear was actually placed.')
+
+	var offered_tiles:Array[Vector2i] = []
+	var capture_offer := func(_request, _specific, from_tiles):
+		offered_tiles.assign(from_tiles) # see the sibling test above for why assign(), not `=`
+	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+
+	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
+	assert_false(offered_tiles.is_empty(), 'sanity: the relocation was still offered -- a tear exists, just not everywhere.')
+	assert_false(
+		offered_tiles.has(Vector2i(4, 4)),
+		'A tile at the far corner of the map, well beyond the shrunk sensor range of 1, is not offerable.'
+	)
+
+func test_the_core_point_comes_back_after_a_kill():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1
+	target.core.frame.stat.health = 8
+	target.core.full_repair()
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits, does not crit, kills
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
+	assert_true(banshee.core.has_core_power, 'The core point is refunded after a kill.')
+
+## THE 1/SCENE GATE. Two kills in the same scene must refund exactly once, not twice.
+func test_the_core_point_does_not_come_back_a_second_time_in_the_same_scene():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+
+	var target1 := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target1.core.frame.stat.structure = 1
+	target1.core.frame.stat.health = 8
+	target1.core.full_repair()
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target1, [15, 1])
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: the first kill actually ran Mourning Call.')
+	assert_false(Unit.is_valid(target1), 'sanity: the first target actually died.')
+	assert_true(banshee.core.has_core_power, 'sanity: the first kill refunded the core point.')
+
+	# Clause 8 leaves the Banshee INTANGIBLE after the first kill, and vanilla can_affect
+	# (unit_relation.gd:397) refuses ANY interaction across a tangibility mismatch -- an ordinary
+	# ranged attack against a tangible target2 would never land, so Mourning Call would never even be
+	# offered a second time. Clearing it here stands in for whatever tangibles the Banshee back up
+	# between kills in a real game; Mourning Call's own clause 4 would also do it, but only once its
+	# activate() actually runs -- which is exactly what this second attack needs to reach.
+	UnitCondition.clear_status(SpecFactory.dummy_event(), banshee, Lancer.STATUS.INTANGIBLE)
+
+	await SpecFactory.start_turn(game, banshee) # refresh actions and the per-round usage counter
+	var target2 := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target2.core.frame.stat.structure = 1
+	target2.core.frame.stat.health = 8
+	target2.core.full_repair()
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target2, [15, 1])
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: the second kill actually ran Mourning Call too.')
+	assert_false(Unit.is_valid(target2), 'sanity: the second target actually died.')
+	assert_false(
+		banshee.core.has_core_power,
+		'The refund is once per scene: the second kill spends the point again but does not get it back.'
+	)
