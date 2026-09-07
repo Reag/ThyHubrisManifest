@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Wickworks ♡ Lancer Tactics v1.3.3
 # Clauses 1-2's hand-off target: onhit_mourning_call.gd offers this via CommonActionUtil.choose_and_use
-# after a ranged hit. Task 2: teleport adjacent to the target (3), become tangible (4), deal 4 AP
+# after a ranged attack resolves (on_resolution -- after the weapon's own damage has landed). Task 2: teleport adjacent to the target (3), become tangible (4), deal 4 AP
 # KINETIC (6 on a crit) (5), all of it even while IMMOBILIZED (6). Task 3: no wreckage and INTANGIBLE
 # on a kill (7, 8). The tear relocation and core-point refund are Task 4. Do not build ahead.
 extends ActionSystem
@@ -15,20 +15,29 @@ func activate(context:Context, activation:EventCore) -> void:
 	var unit:Unit = context.unit
 	if not Unit.is_valid(unit): return
 
-	# This action's OWN context (a fresh event_gear_activate created by choose_and_use) never gets a
-	# target_unit or a DeclaredAttackSummary of its own -- CommonActionUtil.choose_and_use only
-	# threads `event` through (set to the activation it was called with), so both live on the OUTER
-	# activation: the event_unit_attack core that onhit_mourning_call.gd's OnHitEffect was handed.
-	# Confirmed empirically via the test suite below rather than assumed.
-	var outer:EventCore = context.event
-	if outer == null: return
-	var target:Unit = outer.context.target_unit
+	# onhit_mourning_call.gd now fires from OnHitEffect.on_resolution, not on_hit (see that file's
+	# header for why), and passes the target it picked explicitly as choose_and_use's
+	# target_unit_or_tiles. decompose_variant_targets turns that into context.target_unit on THIS
+	# action's own event_gear_activate (common_action_util.gd:595-598, 606-607, 714-715) -- read it
+	# directly rather than reaching outward.
+	#
+	# This replaces the old outer.context.target_unit lookup, which relied on `activation` (=
+	# context.event) being the PER-TARGET event_unit_attack core -- that core has its own target_unit
+	# prop, which is where the old on_hit-stage trigger got its target from. At on_resolution's
+	# altitude, `activation` is the event_unit_attack_declared core instead, which has no target_unit
+	# of its own; that old lookup would now read null. Verified against the new call chain rather than
+	# assumed to still hold.
+	var target:Unit = context.target_unit
 	if not Unit.is_valid(target): return
 
 	# clause 5: read the crit off the attack summary. NEVER implement on_crit here -- event_unit_attack.gd
 	# calls apply_on_hits AND THEN apply_on_crits on a critical hit (event_unit_attack.gd:85-93), so a
-	# 4-in-on_hit / 6-in-on_crit split would deal 10, not 6.
-	var summary = outer.context.resource # DeclaredAttackSummary
+	# 4-in-on_hit / 6-in-on_crit split would deal 10, not 6. context.event (the event_unit_attack_declared
+	# core) still carries the DeclaredAttackSummary directly on its own context.resource -- see
+	# EventUnitAttackDeclared.execute(), which reads `context.resource` into `declared_summary` -- so
+	# this half of the lookup is unchanged by the on_resolution move.
+	var outer:EventCore = context.event
+	var summary = outer.context.resource if outer != null else null # DeclaredAttackSummary
 	var crit:bool = DeclaredAttackSummary.is_valid(summary) and summary.get_all_crit_units().has(target)
 	var amount:int = 6 if crit else 4
 
@@ -72,12 +81,17 @@ func activate(context:Context, activation:EventCore) -> void:
 
 	# clause 5: deal the damage. AP KINETIC, straight to the target. AWAITED (execute_events), NOT
 	# queued -- unlike a normal queue_damage_events call, we need to know RIGHT HERE, synchronously,
-	# whether this specific blow killed the target, because clauses 7 and 8 both hang off that. This
-	# also means Mourning Call's own damage (and any death it causes) resolves before the weapon's
-	# own on-hit damage does, since that is still only QUEUED at this point (event_unit_attack.gd
-	# runs the weapon's own on_hit_effects, then the buff's -- ours -- and neither has actually
-	# applied yet when this runs); see spec/test_mourning_call.gd's kill tests for why that ordering
-	# is exactly what makes "killed by Mourning Call, not by anything else" testable at all.
+	# whether THIS specific blow killed the target, because clauses 7 and 8 both hang off that
+	# specifically, not off the target simply having died during this attack.
+	#
+	# Now that Mourning Call fires from on_resolution (onhit_mourning_call.gd), the weapon's own
+	# damage has ALREADY landed by the time this runs (core.execute_events(damage_events) at
+	# event_unit_attack_declared.gd:199 happens before on_resolution at :211) -- the opposite of the
+	# old on_hit-stage ordering, where the weapon's damage was still only queued. That's the whole
+	# point of the move: Mourning Call is meant to finish off a target the weapon has already
+	# wounded, not strike first at full health. See spec/test_mourning_call.gd's kill tests, which
+	# size the target so the weapon's hit alone does not kill and Mourning Call's own damage has to
+	# land the actual killing blow for clauses 7/8 to have anything to prove.
 	var damage_events:Array[EventCore] = CommonActionUtil.generate_damage_events(
 		unit, [target], amount, Lancer.DAMAGE_TYPE.KINETIC, [EventService.DAMAGE_FLAG.AP]
 	)

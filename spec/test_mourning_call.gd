@@ -281,11 +281,18 @@ func test_it_works_while_immobilized():
 # instead of the probe's shortcut.
 #
 # action_mourning_call.gd AWAITS its own damage (execute_events, not queue_damage_events) so it can
-# tell, synchronously, whether THIS blow killed the target. One consequence, exploited below: Mourning
-# Call's own damage resolves (and, if lethal, the death cascade completes) BEFORE the weapon's own
-# on-hit damage even applies -- the weapon's damage is still only QUEUED at that point. So a target
-# with exactly 4 health and 1 structure dies to Mourning Call's hit specifically, with the weapon's
-# own (separately lethal-or-not, doesn't matter) damage never having landed yet.
+# tell, synchronously, whether THIS blow killed the target.
+#
+# UPDATED for the on_resolution fix: Mourning Call now fires AFTER the weapon's own damage has
+# already been applied (onhit_mourning_call.gd fires from OnHitEffect.on_resolution, which runs
+# after event_unit_attack_declared.gd's core.execute_events(damage_events) at :199) -- the opposite
+# of the old on_hit ordering these tests were originally written against. So a target killed
+# specifically BY Mourning Call now needs enough health that the weapon's own flat 4
+# (mw_smartgun.damage_dice = "4") does NOT kill it on its own, but the weapon's 4 plus Mourning
+# Call's own 4 (non-crit) does -- health = 8 gives that exactly (4 remaining after the weapon's hit,
+# 0 after Mourning Call's). Health = 4 (the OLD fixture value) would now die to the weapon's hit
+# ALONE, before Mourning Call ever got to run at all -- which would make these tests pass for the
+# wrong reason (an ordinary weapon kill) rather than actually exercising Mourning Call's kill rider.
 #
 # structure = 1 keeps event_unit_structure.gd's OUTCOME.DIE path from needing a structure-check
 # roll/brochure at all (unit.get_structure_max() > 1 is false) -- straight to queuing event_unit_die
@@ -304,7 +311,9 @@ func test_a_target_killed_by_mourning_call_leaves_no_wreck():
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
 	target.core.frame.stat.structure = 1 # one hit below zero structure kills outright -- see header
-	target.core.frame.stat.health = 4 # exactly Mourning Call's non-crit damage (not the weapon's)
+	# 8 = the weapon's flat 4 (leaves exactly 4, alive) + Mourning Call's non-crit 4 (0, dead) -- see
+	# the Task 3 header for why this changed from the old fixture value of 4.
+	target.core.frame.stat.health = 8
 	target.core.full_repair()
 	var wrecks_before := _wreck_count()
 
@@ -340,7 +349,7 @@ func test_the_banshee_becomes_intangible_on_a_kill():
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
 	target.core.frame.stat.structure = 1
-	target.core.frame.stat.health = 4
+	target.core.frame.stat.health = 8 # weapon's 4 (survives) + Mourning Call's 4 (dies) -- see Task 3 header
 	target.core.full_repair()
 
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
@@ -361,3 +370,42 @@ func test_the_banshee_stays_tangible_when_the_target_survives():
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
 	assert_true(Unit.is_valid(target), 'sanity: the target survived.')
 	assert_false(banshee.has_status(Lancer.STATUS.INTANGIBLE), 'No kill, no phase-out.')
+
+
+# ============================================================================
+# THE FIX ITSELF: onhit_mourning_call.gd used to fire from OnHitEffect.on_hit, which runs BEFORE
+# the weapon's own damage is applied (event_unit_attack.gd:83-88 fires while
+# event_unit_attack_declared.gd's damage_events are still only QUEUED, not executed until :199).
+# So Mourning Call always struck a target at the health it had BEFORE the weapon's own hit landed --
+# a target that only dies to the COMBINATION of the weapon's damage and Mourning Call's damage
+# would, at the instant Mourning Call's old on_hit checked Unit.is_valid(target), still read as
+# alive (only Mourning Call's own 4 had applied yet). Mourning Call would have concluded "survived",
+# taken its mark back off, and left the ACTUAL kill -- which only happens later, once the weapon's
+# queued damage finally lands -- to run as an ordinary death: a wreck left behind, and no
+# re-triggered INTANGIBLE for the Banshee, because by then Mourning Call's own kill-rider logic had
+# already run and decided nothing needed to trigger.
+#
+# This test pins exactly that scenario against the fixed on_resolution ordering.
+# ============================================================================
+
+func test_it_finishes_off_a_target_the_weapon_already_wounded():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1
+	# 7, not the kill tests' 8: the weapon's flat 4 alone leaves 3 -- comfortably alive, not a
+	# hairline zero, so "the weapon's hit alone does not kill" is unambiguous. Only Mourning Call's
+	# own follow-up 4 (3 - 4 = -1) actually crosses zero and triggers the death.
+	target.core.frame.stat.health = 7
+	target.core.full_repair()
+	var wrecks_before := _wreck_count()
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits (evasion 8), does not crit
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_false(
+		Unit.is_valid(target),
+		'The weapon\'s hit alone (4, leaving 3) does not kill -- the target dies to Mourning Call\'s follow-up finishing it off. Under the old on_hit ordering this would not have killed at all.'
+	)
+	assert_eq(_wreck_count(), wrecks_before, 'Killed specifically by Mourning Call: no wreckage.')
+	assert_true(banshee.has_status(Lancer.STATUS.INTANGIBLE), 'Killed specifically by Mourning Call: the Banshee ends INTANGIBLE.')
