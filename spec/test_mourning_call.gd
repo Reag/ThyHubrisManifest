@@ -270,3 +270,94 @@ func test_it_works_while_immobilized():
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
 	assert_true(UnitRelation.is_adjacent(banshee, target), 'IMMOBILIZED does not stop the teleport.')
+
+
+# ============================================================================
+# Task 3: the kill rider (clauses 7-8). THE RISK: probe 2 (spec/test_mourning_call_probe.gd) proved
+# a DEATH:PRE reaction CAN strip LEAVES_WRECK, but proved it on the DYING unit's own gear and by
+# invoking event_unit_die directly. Neither shape is production-correct -- see
+# action_mourning_call_wreckless.gd for why the reaction has to live on the Banshee instead, and the
+# comments below for why these tests kill their targets through event_unit_structure/event_unit_damage
+# instead of the probe's shortcut.
+#
+# action_mourning_call.gd AWAITS its own damage (execute_events, not queue_damage_events) so it can
+# tell, synchronously, whether THIS blow killed the target. One consequence, exploited below: Mourning
+# Call's own damage resolves (and, if lethal, the death cascade completes) BEFORE the weapon's own
+# on-hit damage even applies -- the weapon's damage is still only QUEUED at that point. So a target
+# with exactly 4 health and 1 structure dies to Mourning Call's hit specifically, with the weapon's
+# own (separately lethal-or-not, doesn't matter) damage never having landed yet.
+#
+# structure = 1 keeps event_unit_structure.gd's OUTCOME.DIE path from needing a structure-check
+# roll/brochure at all (unit.get_structure_max() > 1 is false) -- straight to queuing event_unit_die
+# with LEAVES_WRECK, no extra dice or responder configuration needed.
+# ============================================================================
+
+func _wreck_count() -> int:
+	var count := 0
+	for u:Unit in game.map.get_all_units():
+		if Frame.is_valid(u.core.frame) and u.core.frame.compcon_id.begins_with('dep_wreck'):
+			count += 1
+	return count
+
+func test_a_target_killed_by_mourning_call_leaves_no_wreck():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1 # one hit below zero structure kills outright -- see header
+	target.core.frame.stat.health = 4 # exactly Mourning Call's non-crit damage (not the weapon's)
+	target.core.full_repair()
+	var wrecks_before := _wreck_count()
+
+	# Killed BY THE DAMAGE, via event_unit_structure -- never by invoking event_unit_die directly.
+	# The probe took the direct route; this must not.
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits (evasion 8), does not crit
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
+	assert_eq(_wreck_count(), wrecks_before, 'A target destroyed by Mourning Call leaves no wreckage.')
+
+## THE GATE. Without buff_mourning_call_mark scoping the reaction to this one kill, wrecklessness
+## would become a property of the TARGET (or of the Banshee's mere presence) rather than of Mourning
+## Call's own damage specifically -- and every other test in this section would still pass. A Banshee
+## is present (so mt_mourning_call_wreckless -- the reaction -- actually exists on the map for the
+## reaction bus to find; without one there'd be nothing to strip the flag regardless of the mark
+## check, and this test would pass for the wrong reason), but it isn't the one doing the killing:
+## ordinary damage, nothing to do with Mourning Call at all.
+func test_a_target_killed_BY_ANYTHING_ELSE_STILL_leaves_a_wreck():
+	var banshee := _arm_banshee() # present (carries the wreckless trait), but not involved in this kill
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1
+	target.core.full_repair()
+	var wrecks_before := _wreck_count()
+
+	await SpecFactory.damage(game, target, target.core.current.health + 10, Lancer.DAMAGE_TYPE.KINETIC)
+
+	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
+	assert_gt(_wreck_count(), wrecks_before, 'An ordinary death still leaves a wreck.')
+
+func test_the_banshee_becomes_intangible_on_a_kill():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1
+	target.core.frame.stat.health = 4
+	target.core.full_repair()
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
+	assert_true(banshee.has_status(Lancer.STATUS.INTANGIBLE), 'Clause 8: a kill phases the Banshee out.')
+
+func test_the_banshee_stays_tangible_when_the_target_survives():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.health = 100 # headroom -- survives the weapon hit AND Mourning Call's damage
+	target.core.full_repair()
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_true(Unit.is_valid(target), 'sanity: the target survived.')
+	assert_false(banshee.has_status(Lancer.STATUS.INTANGIBLE), 'No kill, no phase-out.')

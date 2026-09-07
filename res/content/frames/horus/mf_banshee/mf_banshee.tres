@@ -11,6 +11,7 @@
 [ext_resource type="Resource" uid="uid://dsbchtxxdt61h" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_twist_truth/mt_to_twist_truth.tres" id="8_mt_to_twist_truth"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_whispering/mt_whispering.tres" id="9_mt_whispering"]
 [ext_resource type="Resource" uid="uid://byabg3b4rd6ly" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/cp_the_keening.tres" id="10_cp_the_keening"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/mt_mourning_call_wreckless.tres" id="11_mt_mourning_call_wreckless"]
 
 [sub_resource type="Resource" id="Resource_banshee_stat"]
 script = ExtResource("2_statblock")
@@ -34,7 +35,7 @@ metadata/_custom_type_script = "uid://bxpc46igtsmvw"
 [resource]
 script = ExtResource("1_frame")
 sprites = Array[Texture2D]([ExtResource("6_lwjle")])
-traits = Array[ExtResource("4_kit")]([ExtResource("7_mt_to_bend_reality"), ExtResource("8_mt_to_twist_truth"), ExtResource("9_mt_whispering"), ExtResource("10_cp_the_keening")])
+traits = Array[ExtResource("4_kit")]([ExtResource("7_mt_to_bend_reality"), ExtResource("8_mt_to_twist_truth"), ExtResource("9_mt_whispering"), ExtResource("10_cp_the_keening"), ExtResource("11_mt_mourning_call_wreckless")])
 mount_types = Array[ExtResource("3_mount_type")]([ExtResource("5_mount_main"), ExtResource("6_mount_heavy")])
 stat = SubResource("Resource_banshee_stat")
 role_primary = 4

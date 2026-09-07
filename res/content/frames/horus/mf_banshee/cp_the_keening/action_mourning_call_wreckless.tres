@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/action_mourning_call_wreckless.gd" id="1_wreckless"]
+
+[resource]
+script = ExtResource("1_wreckless")
+triggers_on = Array[StringName]([&"death"])
+trigger_timing = 0
+consumes_rxn = false
