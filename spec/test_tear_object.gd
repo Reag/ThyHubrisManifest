@@ -87,11 +87,26 @@ func test_the_cap_is_enforced():
 	assert_eq(TearRouting.open_tears(game.map).size(), TearRouting.MAX_TEARS,
 		'Attempting more than MAX_TEARS tears lands at exactly MAX_TEARS.')
 
+# --- closing ---
+#
+# Close is the BANSHEE's verb, on cp_the_keening, NOT the tear's own. It lived on the tear's kit
+# until 2026-09-08 and was completely unreachable there: a tear is Frame.ENTITY.MARKER, and
+# UnitAction.can_be_activated_for_faction requires is_actor(), so a marker's action bar never
+# renders. Every tear opened was permanent. The specs below passed anyway, because
+# SpecFactory.use_solo fires event_gear_activate directly and never asks whether the action could
+# have been reached - which is exactly what test_closing_is_reachable_from_the_banshees_gear now
+# pins down.
+#
+# SpecFactory's ChoiceBusResponder answers the "which tear?" pick with the front of the candidate
+# list unless chosen_unit is set, so a one-tear fixture closes the tear it just made.
+
+func _close_a_tear() -> void:
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear_close')
+
 func test_closing_a_tear_removes_it():
 	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
-	var tears := TearRouting.open_tears(game.map)
-	if tears.is_empty(): return fail_test('A tear was placed to close.')
-	await SpecFactory.use_solo(game, tears[0], &'mt_tear_banshee')
+	if TearRouting.open_tears(game.map).is_empty(): return fail_test('A tear was placed to close.')
+	await _close_a_tear()
 	assert_eq(TearRouting.open_tears(game.map).size(), 0, 'The tear is gone.')
 
 func test_closing_frees_a_slot_against_the_cap():
@@ -99,11 +114,68 @@ func test_closing_frees_a_slot_against_the_cap():
 	# would be a lifetime budget rather than a limit on how many are open at once.
 	for i:int in TearRouting.MAX_TEARS:
 		await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(3 + (i % 8), 3 + (i / 8))])
-	var tears := TearRouting.open_tears(game.map)
-	if tears.is_empty(): return fail_test('Tears were placed.')
-	await SpecFactory.use_solo(game, tears[0], &'mt_tear_banshee')
+	if TearRouting.open_tears(game.map).is_empty(): return fail_test('Tears were placed.')
+	await _close_a_tear()
 	assert_lt(TearRouting.open_tears(game.map).size(), TearRouting.MAX_TEARS,
 		'Closing one frees a slot.')
+
+func test_closing_is_reachable_from_the_banshees_gear():
+	# THE TEST WHOSE ABSENCE HID THE BUG. Every other close spec drives the action directly; this one
+	# asks the question the UI and the AI ask - can_activate_gear - which is the only route a player
+	# ever has to it. On the tear's own kit this returned false forever.
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	var specific := SpecificAction.from_id(banshee, &'cp_the_keening', &'action_tear_close')
+	assert_true(SpecificAction.is_valid(specific),
+		'The Banshee\'s own gear carries action_tear_close.')
+	assert_true(UnitAction.can_activate_gear(specific),
+		'With a tear open, the Banshee can actually reach Close Tear.')
+
+func test_closing_is_not_offered_with_no_tear_open():
+	# The other half of reachability: it must not sit on the bar as a click into an empty pick.
+	var specific := SpecificAction.from_id(banshee, &'cp_the_keening', &'action_tear_close')
+	if not SpecificAction.is_valid(specific): return fail_test('The action exists on the gear.')
+	assert_false(UnitAction.can_activate_gear(specific), 'Nothing to close, so nothing is offered.')
+
+func test_closing_only_offers_the_banshees_own_tears():
+	# Routing is universal, but the VERBS are not - clause 8 is the Banshee's. Someone else's tear is
+	# not ours to close, exactly as it is not ours to move (test_tear_move.gd).
+	var other := SpecFactory.create_unit(game.map, Vector2i(11,11), Faction.AI_ENEMY)
+	other.core.change_mech_frame(load('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'))
+	other.state.overcharge_actions = 99
+	other.update_cached_values_and_token(SpecFactory.dummy_event())
+	await SpecFactory.use(game, other, &'cp_the_keening', &'action_tear', [Vector2i(10,10)])
+	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'Fixture: exactly one tear, and it is theirs.')
+
+	var specific := SpecificAction.from_id(banshee, &'cp_the_keening', &'action_tear_close')
+	if not SpecificAction.is_valid(specific): return fail_test('The action exists on the gear.')
+	assert_false(UnitAction.can_activate_gear(specific), 'Another Banshee\'s tear is not ours to close.')
+
+func test_closing_spends_the_quick_action():
+	# The old tear-side version never called spend_actions at all, so the "quick action" the prose
+	# promises was free. Measured against the action POOL (normal + overcharge) rather than
+	# state.actions alone, because the fixture hands the Banshee overcharge to fit several tear
+	# actions into one turn and UnitAction.spend draws from whichever it must.
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	if TearRouting.open_tears(game.map).is_empty(): return fail_test('A tear was placed to close.')
+	var before:int = UnitAction.current_total(banshee)
+	await _close_a_tear()
+	assert_eq(UnitAction.current_total(banshee), before - Lancer.ACTION_COST_QUICK,
+		'Clause 8: closing costs exactly one quick action.')
+
+func test_cancelling_the_pick_costs_nothing():
+	# spend_actions sits BELOW the pick in activate() precisely so a player who opens the menu and
+	# changes their mind has not spent their turn. abort_all makes the responder abort the request,
+	# which is what the cancel button does.
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	if TearRouting.open_tears(game.map).is_empty(): return fail_test('A tear was placed to close.')
+	var before:int = UnitAction.current_total(banshee)
+
+	SpecFactory.current_responder.abort_all = true
+	await _close_a_tear()
+	SpecFactory.current_responder.abort_all = false
+
+	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'Cancelling leaves the tear open.')
+	assert_eq(UnitAction.current_total(banshee), before, 'And costs no action.')
 
 func test_closing_a_tear_shuts_its_window():
 	# The close action must drop the routing caches, not merely delete the unit. They are keyed on
@@ -118,14 +190,38 @@ func test_closing_a_tear_shuts_its_window():
 	assert_false(UnitRelation.can_affect(banshee, ghost), 'Sanity: no window before the tear.')
 
 	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
-	var tears := TearRouting.open_tears(game.map)
-	if tears.is_empty(): return fail_test('A tear was placed to close.')
+	if TearRouting.open_tears(game.map).is_empty(): return fail_test('A tear was placed to close.')
 	assert_true(UnitRelation.can_affect(banshee, ghost), 'Sanity: the open tear does bridge them.')
 
-	await SpecFactory.use_solo(game, tears[0], &'mt_tear_banshee')
+	await _close_a_tear()
 	assert_false(UnitRelation.can_affect(banshee, ghost),
 		'A closed tear bridges nothing - its cache entry went with it.')
 
 func test_closing_is_a_quick_action():
-	var action:Action = ContentLibrary.get_kit(&'mt_tear_banshee').get_action(&'action_tear_close')
+	var action:Action = ContentLibrary.get_kit(&'cp_the_keening').get_action(&'action_tear_close')
+	if not Action.is_valid(action): return fail_test('cp_the_keening carries action_tear_close.')
 	assert_eq(action.get_action_type(null), Lancer.ACTION.QUICK, 'Clause 8: a quick action.')
+
+func test_closing_stays_out_of_the_gear_tooltip():
+	# Like Move Tear, it is a verb of Tear described inside Tear's own effect text, not a third mode
+	# of the core power. The Keening must still read as two abilities.
+	var kit:Kit = ContentLibrary.get_kit(&'cp_the_keening')
+	if not Kit.is_valid(kit): return fail_test('cp_the_keening loaded.')
+	assert_false(kit.get_action(&'action_tear_close').show_in_tooltip(kit),
+		'Close Tear does not list itself as a separate ability.')
+
+func test_closing_has_its_own_usage_group():
+	# Every action on cp_the_keening sets one explicitly. Without it get_usage_group_for_action falls
+	# back to the KIT id, and the 1/turn repeat-action rule would be shared with Tear and Mourning
+	# Call - closing a tear would silently consume the core power's own allowance.
+	var action:Action = ContentLibrary.get_kit(&'cp_the_keening').get_action(&'action_tear_close')
+	if not Action.is_valid(action): return fail_test('cp_the_keening carries action_tear_close.')
+	assert_eq(action.usage_group, &'action_tear_close', 'Close Tear does not share a round allowance.')
+
+func test_closing_is_named_from_the_core_powers_key():
+	# The localization key is derived from the KIT plus the action id, so moving the action between
+	# kits moves its key. A miss here reads back as the raw key in the UI.
+	var gear:GearCore = banshee.get_gear(&'cp_the_keening')
+	if not GearCore.is_valid(gear): return fail_test('The Banshee carries The Keening.')
+	var specific := SpecificAction.from_id(banshee, &'cp_the_keening', &'action_tear_close')
+	assert_eq(specific.action.name(specific), 'Close Tear', 'Its name resolves on its new kit.')

@@ -53,9 +53,11 @@ func test_the_buff_is_inert_when_no_tear_routes_the_pair():
 	SpecFactory.apply(ghost, Lancer.STATUS.INTANGIBLE)
 	assert_true(UnitCondition.is_invisible(banshee, ghost), 'Sanity: routed while the tear is open.')
 
-	var tears := TearRouting.open_tears(game.map)
-	if tears.is_empty(): return fail_test('A tear was placed.')
-	await SpecFactory.use_solo(game, tears[0], &'mt_tear_banshee')
+	if TearRouting.open_tears(game.map).is_empty(): return fail_test('A tear was placed.')
+	# Close is the BANSHEE's verb, not the tear's - see action_tear_close.gd. SpecFactory's
+	# ChoiceBusResponder answers the "which tear?" pick with the front of the list, and there is
+	# exactly one.
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear_close')
 	assert_false(UnitCondition.is_invisible(banshee, ghost),
 		'With the tear closed nothing routes, so clause 6 stops applying.')
 
