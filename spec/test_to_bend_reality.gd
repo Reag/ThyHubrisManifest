@@ -24,6 +24,12 @@ func before_each():
 
 func after_each():
 	TearRouting.invalidate(game.map)
+	# Several tests below queue MORE rolls than they consume on purpose (a uniform queue is what makes
+	# their damage arithmetic independent of how many accuracy/difficulty dice the engine decides to
+	# throw). Left in place, the leftovers would shift the queue of any later test that APPENDS rather
+	# than assigns - which test_activating_the_bend_resolves_damage_from_the_followups_own_weapon does.
+	# Mirrors test_bend_composition.gd's own after_each.
+	Dice.CHEAT_ROLL_QUEUE.clear()
 
 ## Put a unit of the given frame on a tile. Used for both tears and bend proxies.
 func _place_frame(frame_path:String, tile:Vector2i, owner_unit:Unit = null) -> Unit:
@@ -991,3 +997,350 @@ func test_a_bend_proxy_gains_no_sight_through_the_third_los_seam():
 	assert_false(
 		UnitTile.is_tile_in_los(game.map, [proxy.tile()], from_height, target.tile(), proxy.core.persistent_id),
 		'A bend proxy gains no sight of an INTANGIBLE target through a tear it was never routed through.')
+
+# ============================================================================================
+# TASK 7 / TASK 9: the playtest fixes. Each block names the defect it pins.
+# ============================================================================================
+
+const BEND_BUFF := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/buff_to_bend_reality.tres'
+
+## A weapon action that exists only to be handed to the offer predicate. Building one is far sharper
+## than hunting for a vanilla weapon with the right damage layout: it pins the RULE ("is any part of
+## this weapon kinetic, and is it a weapon at all") rather than one weapon's current stat block.
+func _synthetic_weapon(
+	size:Lancer.WEAPON_SIZE,
+	primary:Lancer.DAMAGE_TYPE,
+	additional_types:Array = []
+) -> ActionAttackWeapon:
+	var action := ActionAttackWeapon.new()
+	action.weapon_size = size
+	action.damage_type = primary
+	var extras:Array[DamageValue] = []
+	for extra_type in additional_types:
+		var damage_value := DamageValue.new()
+		damage_value.type = extra_type
+		extras.append(damage_value)
+	action.additional_damage_values = extras
+	return action
+
+## Ask the trait's own gate whether it would offer the bend on this action. `core` is unused by
+## check_if_passive_applies (it reads only the context), so null is safe and keeps the fixture small.
+func _bend_is_offered_on(action:ActionAttackWeapon, gear:GearCore) -> bool:
+	var buff:Buff = load(BEND_BUFF)
+	return buff.check_if_passive_applies(null, Context.create({
+		map = game.map, unit = banshee, gear = gear, action = action,
+	}))
+
+# -------------------------------------------------------------- 7.3: basic attacks are not weapons
+
+func test_the_bend_is_not_offered_on_ram():
+	# Ram, Grapple and Improvised Attack are all ActionAttackWeapons that never set damage_type, so
+	# they inherited the KINETIC default and sailed through the old gate - then dead-ended, because
+	# all three have aim_range 0 and no tear can ever be in range of them. Ram is the one checked
+	# here through REAL gear (it is in basic_loadout_mech_player.tres, so every player mech has it);
+	# the synthetic test below pins the rule the exclusion is actually written against.
+	_arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	var ram:GearCore = banshee.get_gear(&'mw_ram')
+	assert_true(GearCore.is_valid(ram), 'Sanity: a player mech carries Ram as basic gear.')
+	assert_false(_variant_keys_on(ram).has(&'to_bend_reality'),
+		'Ram is a basic attack, not a kinetic weapon - the bend is not offered on it.')
+
+func test_the_bend_is_not_offered_on_any_basic_attack():
+	# THE RULE, not the three instances. WEAPON_SIZE.NONE is the engine's own marker for a basic
+	# attack (action_attack_weapon.gd:107 keys "lancer.actiontype.attack_basic" off exactly this), so
+	# a future basic attack added by this mod or another gets excluded without anyone remembering to.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_false(
+		_bend_is_offered_on(_synthetic_weapon(Lancer.WEAPON_SIZE.NONE, Lancer.DAMAGE_TYPE.KINETIC), gear),
+		'A kinetic action with WEAPON_SIZE.NONE is a basic attack and is refused the bend.')
+	assert_true(
+		_bend_is_offered_on(_synthetic_weapon(Lancer.WEAPON_SIZE.MAIN, Lancer.DAMAGE_TYPE.KINETIC), gear),
+		'The very same action at MAIN size IS offered - so the refusal above is the size, not the fixture.')
+
+# ------------------------------------------------- 7.6c: the kinetic gate reads ALL the damage types
+
+func test_a_weapon_whose_kinetic_damage_is_secondary_is_still_offered_the_bend():
+	# The gate used to ask get_damage_type, which answers only for the BASE roll, so a weapon that
+	# lists KINETIC in additional_damage_values was refused despite being kinetic in exactly the way
+	# the prose means. get_all_damage_types is the engine's own union of the two.
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_true(
+		_bend_is_offered_on(
+			_synthetic_weapon(Lancer.WEAPON_SIZE.MAIN, Lancer.DAMAGE_TYPE.EXPLOSIVE, [Lancer.DAMAGE_TYPE.KINETIC]),
+			gear),
+		'A weapon with a kinetic component is offered the bend even when its base roll is not kinetic.')
+
+func test_a_weapon_with_no_kinetic_damage_at_all_is_still_refused():
+	# The other side, so the widening above cannot be read as "the gate was deleted".
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_false(
+		_bend_is_offered_on(
+			_synthetic_weapon(Lancer.WEAPON_SIZE.MAIN, Lancer.DAMAGE_TYPE.ENERGY, [Lancer.DAMAGE_TYPE.HEAT]),
+			gear),
+		'Nothing kinetic anywhere on the weapon, so no bend.')
+
+# ------------------------------------------------------ 7.6a: a tear at exactly max range is legal
+
+func test_a_tear_at_exactly_the_weapon_range_is_offerable():
+	# The prose says "the combined distance must be WITHIN the weapon's range", and a combined
+	# distance exactly equal to it is within it - which is why bends_within_range has always used `>`
+	# while bendable_tear_tiles used `>=`. The two now agree.
+	var gear := _arm_banshee_with(&'mw_assault_rifle') # aim_range 10, Banshee at (1,1)
+	var max_range:int = gear.get_solo_action().get_target_range(SpecificAction.create(banshee, gear, gear.get_solo_action()))
+	var boundary_tile := Vector2i(1 + max_range, 1) # distance == max_range exactly
+	_place_frame(TEAR_FRAME, boundary_tile)
+	assert_true(UnitTargeting.get_tiles_targetable(_bend_specific(gear)).has(boundary_tile),
+		'A tear sitting exactly at the weapon range is a legal bend, not a refused one.')
+
+func test_a_tear_one_tile_past_the_weapon_range_is_still_refused():
+	# THE BOUNDARY'S OTHER SIDE. Without this, "the tear at max range is offerable" is
+	# indistinguishable from "the range filter was removed".
+	var gear := _arm_banshee_with(&'mw_assault_rifle')
+	var max_range:int = gear.get_solo_action().get_target_range(SpecificAction.create(banshee, gear, gear.get_solo_action()))
+	var past_tile := Vector2i(1 + max_range + 1, 1)
+	_place_frame(TEAR_FRAME, past_tile)
+	assert_false(UnitTargeting.get_tiles_targetable(_bend_specific(gear)).has(past_tile),
+		'One tile further out and the tear is out of range again.')
+
+# --------------------------------------------------------- 7.2: the melee and thrown range budgets
+
+func test_a_melee_bend_spends_its_threat_past_the_tear():
+	# THE BUG: activate() wrote the post-tear budget to aim_range, and
+	# ActionAttackWeapon.get_target_range never reads aim_range for a melee weapon - it reads threat.
+	# So a War Pike (kinetic, threat 3) bending through a tear two tiles away kept its whole threat
+	# past it: reach 5 on a range-3 weapon, with nothing in the code even looking at the number.
+	var gear := _arm_banshee_with(&'mw_war_pike') # kinetic MELEE, threat 3, thrown 5
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var followup:ActionAttackWeapon = bend.action.followup_attack
+	assert_eq(followup.threat, 3, 'Sanity: the War Pike reaches 3 before the bend narrows it.')
+
+	bend.action.narrow_range_past_tear(bend, 2) # a tear two tiles from the Banshee
+	assert_eq(followup.threat, 1, 'The first leg of 2 came out of threat, leaving 1.')
+	assert_eq(followup.get_target_range(bend), 1,
+		'And that is the number get_target_range actually answers with - the whole point of the fix.')
+	assert_eq(followup.aim_range, 0,
+		"aim_range is left alone: writing it was the bug, and a melee weapon's is 0 anyway.")
+
+func test_a_fully_spent_melee_budget_does_not_fall_through_to_the_thrown_range():
+	# THE TRAP INSIDE THE FIX. get_target_range treats "melee weapon with threat 0" as the THROWN
+	# variant and answers with thrown_distance instead (action_attack_weapon.gd:198-200). So
+	# narrowing threat to 0 without also clearing thrown would hand a War Pike its entire thrown 5
+	# past the tear - a bigger version of the bug being fixed, one branch over.
+	var gear := _arm_banshee_with(&'mw_war_pike')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var followup:ActionAttackWeapon = bend.action.followup_attack
+
+	bend.action.narrow_range_past_tear(bend, 3) # the whole threat budget spent getting to the tear
+	assert_eq(followup.get_target_range(bend), 0,
+		'A fully spent melee budget reaches nothing past the tear - it does not become a throw.')
+
+func test_a_thrown_bend_spends_its_thrown_range_past_the_tear():
+	# The thrown arm of the same fix. A thrown weapon is a melee weapon with threat 0, so the budget
+	# has to come out of `thrown`; aim_range is as unread here as it is for a swing.
+	var gear := _arm_banshee_with(&'mw_war_pike')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var bend := _bend_specific(gear)
+	var followup:ActionAttackWeapon = bend.action.followup_attack
+	followup.threat = 0 # what the vanilla THROWN variant does to it
+
+	bend.action.narrow_range_past_tear(bend, 2)
+	assert_eq(followup.thrown, 3, 'A thrown 5 with a first leg of 2 has 3 left past the tear.')
+	assert_eq(followup.get_target_range(bend), 3, 'And get_target_range agrees.')
+
+# --------------------------------------------- 7.4: composing with the vanilla Thrown variant
+
+func test_the_thrown_variant_composes_before_the_bend_wraps_it():
+	# THE BUG: both groups sat at priority 0 and Util.sort_custom is not stable, so the order varied
+	# run to run. Bend-first silently DISCARDED the throw (the thrown variant then zeroed threat on
+	# the WRAPPER while the followup kept its melee reach); thrown-first stacked both reaches. The
+	# bend now composes at Priority.VARIANT_ACTION.swap_out - 1, so thrown-first is the only order.
+	#
+	# followup.threat is the discriminator, and it is exact: on the broken ordering the throw lands
+	# on the wrapper and the followup keeps its 3.
+	var gear := _arm_banshee_with(&'mw_war_pike')
+	_place_frame(TEAR_FRAME, Vector2i(2,1))
+	var specific := SpecificAction.create(banshee, gear, gear.get_solo_action())
+	var groups := specific.action.get_alternate_actions(specific)
+	var keys:Array = []
+	for group:VariantActionGroup in groups: keys.append(group.key)
+	assert_true(keys.has(&'thrown'), 'Sanity: the War Pike offers the vanilla THROWN variant. Got: %s' % [keys])
+	assert_true(keys.has(&'to_bend_reality'), 'Sanity: and it offers the bend too.')
+
+	var chosen:Dictionary[StringName, int] = { &'thrown': 1, &'to_bend_reality': 1 }
+	var composed := VariantActionGroup.generate_composed_action(groups, specific.action, chosen)
+	assert_true(composed.modified_by_variants.has(&'to_bend_reality_replacement'),
+		'The bend wrapper is the OUTER action, so the bend composed last.')
+	var followup:ActionAttackWeapon = composed.followup_attack
+	assert_eq(followup.threat, 0,
+		'The followup is a real throw: the thrown variant reached the weapon, not the wrapper.')
+	assert_eq(followup.get_target_range(SpecificAction.create(banshee, gear, followup)), 5,
+		"So the bend's budget is the pike's thrown 5 - and narrow_range_past_tear spends it from `thrown`.")
+
+# ----------------------------------------------------------- 7.5: the aiming HUD's weapon profile
+
+func test_the_wrapper_reports_the_real_weapons_profile_while_the_tear_is_being_picked():
+	# choice_bus.show_using_action is handed the COMPOSED action during the tear pick
+	# (target_action_util.gd:172), and that is the wrapper - whose own .tres carries no weapon
+	# profile at all. The readout therefore said "Main Rifle", "Quick" and no damage dice while the
+	# player aimed a SUPERHEAVY. mw_cyclone_pulse_rifle is kinetic, SUPERHEAVY and 3d6+3, so every
+	# one of those three lies is visible in this fixture.
+	var gear := _arm_banshee_with(&'mw_cyclone_pulse_rifle')
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	var real_action:ActionAttackWeapon = gear.get_solo_action()
+	var real_specific := SpecificAction.create(banshee, gear, real_action)
+	assert_eq(real_action.weapon_size, Lancer.WEAPON_SIZE.SUPERHEAVY,
+		'Sanity: the fixture weapon really is a SUPERHEAVY.')
+
+	var bend := _bend_specific(gear)
+	var wrapper:ActionAttackWeapon = bend.action
+	assert_eq(wrapper.damage_dice, real_action.damage_dice, 'The HUD shows the real damage dice.')
+	assert_eq(wrapper.weapon_size, real_action.weapon_size, 'And the real weapon size.')
+	assert_eq(wrapper.weapon_type, real_action.weapon_type, 'And the real weapon type.')
+	assert_eq(wrapper.type_description(gear), real_action.type_description(gear),
+		'So the "Main Rifle" line reads as the weapon actually is.')
+	assert_eq(wrapper.get_action_type(bend), real_action.get_action_type(real_specific),
+		'And a SUPERHEAVY reads FULL, not QUICK - which is what the action bar bills the player for.')
+
+func test_the_wrapper_does_not_inherit_the_weapons_range_pattern():
+	# DELIBERATE OMISSION, pinned so nobody "completes" the mirror. The first pick is a single tear
+	# tile, and get_target_requirements is overridden to say so; copying a LINE pattern across would
+	# make the tilepicker paint the weapon's whole AoE preview over that one-tile pick.
+	var gear := _arm_banshee_with(&'mw_rail_rifle') # kinetic LINE
+	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	assert_not_null(gear.get_solo_action().range_pattern, 'Sanity: the fixture weapon has a LINE pattern.')
+	assert_null(_bend_specific(gear).action.range_pattern,
+		'The wrapper carries no range pattern - the tear pick is one tile, not a line.')
+
+# ------------------------------------------------- 7.1: a character on the bend is hit by BOTH
+
+func test_a_character_standing_on_the_bend_is_hit_by_both_segments():
+	# THE DEFECT. Tile.get_rings (tile.gd:347-349) starts at ring 1, so AoeCalculator.line never
+	# contains its own origin. Segment 1 runs Banshee -> tear and its LAST ring is the tear tile, so
+	# the occupant was caught by it; segment 2's origin IS the tear, so the same tile was the one
+	# tile its line could not reach. The occupant took full damage and nothing else, while the
+	# variant's prose promises "a character standing on the bend is hit by both".
+	#
+	# THE ARITHMETIC IS THE ASSERTION, not "damage landed". Rail Rifle is 1d6+1 and every roll in the
+	# queue below is a 2, so segment 1 deals 3 and segment 2 deals Util.half(3) = 2 to everything
+	# they touch. `near` (segment 1 only) must land on exactly the full number, `far` (segment 2
+	# only) on exactly the half, and the character standing on the tear on their SUM. A build where
+	# the bend tile is hit once - by either segment - lands on 3 or on 2, never on 5.
+	#
+	# A uniform queue on purpose: it makes the result independent of how many accuracy/difficulty
+	# dice the engine decides to throw on the way, which a hand-counted queue would not be.
+	#
+	# 2, NOT A BIGGER NUMBER, and this is load-bearing. A dummy Everest has 8 HP; at rolls of 4 the
+	# occupant took 5 + 3 = 8, hit zero structure, and event_unit_structure REFILLED it - so
+	# current_damage() read 0 and the test failed while the mechanism was working perfectly. Any
+	# edit that raises these rolls has to keep full + half comfortably under the victims' HP.
+	var gear := _arm_banshee_with(&'mw_rail_rifle') # LINE, length 10
+	var tear_tile := Vector2i(4,1) # first leg 3 from (1,1), leaving 7 past it
+	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)  # segment 1 only
+	var on_the_bend := SpecFactory.create_unit(game.map, tear_tile, Faction.AI_ENEMY) # both
+	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)   # segment 2 only
+	for victim:Unit in [near, on_the_bend, far]:
+		victim.core.frame.stat.evasion = 0
+		victim.core.frame.stat.armor = 0
+		victim.core.full_repair()
+	_place_frame(TEAR_FRAME, tear_tile)
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([tear_tile]),      # the tear
+		CompconPlan.create([Vector2i(9,1)]),  # segment 2's direction
+	]
+	Dice.CHEAT_ROLL_QUEUE.assign([2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2])
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+
+	assert_gt(near.current_damage(), 0, 'Sanity: segment 1 connected.')
+	assert_gt(far.current_damage(), 0, 'Sanity: segment 2 connected.')
+	assert_lt(far.current_damage(), near.current_damage(), 'Sanity: segment 2 is the halved one.')
+	assert_eq(on_the_bend.current_damage(), near.current_damage() + far.current_damage(),
+		'The character on the bend took segment 1 in full AND segment 2 halved: %d + %d.' % [
+			near.current_damage(), far.current_damage()
+		])
+
+func test_the_bend_tile_occupant_is_not_hit_twice_by_the_second_segment():
+	# THE OTHER FAILURE MODE of the same fix, and the reason the assertion above is an equality
+	# rather than a `>`. Appending the occupant unconditionally would double segment 2's damage on
+	# anyone segment 2's own AoE had already collected - a size-2 unit straddling the tear and an
+	# adjacent tile is exactly that case, and so is any future geometry where the two lists overlap.
+	# Here the check is direct: segment 2 alone must deal a size-1 occupant exactly one half-damage
+	# hit, so the total can never reach two full hits. Rolls of 2 for the same structure-refill
+	# reason as the test above.
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	var tear_tile := Vector2i(4,1)
+	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
+	var on_the_bend := SpecFactory.create_unit(game.map, tear_tile, Faction.AI_ENEMY)
+	for victim:Unit in [near, on_the_bend]:
+		victim.core.frame.stat.evasion = 0
+		victim.core.frame.stat.armor = 0
+		victim.core.full_repair()
+	_place_frame(TEAR_FRAME, tear_tile)
+
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([tear_tile]),
+		CompconPlan.create([Vector2i(9,1)]),
+	]
+	Dice.CHEAT_ROLL_QUEUE.assign([2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2])
+	await game.execute_event(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+
+	var full:int = near.current_damage()
+	assert_gt(full, 0, 'Sanity: segment 1 connected.')
+	assert_lt(on_the_bend.current_damage(), full * 2,
+		'One full hit plus ONE half hit - segment 2 did not resolve against the bend tile twice.')
+
+# --------------------------------- 7.6b: RELIABLE is "on a hit", so the halving must not eat it
+
+func test_the_second_segments_reliable_floor_survives_the_halving():
+	# "Characters hit by the second segment take half damage ON A HIT" - but Action.FLAG.HALF_DAMAGE
+	# is a whole-activation flag, and a MISS still emits a damage event carrying the weapon's
+	# RELIABLE floor (attack_util.gd:126). So a reliable-2 weapon dealt 1 on a missed second segment,
+	# against prose that halves nothing on a miss. The flag is read inside content/events/, which is
+	# base game and read-only, so the only available lever is to pre-double the value the halving
+	# will land on. This asserts that arithmetic directly: an end-to-end miss test would need a
+	# kinetic LINE weapon that has a reliable floor, and vanilla has none.
+	#
+	# mw_rail_rifle is lent a reliable floor for the duration and given it back before the assertion
+	# runs - GearCore hands out the Kit's own shared Action, so a leaked value would follow this
+	# weapon into every other spec in the suite.
+	var gear := _arm_banshee_with(&'mw_rail_rifle')
+	var real_action:ActionAttackWeapon = gear.get_solo_action()
+	var reliable_before:String = real_action.reliable_damage
+	real_action.reliable_damage = '2'
+
+	var tear_tile := Vector2i(4,1)
+	_place_frame(TEAR_FRAME, tear_tile)
+	SpecFactory.current_responder.chosen_plan_queue = [
+		CompconPlan.create([tear_tile]),
+		CompconPlan.create([Vector2i(9,1)]),
+	]
+	Dice.CHEAT_ROLL_QUEUE.assign([4,4,4,4,4,4,4,4])
+
+	var block := EventBlock.create(&'event_gear_activate', {
+		action = gear.get_solo_action(), gear = gear, unit = banshee,
+		string = 'to_bend_reality',
+	})
+	game.Events.add_child(block)
+	await block.execute()
+	var segment_two_action:ActionAttackWeapon = block.event_cores[0].context.action
+	if is_instance_valid(block) and not block.is_queued_for_deletion(): block.queue_free()
+
+	var reliable_after:String = segment_two_action.reliable_damage
+	real_action.reliable_damage = reliable_before # hand the shared action back before asserting
+
+	assert_eq(real_action.reliable_damage, reliable_before,
+		"Sanity: the pilot's own weapon still has the reliable floor it started with.")
+	assert_eq(reliable_after, '4',
+		'Segment 2 carries a doubled reliable floor, so Util.half hands the target back the real 2.')

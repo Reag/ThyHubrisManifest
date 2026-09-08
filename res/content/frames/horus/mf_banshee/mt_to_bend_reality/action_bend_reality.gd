@@ -45,9 +45,9 @@ func get_target_requirements(specific:SpecificAction) -> TargetRequirements:
 	reqs.range_tiles_override = tear_tiles_fn
 	return reqs
 
-## Every open tear this attack could bend through: in line of sight from the Banshee, and near enough
-## that SOMETHING is still reachable past it. A tear exactly at the range limit leaves a zero-length
-## second leg, which is legal but useless, so the bound is `<` rather than `<=`.
+## Every open tear this attack could bend through: in line of sight from the Banshee, and within the
+## weapon's range - INCLUSIVE, matching the prose's "the combined distance must be within the
+## weapon's range" and bends_within_range's own `>` boundary.
 ##
 ## THE FIRST LEG MUST BE PLAIN SIGHT, NOT ROUTED. TearRouting.sees_between answers "can the Banshee
 ## plainly see this tile", asking nothing about other open tears. Using TearRouting.bends_within_range
@@ -65,16 +65,15 @@ func bendable_tear_tiles(specific:SpecificAction) -> Array[Vector2i]:
 	var from_height:int = UnitTile.effective_height(specific.unit, true, from_tile)
 	var max_range:int = get_target_range(specific)
 	for tear_tile:Vector2i in TearRouting.tear_tiles(map):
-		# `>=` here, `>` on bends_within_range's combined-distance check - both correct, deliberately
-		# different, even though bends_within_range itself has no production caller (see its
-		# docstring): it is the reference predicate for the same rule this loop actually enforces in
-		# play, so the comparison it documents is still the right one to check this against. There
-		# this is the SUM of two legs and a total exactly at max_range still leaves a real (if
-		# zero-length-tolerant) second leg from the caller's chosen target. Here there is no second
-		# leg yet - this candidate tile IS the tear, not a target beyond it - so a tear sitting
-		# exactly at max_range would leave nothing for a follow-up target to reach, and is excluded.
-		# Do not "fix" one bound to match the other; they answer different questions.
-		if Tile.distance(from_tile, tear_tile) >= max_range: continue
+		# `>`, MATCHING bends_within_range's combined-distance check. This used to be `>=`, on the
+		# reasoning that a tear exactly at max range leaves a zero-length second leg and so is a
+		# useless pick. That reasoning was wrong on both counts. The prose permits it - "the combined
+		# distance must be within the weapon's range", and a combined distance of exactly max_range
+		# is within it, which is why bends_within_range has always used `>`. And it is not useless:
+		# for a LINE weapon a tear at max range still makes segment 1 a full-length line attack, and
+		# anything standing ON the tear takes segment 1 and segment 2 both (see the bend-tile
+		# machinery in activate()). Keep this comparison and bends_within_range's identical.
+		if Tile.distance(from_tile, tear_tile) > max_range: continue
 		if not TearRouting.sees_between(map, from_tile, tear_tile, from_height): continue
 		offerable.append(tear_tile)
 	return offerable
@@ -106,6 +105,74 @@ func line_segment_lengths(specific:SpecificAction, tear_tile:Vector2i) -> Vector
 	var first_leg:int = Tile.distance(specific.unit.tile(), tear_tile)
 	var remaining:int = remaining_range_after(specific, tear_tile, first_leg)
 	return Vector2i(first_leg, remaining)
+
+## THE POST-TEAR BUDGET, WRITTEN WHERE THE WEAPON ACTUALLY READS IT.
+##
+## This used to write `aim_range` unconditionally. ActionAttackWeapon.get_target_range
+## (action_attack_weapon.gd:197-206) never consults aim_range for a melee weapon: it returns
+## threat_distance when threat > 0 and thrown_distance when it is 0 (which is how the engine
+## recognises the THROWN variant - see its own comment there). So a bent melee or thrown attack kept
+## its FULL reach past the tear: a War Pike (kinetic, threat 3) bending through a tear two tiles away
+## still swung three tiles beyond it, a reach of 5 on a range-3 weapon. Nothing caught it, because
+## the field that was being written was simply never read.
+##
+## SUBTRACTING first_leg FROM THE RAW FIELD, rather than assigning remaining_range_after's answer.
+## The two are the same number when nothing else is in play, but threat_distance/thrown_distance/
+## ranged_distance each add Buff.TO.ACTION_RANGE bonuses on top of the raw member - so assigning the
+## already-bonused `remaining` would let the bonus be counted twice. Subtracting the first leg from
+## the raw value makes the effective range come out at exactly remaining_range_after's contract for
+## a buffed weapon and an unbuffed one alike.
+##
+## The `thrown = 0` line is not tidiness. get_target_range falls THROUGH to thrown_distance the
+## moment threat reaches 0, so a throwable melee weapon whose threat budget was fully spent would
+## silently hand itself its entire thrown range past the tear - the same bug this function exists to
+## fix, one branch over.
+func narrow_range_past_tear(specific:SpecificAction, first_leg:int) -> void:
+	if UnitAction.is_melee_weapon(followup_attack, specific.gear):
+		if followup_attack.threat > 0:
+			followup_attack.threat = maxi(followup_attack.threat - first_leg, 0)
+			if followup_attack.threat <= 0: followup_attack.thrown = 0
+		else:
+			followup_attack.thrown = maxi(followup_attack.thrown - first_leg, 0)
+		return
+	followup_attack.aim_range = maxi(followup_attack.aim_range - first_leg, 0)
+
+## "A character standing on the bend is hit by both."
+##
+## Tile.get_rings (tile.gd:347-349) starts at ring 1, so AoeCalculator.line NEVER contains its own
+## origin. Segment 1 runs Banshee -> tear and its last ring IS the tear tile, so the bend-tile
+## occupant is caught by it. Segment 2's origin is the tear itself, so the same tile is the one tile
+## its line cannot reach - the occupant took full damage and nothing else, while the variant's prose
+## promises both halves.
+##
+## This is the only seam that reaches it. Segment 2 is resolved by followup_attack - the pilot's own
+## weapon action - so there is no method of ours to override, and get_attacked_tiles_and_units_from_plan
+## has already run by the time any code we control is reached. on_hit_effects, though, is an ordinary
+## @export on ActionAttack (action_attack.gd:9) that we can append to on the DUPLICATE, and
+## event_unit_attack_declared.execute runs OnHitEffect.apply_on_targeted_tiles over it AFTER the
+## declared summary exists and BEFORE the per-target attack rolls are built from
+## declared_summary.all_attacked_units. A unit appended here gets its own attack roll in segment 2,
+## which is precisely "hit by the second segment too", separate roll and all.
+##
+## get_all_units_at_tile with whos_asking set does the two exclusions that matter: markers are
+## dropped unless include_markers (both the tear and the bend proxy are Frame.ENTITY.MARKER, so
+## neither can shoot itself), and the rest are filtered through UnitRelation.can_affect from the
+## proxy, the same relation segment 2's own targeting used. append_nonduplicate is the guard against
+## the double hit: a size-2 unit straddling the tear and an adjacent tile is already in the list via
+## that adjacent tile, and appending it again would deal segment 2's damage to it twice.
+class BendTileAlsoTakesSegmentTwo extends OnHitEffect:
+	var tear_tile:Vector2i = Tile.INVALID
+
+	func on_targeted_tiles(activation:EventCore, _direct_target_tiles:Array[Vector2i], _all_target_tiles:Array[Vector2i]) -> void:
+		if tear_tile == Tile.INVALID: return
+		if not DeclaredAttackSummary.is_valid(activation.context.resource): return
+		var attacker:Unit = activation.context.unit # the proxy standing on the tear
+		if not Unit.is_valid(attacker) or not is_instance_valid(attacker.map): return
+		var declared_attack:DeclaredAttackSummary = activation.context.resource
+		var specific := SpecificAction.from_context(activation.context)
+		for occupant:Unit in attacker.map.get_all_units_at_tile(tear_tile, attacker):
+			if not specific.action.can_target_unit(occupant, specific): continue
+			Util.append_nonduplicate(declared_attack.all_attacked_units, occupant)
 
 ## WHY THE PROXY NEEDS BUFFS AT ALL, given get_attacker exists.
 ##
@@ -224,6 +291,41 @@ func activate(context:Context, activation:EventCore) -> void:
 			# carries other meaning elsewhere (action_breach_ram_breacher_prone.gd:76 - "hijacked to
 			# signify one attack only") that segment 2 has no business claiming.
 			followup_attack.range_pattern = RangePattern.create(pattern, remaining)
+
+			# THE BEND TILE ITSELF, which segment 2's line geometrically cannot reach. See
+			# BendTileAlsoTakesSegmentTwo above for why this is the only available seam.
+			# ASSIGNING a fresh array rather than appending to the existing one: action.gd:95 claims
+			# create_duplicate_for_variant duplicates arrays, and it is probably right, but appending
+			# to the pilot's real weapon's on_hit_effects would permanently bolt this onto their gun
+			# for the rest of the mission if it is ever wrong. An assignment cannot be wrong either way.
+			var bend_tile_effect := BendTileAlsoTakesSegmentTwo.new()
+			bend_tile_effect.tear_tile = tear_tile
+			var segment_two_onhits:Array[OnHitEffect] = []
+			segment_two_onhits.assign(followup_attack.on_hit_effects)
+			segment_two_onhits.append(bend_tile_effect)
+			followup_attack.on_hit_effects = segment_two_onhits
+
+			# RELIABLE IS PRE-DOUBLED SO THE HALVING BELOW LANDS ON THE RIGHT NUMBER.
+			# "Characters hit by the second segment take half damage ON A HIT" - but
+			# Action.FLAG.HALF_DAMAGE is a whole-activation flag: event_unit_attack_declared.gd:162
+			# reads it once per damage event and stamps EventService.DAMAGE_FLAG.HALVED on every one,
+			# and a MISS still emits a damage event carrying the weapon's RELIABLE floor
+			# (attack_util.gd:126's get_miss). So a reliable-2 weapon dealt 1 on a missed second
+			# segment. There is no per-roll seam to fix it at: the flag is read inside
+			# content/events/, which is base game and read-only, and it is read before any roll
+			# exists. Doubling the raw value here means Util.half (util.gd:12-13, a ceil) hands back
+			# exactly the original - exactly, whatever the original's parity, because the input is
+			# even by construction. The tier is resolved off the PROXY deliberately:
+			# event_unit_attack_declared reads `unit.get_tiered_int(action.reliable_damage)` with
+			# context.unit, which on a relayed segment IS the proxy, so resolving it off anything
+			# else here would disagree with the value that actually gets halved.
+			# COSMETIC COST, ACCEPTED: get_base_value_for_tag (action_attack_weapon.gd:118-125) reads
+			# reliable_damage straight, so segment 2's targeting tooltip reads "Reliable 4" for a
+			# reliable-2 weapon. The damage it then deals is right; the old build had the tooltip
+			# right and the damage wrong.
+			var reliable_past_tear:int = proxy.get_tiered_int(followup_attack.reliable_damage)
+			if reliable_past_tear > 0: followup_attack.reliable_damage = str(reliable_past_tear * 2)
+
 			var segment_two_flags:Array = context.flags.duplicate()
 			segment_two_flags.erase(Action.FLAG.CAN_FOLLOWUP)
 			segment_two_flags.append_array([Action.FLAG.HALF_DAMAGE, Action.FLAG.AS_FREEBIE, Action.FLAG.NO_SELF_HEAT])
@@ -267,20 +369,50 @@ func activate(context:Context, activation:EventCore) -> void:
 		if followup_attack.range_pattern and followup_attack.range_pattern.pattern == Lancer.AOE_TYPE.CONE:
 			followup_attack.range_pattern = RangePattern.create(followup_attack.range_pattern.pattern, remaining)
 		else:
-			followup_attack.aim_range = remaining
+			# The MELEE/THROWN/aim_range split; see narrow_range_past_tear's banner for why writing
+			# aim_range unconditionally was wrong.
+			narrow_range_past_tear(specific, first_leg)
 
-		relay_buff = UnitCondition.apply_buff_id(activation, unit, RELAY_BUFF_ID, context.gear)
-		relay_buff.set_state(PROXY_KEY, proxy.core.persistent_id)
+		# THE BANSHEE FIRES FIRST, THEN THE TEAR. The relay swap on the line below moves the whole
+		# activation's origin to the proxy, and ActionAttack.run_attack_effects then plays the
+		# weapon's attack FXG from specific.unit (action_attack.gd:222) - so on this path the ONLY
+		# muzzle flash in the whole bend came out of the tear, and the shot read as the tear
+		# attacking rather than the Banshee shooting through a window. (The LINE path above reads
+		# correctly on its own: segment 1 genuinely fires from the Banshee and segment 2 from the
+		# tear, which is the sequence this line reconstructs for a single relayed shot.)
+		#
+		# Awaited so the two flashes read in sequence rather than overlapping. fxg_target is null on
+		# purpose: this is the Banshee's muzzle end only - the impact belongs to the real attack, at
+		# the real target, and playing a hit effect on the tear would read as the tear being shot.
+		#
+		# BEFORE THE CONFIRMATIONS, unavoidably. get_attacker_relay is consulted on the first line of
+		# ActionAttack.activate, so the relay buff has to exist before we delegate, and this has to
+		# precede the buff - which puts it ahead of the friendly-fire / no-targets confirmations
+		# inside that activate(). A player who declines one has already seen the Banshee's flash. The
+		# alternative is no flash at all, which is the bug being fixed.
+		if Unit.is_valid(unit):
+			await CommonActionUtil.run_attack_and_target_fx(
+				followup_attack.get_attack_fxg(context.gear, followup_attack), unit,
+				null, [tear_tile]
+			)
 
-		# Delegate with a context re-pointed at the FOLLOWUP, not the wrapper. SpecificAction.from_context
-		# rebuilds specific.action straight from context.action, and that is what event_unit_attack_declared
-		# and friends read damage_dice/aim_range/weapon_size/threat/tags from - not from `self`, even though
-		# `self` (the object this activate() runs on) is already the followup. Handing the followup our own
-		# (wrapper) context would run its targeting and damage resolution against the wrapper's unset
-		# defaults instead of the real weapon. Mirrors action_throughbolt_line.gd's followup_context swap.
-		var followup_context := Context.clone(context, { action = followup_attack })
-		activation.context = followup_context
-		await followup_attack.activate(followup_context, activation)
+		# Guarded, and FALLING THROUGH to the cleanup below rather than returning early - the same
+		# shape (and the same reason) as the LINE path's abort guard above: the proxy has to be taken
+		# off the map whatever happens. The Banshee dying during the muzzle FX above is the trace
+		# this covers.
+		if Unit.is_valid(unit):
+			relay_buff = UnitCondition.apply_buff_id(activation, unit, RELAY_BUFF_ID, context.gear)
+			relay_buff.set_state(PROXY_KEY, proxy.core.persistent_id)
+
+			# Delegate with a context re-pointed at the FOLLOWUP, not the wrapper. SpecificAction.from_context
+			# rebuilds specific.action straight from context.action, and that is what event_unit_attack_declared
+			# and friends read damage_dice/aim_range/weapon_size/threat/tags from - not from `self`, even though
+			# `self` (the object this activate() runs on) is already the followup. Handing the followup our own
+			# (wrapper) context would run its targeting and damage resolution against the wrapper's unset
+			# defaults instead of the real weapon. Mirrors action_throughbolt_line.gd's followup_context swap.
+			var followup_context := Context.clone(context, { action = followup_attack })
+			activation.context = followup_context
+			await followup_attack.activate(followup_context, activation)
 
 	if Unit.is_valid(unit) and BuffCore.is_valid(relay_buff): UnitCondition.clear_buffs(activation, unit, [relay_buff])
 	if Unit.is_valid(proxy): proxy.remove_from_game()
