@@ -35,7 +35,23 @@ func check_if_passive_applies(core:BuffCore, context:Context) -> bool:
 	# (context.target_unit) for their IGNORE_INVISIBLE buffs, so without this gate the trait would
 	# also fire when the Banshee is the one being shot AT - halving the chance an attack against an
 	# INVISIBLE Banshee misses, which is not what the trait is for.
-	if core.get_owner_unit(context.map) != context.unit: return false
+	#
+	# get_attacker, NOT context.unit RAW. On a To Bend Reality attack, action_attack.gd:233 swaps
+	# specific.unit for the bend proxy standing on the tear, and every downstream event carries that
+	# proxy as context.unit - so `owner != context.unit` compared the Banshee against a proxy, never
+	# matched, and To Twist Truth silently stopped working the moment the player used the frame's
+	# signature trait. Unit.get_attacker (unit.gd:276-283) resolves the relay back through
+	# state.set_owner, which create_targeting_proxy sets to the Banshee; on an unrelayed attack it
+	# returns the attacker unchanged, so this is a no-op there. Same undo as
+	# event_unit_attack_declared.gd:29.
+	#
+	# THE BUFF ALSO HAS TO BE FOUND, which the gate alone does not achieve: get_invisibility_summary
+	# only ever asks [context.unit, context.target_unit] for their buffs, and on a bend NEITHER is the
+	# Banshee. action_bend_reality.gd therefore mirrors the Banshee's IGNORE_INVISIBLE buffs onto the
+	# proxy for the life of the bend, preserving from_gear so get_owner_unit below still resolves to
+	# the Banshee and this comparison still holds. Both halves are required; neither works alone.
+	if not Unit.is_valid(context.unit): return false
+	if core.get_owner_unit(context.map) != context.unit.get_attacker(context): return false
 
 	# THE GATE. get_invisibility_summary (unit_condition.gd:446-469) computes `is_invisible` from
 	# TWO sources - the target's Lancer.STATUS.INVISIBLE, and Buff.TO.TREAT_AS_INVISIBLE buffs on

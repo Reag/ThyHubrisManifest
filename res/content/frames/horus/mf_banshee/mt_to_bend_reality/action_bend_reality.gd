@@ -107,6 +107,42 @@ func line_segment_lengths(specific:SpecificAction, tear_tile:Vector2i) -> Vector
 	var remaining:int = remaining_range_after(specific, tear_tile, first_leg)
 	return Vector2i(first_leg, remaining)
 
+## WHY THE PROXY NEEDS BUFFS AT ALL, given get_attacker exists.
+##
+## UnitCondition.get_invisibility_summary (unit_condition.gd:446-469) is the ONLY consumer of
+## invisibility, and it enumerates buffs off exactly two units: `for unit in [context.unit,
+## context.target_unit]`. On a bend context.unit is the proxy (action_attack.gd:233 swapped it), so
+## the Banshee is not in that list at all and its IGNORE_INVISIBLE buffs are never even looked at -
+## To Twist Truth stopped existing the moment To Bend Reality was used. No amount of get_attacker
+## inside a buff's predicate fixes that: the predicate is not reached, because the buff is not found.
+## And there is nowhere else to stand - AttackUtil.check_if_invisibility_forces_miss is the sole call
+## site and attack_util.gd is a confirmed-dead script-extension seam in this project (see
+## buff_to_twist_truth.gd's banner). So the buffs have to be ON the proxy before the attack starts.
+##
+## from_gear is COPIED VERBATIM, which is what makes the mirrored copy behave like the original:
+## BuffCore.get_owner_unit resolves the gear id back to whoever holds that gear
+## (buff_core.gd:102-105), so the mirror on the proxy still reports the BANSHEE as its owner, and
+## buff_to_twist_truth's `owner == get_attacker(context.unit)` gate still answers correctly. Copying
+## the base Buff with a blank from_gear instead would silently disarm that gate.
+##
+## GENERIC OVER Buff.TO.IGNORE_INVISIBLE rather than hardcoding buff_to_twist_truth: To Bend Reality
+## has no business knowing which of the Banshee's other traits happens to grant it, and a later
+## source (a pilot talent, a mod's system) would otherwise break in the same silent way.
+##
+## Only IGNORE_INVISIBLE is mirrored, deliberately. TREAT_AS_INVISIBLE does NOT need mirroring -
+## clause 6's buff is handed to every character on the map, so the TARGET carries it and
+## get_invisibility_summary finds it there (buff_tear_invisibility.gd recognises the bend from the
+## proxy itself). Copying the whole buff list across would drag statuses, auras and one-shot state
+## onto a unit that lives for one activation.
+##
+## No cleanup is needed: the proxy is removed from the game at the end of activate().
+func _mirror_invisibility_buffs_onto(activation:EventCore, from_unit:Unit, proxy:Unit) -> void:
+	if not Unit.is_valid(from_unit) or not Unit.is_valid(proxy): return
+	for buff_core:BuffCore in from_unit.state.buffs:
+		if not BuffCore.is_valid(buff_core): continue
+		if buff_core.base.to != Buff.TO.IGNORE_INVISIBLE: continue
+		UnitCondition.apply_buff_alt(activation, proxy, BuffCore.create(buff_core.base, buff_core.from_gear))
+
 func activate(context:Context, activation:EventCore) -> void:
 	if activation.abort_when(not Action.is_valid(followup_attack)): return
 	var unit := context.unit
@@ -129,6 +165,7 @@ func activate(context:Context, activation:EventCore) -> void:
 	var is_line:bool = followup_attack.range_pattern != null and followup_attack.range_pattern.pattern == Lancer.AOE_TYPE.LINE
 
 	var proxy := TargetActionUtil.create_targeting_proxy(tear_tile, unit, 1, TearRouting.BEND_PROXY_FRAME_ID)
+	_mirror_invisibility_buffs_onto(activation, unit, proxy)
 	var relay_buff:BuffCore
 
 	if is_line:

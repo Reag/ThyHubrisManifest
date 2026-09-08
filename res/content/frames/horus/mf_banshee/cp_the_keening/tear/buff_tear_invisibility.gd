@@ -25,4 +25,23 @@ const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/h
 ## the context's point of view rather than the carrier's - `core` is deliberately unused.
 func check_if_passive_applies(core:BuffCore, context:Context) -> bool:
 	if context == null: return false
+
+	# A BEND IS AN ATTACK THROUGH A TEAR BY CONSTRUCTION, so clause 6 applies to it without any
+	# geometry being consulted. action_attack.gd:233 relays a bent attack through a proxy standing ON
+	# the chosen tear, and every downstream event carries that proxy as context.unit.
+	#
+	# Nothing here worked on a bend before. The routing question below is asked about the PAIR, and
+	# TearRouting.is_cross_tangible reads raw INTANGIBLE status - the proxy has none of its own
+	# (create_targeting_proxy gives it faction and owner and nothing else), so for the ordinary bend
+	# (tangible Banshee, tangible target) it answered "not cross-tangible" and clause 6 went quiet,
+	# while for a both-INTANGIBLE bend the proxy's laundered tangibility made it answer yes by
+	# accident. Neither reading is the rule.
+	#
+	# get_attacker is NOT the fix at this site, and that is worth spelling out because it is at the
+	# other two. Resolving the proxy back to the Banshee gives a pair that To Bend Reality guarantees
+	# is SAME-tangibility (unit_relation.gd_ext.gd refuses a bend across the line), so
+	# is_cross_tangible would still be false and clause 6 would still never fire. The bend does not
+	# need its route rediscovered - the player picked the tear it goes through.
+	if TearRouting.is_bend_proxy(context.unit): return true
+
 	return TearRouting.attack_routes_through_tear(context.unit, context.target_unit)

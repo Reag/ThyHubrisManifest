@@ -34,7 +34,27 @@ const KEENING_KIT_ID := &'cp_the_keening'
 const MOURNING_CALL_ACTION_ID := &'action_mourning_call'
 
 func on_resolution(activation:EventCore) -> void:
-	var unit:Unit = activation.context.unit
+	var context := activation.context
+	if not Unit.is_valid(context.unit): return
+
+	# NOT `context.unit` - THAT MAY NOT BE THE BANSHEE. action_attack.gd:233 assigns
+	# `specific.unit = get_attacker_relay(...)` as the FIRST line of every attack activation, and To
+	# Bend Reality's relay buff swaps in the bend proxy standing on the tear. event_unit_attack_declared
+	# then builds every downstream event with that proxy as context.unit (its own comment at :28 says
+	# "may be a throughbolt round"), and this on-hit effect runs off that same core. So on a bent
+	# attack `context.unit` is a dep_bend_proxy_banshee, which owns no cp_the_keening: the
+	# SpecificAction.from_id below came back invalid and Mourning Call was silently never offered.
+	#
+	# Unit.get_attacker (unit.gd:276-283) is the engine's own undo for that swap - it returns self for
+	# a unit carrying SET_ATTACK_ROOT and get_owner_unit_or_self() otherwise, and
+	# TargetActionUtil.create_targeting_proxy (target_action_util.gd:284) calls
+	# `proxy.state.set_owner(base_unit)`, so our proxy resolves back to the Banshee. The precedent is
+	# one line below that comment: event_unit_attack_declared.gd:29 does exactly this to find the
+	# `owner` it reads weapon mods and ONHIT_EFFECT buffs from - which is why this effect is reached
+	# at all on a bend, and why reading context.unit raw here was inconsistent with the very call that
+	# delivered us. On an ordinary attack get_attacker returns the attacker itself, so this is a
+	# no-op there.
+	var unit:Unit = context.unit.get_attacker(context)
 	if not Unit.is_valid(unit): return
 
 	var mourning_call := SpecificAction.from_id(unit, KEENING_KIT_ID, MOURNING_CALL_ACTION_ID)
