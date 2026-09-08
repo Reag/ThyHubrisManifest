@@ -225,3 +225,29 @@ func test_closing_is_named_from_the_core_powers_key():
 	if not GearCore.is_valid(gear): return fail_test('The Banshee carries The Keening.')
 	var specific := SpecificAction.from_id(banshee, &'cp_the_keening', &'action_tear_close')
 	assert_eq(specific.action.name(specific), 'Close Tear', 'Its name resolves on its new kit.')
+
+func test_an_intangible_banshee_can_still_open_a_tear():
+	# PLAYTEST FIX 8.3, and the reachability half of it. Vanilla ActionSystemDeploy refuses outright
+	# while INTANGIBLE (action_system_deploy.gd:21) - a sensible default for dropping a physical
+	# drone, and exactly backwards for a window between tangible and intangible space. Clause 1
+	# carries no tangibility condition, and the Banshee's own Whispering is its main way of getting
+	# there, so the vanilla check locked the frame out of its own core power.
+	SpecFactory.apply(banshee, Lancer.STATUS.INTANGIBLE)
+	if not banshee.has_status(Lancer.STATUS.INTANGIBLE): return fail_test('The Banshee is intangible.')
+
+	var specific := SpecificAction.from_id(banshee, &'cp_the_keening', &'action_tear')
+	if not SpecificAction.is_valid(specific): return fail_test('The Banshee carries action_tear.')
+	assert_true(UnitAction.can_activate_gear(specific),
+		'An INTANGIBLE Banshee can reach Tear - this is what the UI and the AI ask.')
+
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'And the tear actually lands.')
+
+func test_the_tear_cap_still_refuses_at_the_limit():
+	# The other side of not chaining to super: the cap is this action's OWN check and must survive
+	# being restated alongside the intangibility exemption.
+	for i:int in TearRouting.MAX_TEARS:
+		await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(3 + (i % 8), 3 + (i / 8))])
+	if TearRouting.open_tears(game.map).size() != TearRouting.MAX_TEARS: return fail_test('The cap was filled.')
+	var specific := SpecificAction.from_id(banshee, &'cp_the_keening', &'action_tear')
+	assert_false(UnitAction.can_activate_gear(specific), 'At the cap, Tear is not offered.')

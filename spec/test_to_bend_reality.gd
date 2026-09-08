@@ -277,10 +277,18 @@ func test_activating_the_bend_resolves_damage_from_the_followups_own_weapon():
 	target.core.frame.stat.armor = 0
 	target.core.full_repair()
 
-	# [to-hit d20, base damage 1d6]. Evasion 0 means any non-fumble roll hits, so 15 is a safe,
-	# unambiguous (non-crit, non-fumble) forced hit; 4 is comfortably clear of the rifle's reliable-2
-	# floor, so a mis-delegated 0-damage roll can't be mistaken for a reliable minimum kicking in.
-	Dice.CHEAT_ROLL_QUEUE.append_array([15, 4])
+	# A UNIFORM QUEUE, not a hand-counted [to-hit, damage] pair. Clause 6 is delivered to every
+	# character on the map whenever a tear is open (unit_tile.gd_ext.gd's hand-out), and a bend is an
+	# attack through a tear by construction, so TWO extra d6 rolls now sit in front of the to-hit
+	# roll: To Twist Truth's, then invisibility's. A two-entry queue was eaten by those, the to-hit
+	# and damage rolls went random, and the assertion read the rifle's reliable-2 floor instead of
+	# its 1d6.
+	#
+	# 4 is the one value that is correct in all four positions: > 3 on both d6s (no forced miss, and
+	# no To Twist Truth reroll either way), a non-crit non-fumble hit against evasion 0 on the d20,
+	# and comfortably clear of the reliable-2 floor as the damage die - so a mis-delegated 0-damage
+	# roll still cannot be mistaken for a reliable minimum. Over-long on purpose; after_each clears it.
+	Dice.CHEAT_ROLL_QUEUE.assign([4,4,4,4,4,4,4,4])
 
 	SpecFactory.current_responder.chosen_plan_queue = [
 		CompconPlan.create([Vector2i(5,1)]), # the tear
@@ -419,7 +427,11 @@ func test_a_bend_hits_a_target_the_banshee_cannot_reach_directly():
 		CompconPlan.create([Vector2i(1 + weapon_range - 1, 1)]), # the tear
 		CompconPlan.create([], [], [target]),                    # the target, from the tear
 	]
-	Dice.CHEAT_ROLL_QUEUE = [20]
+	# Uniform and over-long, for the same reason as
+	# test_activating_the_bend_resolves_damage_from_the_followups_own_weapon above: with a tear open,
+	# clause 6 puts two d6 rolls in front of the to-hit roll, and a one-entry queue drains before the
+	# damage roll is reached.
+	Dice.CHEAT_ROLL_QUEUE.assign([4,4,4,4,4,4,4,4])
 	await game.execute_event(&'event_gear_activate', {
 		action = gear.get_solo_action(), gear = gear, unit = banshee,
 		string = 'to_bend_reality',
@@ -740,7 +752,18 @@ func test_a_bent_line_hits_both_segments_and_halves_the_second():
 		CompconPlan.create([Vector2i(4,1)]),  # the tear
 		CompconPlan.create([Vector2i(9,1)]),  # segment 2's direction
 	]
-	Dice.CHEAT_ROLL_QUEUE = [20, 20, 4, 4] # both attacks hit; both damage rolls fixed
+	# A UNIFORM, OVER-LONG QUEUE, not the hand-counted [20, 20, 4, 4] this used to be. Clause 6 now
+	# reaches these victims: buff_tear_invisibility is handed out on every occupancy change while a
+	# tear is open (unit_tile.gd_ext.gd), so _place_frame above gives all three units the buff, and a
+	# bend is an attack through a tear by construction - which puts TWO extra d6 rolls (To Twist
+	# Truth's, then invisibility's) into the middle of this sequence per segment. The hand-counted
+	# queue ran dry partway through and the remaining rolls went random, so segment 2 intermittently
+	# missed or dealt 0. Same fix, and same reasoning, as the LINE occupant tests further down.
+	#
+	# 2, not a bigger number, for the reason spelled out at test_a_character_on_the_bend_is_hit_by_both:
+	# a dummy Everest has 8 HP and event_unit_structure REFILLS health at zero structure, which reads
+	# back as current_damage() == 0. Full plus half must stay comfortably under that.
+	Dice.CHEAT_ROLL_QUEUE.assign([2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2])
 	await game.execute_event(&'event_gear_activate', {
 		action = gear.get_solo_action(), gear = gear, unit = banshee,
 		string = 'to_bend_reality',

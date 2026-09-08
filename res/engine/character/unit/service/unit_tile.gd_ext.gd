@@ -25,6 +25,7 @@
 extends "res://engine/character/unit/service/unit_tile.gd"
 
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
+const TearInvisibilityGrant := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_invisibility_grant.gd')
 
 ## The sweep. Adds the tiles held by cross-tangible units this viewer can reach through a tear.
 static func get_tiles_in_los(unit:Unit, from_tile := Tile.INVALID, ignore_blinded := false) -> PackedInt64Array:
@@ -164,8 +165,8 @@ static func get_tiles_within(
 			elif present and not qualifies: tiles.erase(tile)
 	return tiles
 
-## Cache invalidation hook, NOT a behaviour change - super is called unmodified and its result is
-## untouched.
+## Cache invalidation AND clause 6's re-hand-out. Super is called unmodified and its result is
+## untouched - this override adds work after it and changes nothing it did.
 ##
 ## tear_routing's visibility cache stores get_tiles_in_los_alt results, and those depend on
 ## map.elevation_with_units and map.does_dynamic_zone_block_sight - both of which move when units do.
@@ -179,6 +180,23 @@ static func get_tiles_within(
 ## STILL NOT COVERED, and worth knowing: a dynamic sight zone (smoke) created or expiring without a
 ## unit moving. Nothing routes through that path today, but a mod that lays smoke as a free action
 ## could stale the cache until the next unit moves.
+##
+## ------------------------------------------------------------------------------------------------
+## SECOND JOB (2026-09-08): CLAUSE 6's RE-HAND-OUT.
+##
+## action_tear.gd hands the clause 6 predicate to every character on the map when a tear is placed,
+## and that used to be the only time it happened - so a unit that arrived AFTERWARDS never carried
+## it, and clause 6 silently did not exist for reinforcements, drones or anything deployed mid-scene.
+##
+## This is the engine's own "occupancy or statuses changed" callback and it already runs for exactly
+## the events that matter (spawn, move, death), which is why the hook goes here rather than into a
+## new reaction: there is nothing to install and nothing to keep in sync.
+##
+## The no-tear path must cost essentially nothing, because this runs constantly and in every mission
+## in the game, Banshee or no Banshee. hand_out_if_any_tear_is_open leads with tear_tiles(map),
+## which is a single cached scan of the unit list, and returns immediately when it is empty.
+## ------------------------------------------------------------------------------------------------
 static func update_tracking_and_statuses(map:MapState, event:EventCore = null) -> void:
 	super.update_tracking_and_statuses(map, event)
 	TearRouting.invalidate(map)
+	TearInvisibilityGrant.hand_out_if_any_tear_is_open(map, event)
