@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://djuk56crywqss" path="res://engine/character/unit_core/mount_type.gd" id="1_wrn38"]
 [ext_resource type="Script" uid="uid://bxpc46igtsmvw" path="res://engine/character/unit/statblock.gd" id="2_statblock"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="3_kit"]
-[ext_resource type="Texture2D" uid="uid://b2uwbqv83u60k" path="res://assets/frames/shared/dep_missing_frame.png" id="4_sprite"]
+[ext_resource type="Texture2D" uid="uid://che1iapn1u0c1" path="res://assets/frames/shared/blank.png" id="4_sprite"]
 [ext_resource type="Resource" uid="uid://cwkwhcnkc3nvc" path="res://content/gear/shared/invulnerability/mt_invulnerable.tres" id="5_mt_invulnerable"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/mt_tear_banshee.tres" id="6_mt_tear"]
 

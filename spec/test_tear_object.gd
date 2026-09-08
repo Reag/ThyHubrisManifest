@@ -256,3 +256,42 @@ func test_the_tear_cap_still_refuses_at_the_limit():
 	if TearRouting.open_tears(game.map).size() != TearRouting.MAX_TEARS: return fail_test('The cap was filled.')
 	var specific := SpecificAction.from_id(banshee, &'cp_the_keening', &'action_tear')
 	assert_false(UnitAction.can_activate_gear(specific), 'At the cap, Tear is not offered.')
+
+# --- the visual (2026-09-08) ---
+#
+# The tear used to render as res://assets/frames/shared/dep_missing_frame.png - the engine's
+# "this frame has no art" box. Its look now comes from an FxEndless scene attached by a plain
+# Passive on mt_tear_banshee, with the sprite set to blank.png (vanilla's own idiom for an
+# fx-only deployable: dep_unstable_system_reactor, dep_remote_projector_aegis and three others).
+#
+# These assert the WIRING, not the pixels. Nothing else in the suite would notice if the passive
+# lost its fxe, the scene stopped loading, or the sprite went back to the placeholder - the tear
+# would simply be invisible in play and every other test would stay green. That is the same shape
+# as the two unreachable-pick bugs this frame has already shipped, so it gets an assertion.
+
+func _tear_visual_passive() -> Passive:
+	for kit:Kit in (load(TEAR_PATH) as Frame).traits:
+		if kit.compcon_id != &'mt_tear_banshee': continue
+		for passive:Passive in kit.passives:
+			if passive.fxe != null: return passive
+	return null
+
+func test_the_tear_carries_a_visual_fx():
+	assert_not_null(_tear_visual_passive(),
+		'mt_tear_banshee carries a Passive with an fxe - without it the tear is invisible.')
+
+func test_the_tear_fx_scene_actually_loads():
+	# A PackedScene reference that fails to load yields a null fxe_id and the ticket is dropped
+	# silently by Passive.get_attached_fx.
+	var passive:Passive = _tear_visual_passive()
+	assert_not_null(passive, 'precondition: the visual passive exists')
+	if passive == null: return
+	assert_true(is_instance_valid(passive.fxe.instantiate()), 'fxe_void_tear.tscn instantiates.')
+	assert_ne(passive.get_fxe_id(), &'', 'the fxe resolves to a real id, so a ticket can be issued.')
+
+func test_the_tear_no_longer_uses_the_missing_frame_placeholder():
+	var tear:Frame = load(TEAR_PATH)
+	assert_false(tear.sprites.is_empty(), 'the frame has a sprite')
+	for sprite:Texture2D in tear.sprites:
+		assert_false(sprite.resource_path.contains('dep_missing_frame'),
+			'the tear is not drawn with the engine placeholder box.')
