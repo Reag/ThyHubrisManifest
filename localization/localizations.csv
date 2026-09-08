@@ -180,7 +180,14 @@ gear.mt_whispering.effect,"As a protocol, the Banshee can become INTANGIBLE unti
 gear.mt_whispering.trigger,
 gear.cp_the_keening.name,The Keening
 gear.cp_the_keening.effect,
-gear.cp_the_keening.flavor,
+gear.cp_the_keening.flavor,"Described as a lament for the dead, “keening” is a funeral call of mourning practiced by various cultures around Union space. The Banshee, though seldom seen, is always associated with a loud drone most frequently described as harsh wind or constant scream.
+Note: Could the sound be related to Aunic Souls? A byproduct perhaps?
+Though never recorded, some survivor accounts describe words being heard behind the howl. These included the names of present pilots, notable actions taken by present pilots, and the names of present pilot’s family members.
+The earliest report possibly attributable to the Banshee is from 5010u, after Fansipan, when a rumor of “dead Ofanim” appearing from thin air circulated online.
+Note: Validity is vague, but core details are consistent with later confirmed encounters.
+Those who survive these encounters always note hearing the call, though other evidence implies that typically at least one combatant does not hear it.
+Note: My assistant questioned if the Banshee leaves survivors on purpose. A question for another day, I think.
+– Dr. Lichen, UIB Boundary Garde"
 gear.cp_the_keening.action_tear.name,Tear
 gear.cp_the_keening.action_tear.effect,"Create a void tear in a free space within SENSORS. Tears are undamageable Size 1 objects that do not cause obstruction. They are visible to both tangible and INTANGIBLE characters, and act as a window between tangible and intangible space.
 Intangible characters can draw line of sight to tangible targets if the line passes through a tear. Terrain and tangible objects do not exist in intangible space, and so do not block line of sight before passing through a tear.
