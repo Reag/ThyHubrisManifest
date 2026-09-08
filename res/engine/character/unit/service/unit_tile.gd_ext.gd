@@ -12,6 +12,12 @@
 # tear was open, which made every tear a free corner-peek for both teams; nothing in the rules text
 # grants that. The gate lives in tear_routing.is_cross_tangible and is applied on both paths here.
 #
+# STRICT COLLINEARITY (2026-09-08). Both clauses say the line PASSES THROUGH a tear, so the tear has
+# to be on the line between the pair - not merely visible to both of them. The bent-path reading that
+# shipped first is To Bend Reality's rule, and conflating the two erased the difference between the
+# frame's core power and its signature trait. The test lives in tear_routing._tears_on_the_line and
+# reaches this file through routes_between and routes_within_range; nothing here decides it.
+#
 # Everything real lives in tear_routing.gd. This file is a shim on purpose - see that file's header.
 #
 # Note gavstarb-talents_1st_party also extends unit_tile.gd. Both install and both fire; ours calls
@@ -94,6 +100,43 @@ static func is_tile_in_los(map:MapState, occupied_tiles:Array[Vector2i], from_he
 ##
 ## Skipped entirely when the caller does not care about sight (`consider_line_of_sight` false), since
 ## routing is a line-of-sight concept - that caller wants raw reach.
+##
+## ------------------------------------------------------------------------------------------------
+## RANGE-CAP COVERAGE - what clause 7 actually reaches, audited 2026-09-08. Read this before
+## believing the cap is universal; it is not, and the gaps are known rather than suspected.
+##
+## COVERED, because every one of these paths ends up here with the weapon's own range in hand:
+##   - ordinary weapon and tech targeting. UnitTargeting.get_tiles_in_range (unit_targeting.gd:33)
+##     calls this with specific.action.get_target_range, and every crosshair the player sees is
+##     filtered through it.
+##   - OVERWATCH AND WEAPON REACTIONS, contrary to what the fix plan assumed. They do not stop at
+##     "raw distance + can_see": UnitRelation.can_weapon_hit_target_as_rxn (unit_relation.gd:302-308)
+##     also requires UnitTargeting.get_tiles_in_range(specific).has(closest_pair.to), which is this
+##     function again. The raw-distance test is an additional filter, not the only one. Pinned by
+##     test_tear_range.gd's reaction tests - if those go red, this paragraph is what became false.
+##   - the AI's threat model, which reaches the same two functions.
+##
+## NOT COVERED. Each of these can put an attack through a tear with a post-tear leg longer than half
+## its range, and nothing in this mod stops it:
+##   - SEEKING and ARCING weapons, and anything else whose action returns requires_line_of_sight
+##     false. That makes `consider_line_of_sight` false and this function returns super's answer
+##     untouched. It CANNOT simply be policed anyway: the same false is passed by passive_aura.gd:90,
+##     action_reaction_aura.gd:101, passive_dynamic_zone.gd:24 and common_action_util.gd:168, none of
+##     which are attacks and none of which clause 7 governs - and the signature here carries a unit
+##     and a number, with nothing to tell an aura from a seeking missile. Covering this needs a seam
+##     that still holds the SpecificAction: UnitTargeting.get_tiles_in_range is that seam, but
+##     unit_targeting.gd is an unproven script-extension target (see the dead-seams note in
+##     CLAUDE.md's memory) and probing it was out of scope for this pass.
+##   - UnitRelation.can_affect, and so everything filtered through it - AoE membership
+##     (map_state.gd:320), the AI's score dictionary (ai_action_decider.gd:386), the crosshair list
+##     (tilepicker_compcon.gd:379). can_affect has no weapon in scope at all; it answers a question
+##     about a PAIR. See tear_bridges' own note in unit_relation.gd_ext.gd.
+##   - an action with a `range_tiles_override` (unit_targeting.gd:21-27), which replaces this call
+##     wholesale. No vanilla weapon in 1.3.3 pairs one with a normal range budget, but a mod could.
+##   - a Buff.TO.ACTION_TILES buff granting extra tiles: modify_action_tiles_from_buffs
+##     (unit_targeting.gd:164-181) merges them in AFTER this function has policed, so a granted tile
+##     is never re-checked against the cap.
+## ------------------------------------------------------------------------------------------------
 static func get_tiles_within(
 	unit:Unit,
 	max_range:int,

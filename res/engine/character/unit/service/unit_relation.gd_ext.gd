@@ -392,12 +392,38 @@ const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/h
 ##
 ## Ordered for cost. can_affect runs inside AI targeting loops and per-tile filtering, so the cheap
 ## status comparison runs before any tear lookup, and a map with no tears pays almost nothing.
+##
+## EYE HEIGHT, and why both directions are asked. routes_between measures its FIRST leg from the
+## height it is handed and its second from the tear's own terrain, so the height it gets is the
+## viewer's. Until 2026-09-08 this passed none, which measured the first leg from the ground while the
+## LOS seam (unit_tile.gd_ext.gd, both overrides) passed UnitTile.effective_height - so can_affect and
+## the targeting overlay could disagree about the same pair over a low wall: the crosshair appeared and
+## the shot was refused, or the reverse.
+##
+## Passing the height fixes that but makes the call ASYMMETRIC, because the two units need not stand
+## at the same height - and can_affect is asked as can_affect(a,b) at one call site and can_affect(b,a)
+## at another (map_state.gd:320, ai_action_decider.gd:386, tilepicker_compcon.gd:379). A pair the
+## engine believes can shoot only one way is a real defect, not a rounding error. So both directions
+## are asked, each measured from its own viewer, and either one bridging is enough. That is the same
+## shape TearRouting._tears_on_the_line uses for the collinearity term and for the same reason.
+##
+## NO RANGE CAP HERE, DELIBERATELY, AND IT IS A KNOWN GAP. Clause 7 ("an attack cannot travel more
+## than half its maximum range after passing through a tear") needs a weapon, and can_affect has none
+## in scope - it is a permission question about a PAIR, asked by AoE filters and AI scorers that have
+## no attack in hand at all. Nothing here can enforce it; see the range-cap coverage note on
+## unit_tile.gd_ext.gd's get_tiles_within for what does and what does not.
 static func tear_bridges(origin_unit:Unit, target_unit:Unit) -> bool:
 	if not Unit.is_valid(origin_unit) or not Unit.is_valid(target_unit): return false
 	# Only ever relevant across the line. A same-tangibility pair is vanilla's business.
 	if origin_unit.has_status(Lancer.STATUS.INTANGIBLE) == target_unit.has_status(Lancer.STATUS.INTANGIBLE): return false
 	if not is_instance_valid(origin_unit.map): return false
-	return TearRouting.routes_between(origin_unit.map, origin_unit.tile(), target_unit.tile())
+	var map:MapState = origin_unit.map
+	var origin_tile:Vector2i = origin_unit.tile()
+	var target_tile:Vector2i = target_unit.tile()
+	return (
+		TearRouting.routes_between(map, origin_tile, target_tile, UnitTile.effective_height(origin_unit, true, origin_tile))
+		or TearRouting.routes_between(map, target_tile, origin_tile, UnitTile.effective_height(target_unit, true, target_tile))
+	)
 
 ## TO BEND REALITY. A bend never crosses the tangibility line - "instead of changing an attack's
 ## tangibility" is a restriction, not flavour. The relay proxy carries no status of its own, so both

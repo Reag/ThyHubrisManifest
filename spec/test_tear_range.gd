@@ -58,6 +58,15 @@ func test_the_total_route_cannot_exceed_max_range():
 	assert_false(TearRouting.routes_within_range(game.map, Vector2i(1,1), Vector2i(15,1), 1, 10),
 		'The whole route must still fit inside the weapon max range.')
 
+func test_the_range_rule_also_requires_the_tear_to_be_on_the_line():
+	# routes_within_range is the tear WINDOW with a range budget bolted on, so it carries the same
+	# strict collinearity precondition routes_between does. Everything about this route is affordable -
+	# 4 tiles to the tear, 4 past it, against a range of 20 with a cap of 10 - and the only thing wrong
+	# with it is that (5,4) is nowhere near the due-east line from (1,1) to (9,1).
+	_setup(Vector2i(5,4), Vector2i(9,1))
+	assert_false(TearRouting.routes_within_range(game.map, Vector2i(1,1), Vector2i(9,1), 1, 20),
+		'An off-line tear routes nothing, however much range budget is left over.')
+
 func test_no_tear_means_no_route_at_any_range():
 	assert_false(TearRouting.routes_within_range(game.map, Vector2i(1,1), Vector2i(3,1), 1, 10),
 		'With no tear open nothing routes, whatever the range.')
@@ -80,3 +89,60 @@ func test_get_tiles_within_refuses_an_over_range_routed_target():
 	var reachable := UnitTile.get_tiles_within(shooter, 8, true)
 	assert_false(reachable.has(Vector2i(9,1)),
 		'Clause 7 keeps an over-range routed target out of reach.')
+
+# ---------------------------------------------------------------------------- the reaction path
+#
+# WHICH PATHS THE CAP ACTUALLY REACHES was the open question of Task 5, and the fix plan's guess -
+# that overwatch and reactions skip it, using "raw distance + can_see" - is WRONG. They also require
+# UnitTargeting.get_tiles_in_range(specific).has(closest_pair.to)
+# (unit_relation.gd:302-308, can_weapon_hit_target_as_rxn), and that walks straight back into
+# UnitTile.get_tiles_within with the weapon's own range - this mod's override, cap and all.
+#
+# These two tests are what makes that claim checkable rather than a comment. The coverage note on
+# unit_tile.gd_ext.gd's get_tiles_within asserts it in prose; if these go red, that prose is what
+# became false. They are deliberately a matched pair: the refusal alone would pass on a reaction path
+# that never fires for any reason at all.
+#
+# `use_normal_range_instead_of_threat = true` so the rifle is measured by its shooting range rather
+# than its threat, which is the geometry the rest of this file is built on.
+
+## Give the shooter a real gun and hand back the SpecificAction the reaction path would build for it.
+func _arm_the_shooter() -> SpecificAction:
+	var gear:GearCore = shooter.core.equip_system(&'mw_assault_rifle')
+	SpecFactory.apply_passive_buffs(shooter)
+	var actions:Array[ActionAttackWeapon] = gear.kit.get_weapon_actions()
+	if actions.is_empty(): return null
+	return SpecificAction.create(shooter, gear, actions[0])
+
+func _reaction_range(specific:SpecificAction) -> int:
+	return maxi(specific.action.threat_distance(specific), specific.action.ranged_distance(specific))
+
+func test_a_reaction_inside_the_cap_still_fires():
+	# The positive control, and it has to come first: without it the refusal below proves nothing,
+	# since an empty list is also what a reaction path that never fires would return.
+	var specific := _arm_the_shooter()
+	if specific == null: return fail_test('The shooter has a weapon action to react with.')
+	var weapon_range:int = _reaction_range(specific)
+	var half:int = Util.half(weapon_range)
+	# Post-tear leg exactly half the range, total exactly the range: the most generous route the cap
+	# permits, and collinear with the shooter along y = 1.
+	_setup(Vector2i(1 + weapon_range - half, 1), Vector2i(1 + weapon_range, 1))
+
+	assert_false(UnitRelation.get_weapons_that_can_react_against(shooter, ghost, true).is_empty(),
+		'A routed target inside both limits can be reacted against.')
+
+func test_a_reaction_through_a_tear_obeys_the_half_range_cap():
+	var specific := _arm_the_shooter()
+	if specific == null: return fail_test('The shooter has a weapon action to react with.')
+	var weapon_range:int = _reaction_range(specific)
+	var half:int = Util.half(weapon_range)
+	# Tear one step out, ghost one tile past the half-range cap beyond it. The TOTAL route
+	# (1 + half + 1) is still inside the weapon's range, so only the half cap can refuse this.
+	_setup(Vector2i(2,1), Vector2i(2 + half + 1, 1))
+	assert_true(TearRouting.routes_between(game.map, Vector2i(1,1), ghost.tile(), 1),
+		'Sanity: the pair really is bridged, so a refusal is the range rule and not the geometry.')
+	assert_false(TearRouting.routes_within_range(game.map, Vector2i(1,1), ghost.tile(), 1, weapon_range),
+		'Sanity: and the library does refuse it on the cap.')
+
+	assert_true(UnitRelation.get_weapons_that_can_react_against(shooter, ghost, true).is_empty(),
+		'Clause 7 reaches the reaction path too - it is not a targeting-overlay-only rule.')
