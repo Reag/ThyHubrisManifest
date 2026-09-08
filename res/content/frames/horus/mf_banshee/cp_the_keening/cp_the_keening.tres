@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="8_buff_script"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/buff_mourning_call.tres" id="9_buff"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/action_mourning_call_wreckless.tres" id="11_wreckless"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/action_tear_neither_side.tres" id="12_neither_side"]
 
 [sub_resource type="Resource" id="Resource_applicator"]
 script = ExtResource("7_applicator")
@@ -18,7 +19,7 @@ applied_buffs = Array[ExtResource("8_buff_script")]([ExtResource("9_buff")])
 
 [resource]
 script = ExtResource("2_kit")
-actions = Array[ExtResource("1_action")]([ExtResource("3_tear"), ExtResource("4_mourning_call"), ExtResource("5_tear_move"), ExtResource("10_tear_close"), ExtResource("11_wreckless")])
+actions = Array[ExtResource("1_action")]([ExtResource("3_tear"), ExtResource("4_mourning_call"), ExtResource("5_tear_move"), ExtResource("10_tear_close"), ExtResource("11_wreckless"), ExtResource("12_neither_side")])
 passives = Array[ExtResource("6_passive")]([SubResource("Resource_applicator")])
 is_trait = true
 metadata/_custom_type_script = "uid://ckrv6mvs5q65e"

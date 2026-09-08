@@ -634,6 +634,11 @@ const BANSHEE_CORE_POWER_MODES := [BANSHEE_TEAR, BANSHEE_MOURNING_CALL]
 ## cp_the_keening alongside the ability it belongs to; see action_mourning_call_wreckless.gd for why
 ## it has to be on the BANSHEE at all rather than on the target.
 const BANSHEE_MOURNING_CALL_WRECKLESS := &'action_mourning_call_wreckless'
+## The 2026-09-08 tangibility clean-up (clause 2): the UNIT_SPAWN:POST reaction that takes INTANGIBLE
+## back off a tear the Banshee opened while phased. Same shape and same reasons as the wreckless
+## reaction above - hidden, no book entry, and on the BANSHEE because a tear is a MARKER and a
+## marker's own reactions can never fire.
+const BANSHEE_TEAR_NEITHER_SIDE := &'action_tear_neither_side'
 
 func test_banshee_frame_is_registered():
 	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
@@ -702,8 +707,14 @@ func test_the_keening_has_two_parts_with_the_right_economy():
 	# unnoticed, which is why both assertions are kept.
 	var player_facing:Array = kit.actions.filter(func(action:Action) -> bool: return action.show_in_tooltip(kit)) 		.map(func(action:Action) -> StringName: return action.get_id())
 	assert_eq(player_facing, BANSHEE_CORE_POWER_MODES, 'It shows the player exactly its two parts.')
-	assert_eq(kit.actions.size(), 5, 'Two player-facing parts, the hidden Move Tear and Close Tear verbs, and the hidden wreckless reaction.')
+	assert_eq(kit.actions.size(), 6, 'Two player-facing parts, the hidden Move Tear and Close Tear verbs, and two hidden reactions.')
 	assert_true(by_id.has(BANSHEE_MOURNING_CALL_WRECKLESS), 'The wreckless reaction rides on this Kit, not on a trait of its own.')
+	# The second hidden reaction, added 2026-09-08: a tear must be NEITHER tangible nor intangible,
+	# and event_unit_spawn.gd:97-100 would otherwise hand one opened while phased a permanent
+	# INTANGIBLE. It lives here for the same reason the wreckless reaction does - a reaction only runs
+	# for a unit that has it equipped, and a tear is a MARKER that never takes a turn. See
+	# spec/test_tear_tangibility.gd.
+	assert_true(by_id.has(BANSHEE_TEAR_NEITHER_SIDE), 'The tear tangibility clean-up rides on this Kit too.')
 
 	var tear:Action = by_id.get(BANSHEE_TEAR)
 	if Action.is_valid(tear):
