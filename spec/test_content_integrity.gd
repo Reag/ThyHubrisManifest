@@ -600,3 +600,251 @@ func test_poisoned_soil_terrain_is_visible():
 	var zones:Array = kit.get_passives(PassiveTerrainZone)
 	if zones.is_empty(): return fail_test('mt_poisoned_soil carries a terrain zone.')
 	assert_eq(zones[0].get_fxe_id(), &'fxe_poisoned_soil', 'The trail draws an effect on every fouled tile.')
+
+# ============================== Banshee ==============================
+#
+# Variant frame cloning the SSC Death's Head license. Scaffold only: the three unique traits are
+# behaviourless Kits, the statblock is the Death's Head's, and there is no art yet.
+#
+# CORRECTED: this banner used to claim "each of those has a pending guard below". Two do - the art
+# guard and the copy guard - but the BEHAVIOURLESS TRAITS DO NOT. Their copy is written, so
+# test_banshee_effects_and_flavor_are_written pends only on the core power's blank effect/flavor and
+# says nothing about whether any trait actually does something. Nothing here would notice To Bend
+# Reality, To Twist Truth or Whispering shipping as empty Kits with complete tooltips. The statblock
+# guard is also gone by now - the frame has its own numbers.
+#
+# The mounts are NOT the Death's Head's: the Banshee carries a Main and a Heavy where the base frame
+# carries a Heavy and a Main/Aux, so the mount test below asserts the real loadout rather than
+# guarding a placeholder.
+#
+# As with the Kraken and the Nuckelavee there is deliberately NO license test here;
+# test_variant_licenses.gd carries li_banshee through all six of its clause tests from one row.
+
+const BANSHEE_TRAITS := [&'mt_to_bend_reality', &'mt_to_twist_truth', &'mt_whispering']
+const BANSHEE_CORE_POWER := &'cp_the_keening'
+## The Keening is two parts, and unusually for this mod BOTH are QUICK actions: Tear does NOT spend
+## the core power, Mourning Call does.
+const BANSHEE_TEAR := &'action_tear'
+const BANSHEE_MOURNING_CALL := &'action_mourning_call'
+const BANSHEE_CORE_POWER_MODES := [BANSHEE_TEAR, BANSHEE_MOURNING_CALL]
+## Task 3's kill rider (clause 7): the DEATH:PRE reaction that strips LEAVES_WRECK on a Mourning
+## Call kill. It has no book entry, no player-facing name and nothing to say for itself, and until
+## 2026-09-08 it had a Kit of its own (mt_mourning_call_wreckless) wired into the frame's traits --
+## where the playtest found it showing up as a fourth, nameless trait. It now lives on
+## cp_the_keening alongside the ability it belongs to; see action_mourning_call_wreckless.gd for why
+## it has to be on the BANSHEE at all rather than on the target.
+const BANSHEE_MOURNING_CALL_WRECKLESS := &'action_mourning_call_wreckless'
+## The 2026-09-08 tangibility clean-up (clause 2): the UNIT_SPAWN:POST reaction that takes INTANGIBLE
+## back off a tear the Banshee opened while phased. Same shape and same reasons as the wreckless
+## reaction above - hidden, no book entry, and on the BANSHEE because a tear is a MARKER and a
+## marker's own reactions can never fire.
+const BANSHEE_TEAR_NEITHER_SIDE := &'action_tear_neither_side'
+
+func test_banshee_frame_is_registered():
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	assert_true(is_instance_valid(frame), 'mf_banshee is in the frames index.')
+	if not is_instance_valid(frame): return
+	assert_eq(frame.role_primary, Lancer.SQUAD_ROLE.ARTILLERY, 'Banshee is Artillery.')
+	assert_eq(frame.role_secondary, Lancer.SQUAD_ROLE.NONE, 'And pure Artillery - no secondary role.')
+
+func test_banshee_traits_and_core_power_are_registered():
+	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER]:
+		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
+	assert_false(Kit.is_valid(ContentLibrary.get_kit(&'mt_mourning_call_wreckless')),
+		'And the old standalone wreckless Kit is gone from the index entirely.')
+
+func test_the_banshee_frame_carries_its_traits_in_book_order():
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+	var wired:Array[StringName] = []
+	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
+	# WHAT THE PLAYER SEES IN THE FRAME'S TRAIT LIST, and nothing else. There used to be a fifth
+	# entry here -- mt_mourning_call_wreckless, a Kit that existed only to carry one hidden reaction
+	# -- and the playtest saw it: a nameless trait in the book with no text and no effect. The
+	# reaction moved onto cp_the_keening; this assertion is what keeps it from coming back.
+	assert_eq(wired, BANSHEE_TRAITS + [BANSHEE_CORE_POWER], 'Three traits, then the core power. Nothing hidden in the list.')
+
+func test_banshee_traits_are_flagged_as_traits():
+	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER]:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
+		assert_false(kit.is_destructable(), 'And so is not destructible.')
+
+func test_the_banshee_core_power_reads_as_a_core_power():
+	var kit:Kit = ContentLibrary.get_kit(BANSHEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % BANSHEE_CORE_POWER)
+	assert_true(kit.is_core_power(), '%s is a core power.' % BANSHEE_CORE_POWER)
+
+func test_the_banshee_carries_a_main_and_a_heavy_mount():
+	# Not a placeholder guard - this is the Banshee's real loadout, and it deliberately differs from
+	# the Death's Head's Heavy + Main/Aux. Nothing else would notice if a later edit copied the base
+	# frame's mounts across along with its statblock.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+	var mounts:Array[StringName] = []
+	for mount:MountType in frame.mount_types: mounts.append(mount.compcon_id)
+	assert_eq(mounts, [&'mount_main', &'mount_heavy'] as Array[StringName], 'A Main and a Heavy.')
+
+func test_the_keening_has_two_parts_with_the_right_economy():
+	# Pinned from the scaffold, the way the Kraken's and the Nuckelavee's were: which half spends the
+	# core is invisible in play if it is wrong - the frame just plays as though its core never
+	# depletes, or always does. Both halves being QUICK makes that worse, not better: the two are
+	# indistinguishable in the action bar, so the only tell would be the core meter.
+	var kit:Kit = ContentLibrary.get_kit(BANSHEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % BANSHEE_CORE_POWER)
+
+	var by_id := {}
+	for action:Action in kit.actions: by_id[action.get_id()] = action
+
+	# The raw action list is no longer "exactly its two parts". BOTH of clause 8's verbs - Move Tear
+	# and Close Tear - also live on this Kit, because they are verbs of Tear rather than further
+	# modes of the core power: they are described inside Tear's own effect text, and each overrides
+	# show_in_tooltip -> false so the gear tooltip still reads as two abilities. (Close Tear lived on
+	# the tear's own kit until 2026-09-08, where it was unreachable - a marker never takes a turn -
+	# so every tear opened was permanent.) Assert on what the PLAYER is shown, then pin the total
+	# separately: filtering alone would let a fifth action, or a typo'd id on a hidden one, through
+	# unnoticed, which is why both assertions are kept.
+	var player_facing:Array = kit.actions.filter(func(action:Action) -> bool: return action.show_in_tooltip(kit)) 		.map(func(action:Action) -> StringName: return action.get_id())
+	assert_eq(player_facing, BANSHEE_CORE_POWER_MODES, 'It shows the player exactly its two parts.')
+	assert_eq(kit.actions.size(), 6, 'Two player-facing parts, the hidden Move Tear and Close Tear verbs, and two hidden reactions.')
+	assert_true(by_id.has(BANSHEE_MOURNING_CALL_WRECKLESS), 'The wreckless reaction rides on this Kit, not on a trait of its own.')
+	# The second hidden reaction, added 2026-09-08: a tear must be NEITHER tangible nor intangible,
+	# and event_unit_spawn.gd:97-100 would otherwise hand one opened while phased a permanent
+	# INTANGIBLE. It lives here for the same reason the wreckless reaction does - a reaction only runs
+	# for a unit that has it equipped, and a tear is a MARKER that never takes a turn. See
+	# spec/test_tear_tangibility.gd.
+	assert_true(by_id.has(BANSHEE_TEAR_NEITHER_SIDE), 'The tear tangibility clean-up rides on this Kit too.')
+
+	var tear:Action = by_id.get(BANSHEE_TEAR)
+	if Action.is_valid(tear):
+		assert_eq(tear.get_action_type(null), Lancer.ACTION.QUICK, 'Tear is a quick action.')
+		assert_false(bool(tear.consumes_core_power()), 'And does not spend the core.')
+
+	var mourning_call:Action = by_id.get(BANSHEE_MOURNING_CALL)
+	if Action.is_valid(mourning_call):
+		assert_eq(mourning_call.get_action_type(null), Lancer.ACTION.QUICK, 'Mourning Call is a quick action.')
+		assert_true(bool(mourning_call.consumes_core_power()), 'And spends the core.')
+
+func test_the_banshee_core_power_parts_do_not_share_a_round_allowance():
+	# Same trap as the Kraken's and the Nuckelavee's: actions on one Kit default to a usage_group
+	# keyed on the gear id, so a 1/round limit on either half would silently spend the other's.
+	var kit:Kit = ContentLibrary.get_kit(BANSHEE_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % BANSHEE_CORE_POWER)
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Both parts have their own usage_group.')
+	assert_false(groups.has(&''), 'And neither fell back to the shared default.')
+
+func test_banshee_names_are_localized():
+	var keys:Array[String] = ['frame.mf_banshee.name']
+	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER]:
+		keys.append('gear.%s.name' % kit_id)
+	for mode_id:StringName in BANSHEE_CORE_POWER_MODES:
+		keys.append('gear.%s.%s.name' % [BANSHEE_CORE_POWER, mode_id])
+	for key:String in keys:
+		assert_ne(tr(key), key, '%s resolves to real text.' % key)
+
+func test_banshee_effects_and_flavor_are_written():
+	# Stub rows, blank until the copy is written. Pending, not failing - see the Draugr traits above.
+	var unwritten:PackedStringArray = []
+	for key:String in ['frame.mf_banshee.flavor', 'frame.mf_banshee.flavor.short',
+			'gear.%s.effect' % BANSHEE_CORE_POWER, 'gear.%s.flavor' % BANSHEE_CORE_POWER]:
+		if tr(key) == key: unwritten.append(key)
+	for kit_id:StringName in BANSHEE_TRAITS:
+		var key := 'gear.%s.effect' % kit_id
+		if tr(key) == key: unwritten.append(key)
+	for mode_id:StringName in BANSHEE_CORE_POWER_MODES:
+		var key := 'gear.%s.%s.effect' % [BANSHEE_CORE_POWER, mode_id]
+		if tr(key) == key: unwritten.append(key)
+
+	if not unwritten.is_empty():
+		pending('Banshee copy not written yet: %s' % ', '.join(unwritten))
+		return
+
+	assert_true(true, 'The Banshee has flavor and effect text throughout.')
+
+func test_banshee_stats_are_its_own_and_not_the_deaths_heads():
+	# The statblock ships as the Death's Head's placeholder. The Kraken went two commits with the
+	# Saladin's numbers before anyone noticed, so this says so out loud rather than hoping.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	var deaths_head:Frame = ContentLibrary.get_mech_frame(&'mf_deaths_head')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+	if not is_instance_valid(deaths_head): return fail_test('mf_deaths_head loaded.')
+
+	if _statblock_signature(frame.stat) == _statblock_signature(deaths_head.stat):
+		pending('Statblock is still the Death\'s Head\'s placeholder.')
+		return
+
+	assert_true(true, 'The Banshee has its own numbers.')
+
+func test_the_banshee_has_art():
+	# An unwired sprite falls back to the missing-frame token, which reads in the catalog as a
+	# broken frame rather than an unfinished one.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+
+	if frame.sprites.is_empty():
+		pending('No art wired yet - drop a png in res/assets/frames/horus/mf_banshee/.')
+		return
+
+	assert_true(true, 'The Banshee has a sprite.')
+
+# --- Banshee icons (2026-09-08) ---
+#
+# Every player-facing Kit and Action on the Banshee carries an icon_override. Without one the
+# engine falls back to Kit.DEFAULT_SYSTEM_ICON / Action.DEFAULT_ICON - the generic grey box - which
+# is not an error and produces no warning, so a lost or mistyped reference is invisible except by
+# looking at the gear bar.
+#
+# Asserts only that an icon is SET and LOADS, deliberately not WHICH one. The choice of art is the
+# author's and may well change; a test naming specific files would have to be edited every time
+# somebody picked a better icon, which is a test fighting its owner rather than protecting anything.
+#
+# Buffs are excluded on purpose: every buff on this frame is hide_from_player = true, so it has no
+# icon to show. Both reactions (action_mourning_call_wreckless, action_tear_neither_side) are
+# excluded for the same reason - ActionReaction is filtered out of the gear bar entirely.
+
+const BANSHEE_ICON_TARGETS := {
+	# action_tear_close sits on cp_the_keening, NOT on the tear's own kit. It was moved there on
+	# 2026-09-08: a tear is ENTITY.MARKER, so it never takes a turn and an action on its own kit is
+	# unreachable in play. mt_tear_banshee now carries only the visual passive and no actions.
+	&'cp_the_keening': [&'action_tear', &'action_mourning_call', &'action_tear_move', &'action_tear_close'],
+	&'mt_tear_banshee': [],
+	&'mt_to_bend_reality': [],
+	&'mt_to_twist_truth': [],
+	&'mt_whispering': [&'action_whispering'],
+}
+
+## action_bend_reality belongs to no Kit. It is a VARIANT action: buff_to_bend_reality swaps it in
+## over the pilot's own weapon action at activation time, so it is never in any kit.actions array
+## and has to be reached by path.
+const BEND_REALITY_ACTION := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/action_bend_reality.tres'
+
+func test_the_bend_reality_variant_has_an_icon():
+	# It is what the player clicks in the variant picker, so it needs one as much as any gear-bar action.
+	var action:Action = load(BEND_REALITY_ACTION)
+	assert_true(Action.is_valid(action), 'action_bend_reality loads')
+	if not Action.is_valid(action): return
+	assert_not_null(action.icon_override, 'action_bend_reality has an icon_override')
+
+func test_every_player_facing_banshee_kit_has_an_icon():
+	for kit_id:StringName in BANSHEE_ICON_TARGETS:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		assert_true(Kit.is_valid(kit), '%s is registered' % kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_not_null(kit.icon_override, '%s has an icon_override' % kit_id)
+
+func test_every_player_facing_banshee_action_has_an_icon():
+	# action_tear_close lives on the TEAR's kit, not the Banshee's, so this walks the map rather
+	# than assuming one owner.
+	for kit_id:StringName in BANSHEE_ICON_TARGETS:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		var by_id := {}
+		for action:Action in kit.actions: by_id[action.get_id()] = action
+		for action_id:StringName in BANSHEE_ICON_TARGETS[kit_id]:
+			assert_true(by_id.has(action_id), '%s carries %s' % [kit_id, action_id])
+			if not by_id.has(action_id): continue
+			assert_not_null(by_id[action_id].icon_override,
+				'%s.%s has an icon_override' % [kit_id, action_id])

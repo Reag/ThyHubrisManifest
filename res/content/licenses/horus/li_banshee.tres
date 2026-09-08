@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="UnlockTree" format=3]
+
+[ext_resource type="Script" uid="uid://dq0jowvw37x6i" path="res://engine/character/unit_core/unlock_tree.gd" id="1_unlock_tree"]
+[ext_resource type="Script" uid="uid://ctb1pfqlfgmni" path="res://engine/character/unit_core/unlock_rank.gd" id="2_unlock_rank"]
+[ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="3_frame"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="4_kit"]
+[ext_resource type="Texture2D" uid="uid://h17gn7ncv4p7" path="res://assets/media/horus.png" id="5_horus_icon"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres" id="6_mf_banshee"]
+[ext_resource type="Resource" uid="uid://bhq7fpqvkhms7" path="res://content/gear/ssc/systems/ms_high_stress_mag_clamps.tres" id="7_ms_high_stress_mag_clamps"]
+[ext_resource type="Resource" uid="uid://bbppg5gqi27gd" path="res://content/gear/ssc/systems/ms_tracking_bug/ms_tracking_bug.tres" id="8_ms_tracking_bug"]
+[ext_resource type="Resource" uid="uid://w8enteaklrtn" path="res://content/gear/ssc/weapons/mw_vulture_dmr.tres" id="9_mw_vulture_dmr"]
+[ext_resource type="Resource" uid="uid://bqxy3lq8a5dtb" path="res://content/gear/ssc/systems/ms_core_siphon/ms_core_siphon.tres" id="10_ms_core_siphon"]
+[ext_resource type="Resource" uid="uid://c8g8fci718g3" path="res://content/gear/ssc/weapons/mw_railgun.tres" id="11_mw_railgun"]
+[ext_resource type="Resource" uid="uid://dfvnv5w05prb6" path="res://content/gear/ssc/systems/ms_kinetic_compensator/ms_kinetic_compensator.tres" id="12_ms_kinetic_compensator"]
+
+[sub_resource type="Resource" id="Resource_banshee_rank_1"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("7_ms_high_stress_mag_clamps"), ExtResource("8_ms_tracking_bug")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[sub_resource type="Resource" id="Resource_banshee_rank_2"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("9_mw_vulture_dmr"), ExtResource("10_ms_core_siphon")])
+granted_frames = Array[ExtResource("3_frame")]([ExtResource("6_mf_banshee")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[sub_resource type="Resource" id="Resource_banshee_rank_3"]
+script = ExtResource("2_unlock_rank")
+granted_gear = Array[ExtResource("4_kit")]([ExtResource("11_mw_railgun"), ExtResource("12_ms_kinetic_compensator")])
+metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
+
+[resource]
+script = ExtResource("1_unlock_tree")
+icon = ExtResource("5_horus_icon")
+rank_1 = SubResource("Resource_banshee_rank_1")
+rank_2 = SubResource("Resource_banshee_rank_2")
+rank_3 = SubResource("Resource_banshee_rank_3")
+metadata/_custom_type_script = "uid://dq0jowvw37x6i"

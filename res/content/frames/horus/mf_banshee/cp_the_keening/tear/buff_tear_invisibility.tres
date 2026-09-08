@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/buff_tear_invisibility.gd" id="1_tear_invis"]
+
+[resource]
+script = ExtResource("1_tear_invis")
+to = &"treat_as_invisible"
+hide_from_player = true
+metadata/_custom_type_script = "uid://cqrqkdgcf8mti"

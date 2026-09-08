@@ -1,0 +1,8 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_twist_truth/buff_to_twist_truth.gd" id="1_buff"]
+
+[resource]
+script = ExtResource("1_buff")
+to = &"ignore_invisible"
+hide_from_player = true

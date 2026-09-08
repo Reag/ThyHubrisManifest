@@ -1,0 +1,11 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/action_tear_neither_side.gd" id="1_neither_side"]
+
+[resource]
+script = ExtResource("1_neither_side")
+usage_group = &"action_tear_neither_side"
+suppress_logging = true
+triggers_on = Array[StringName]([&"unit_spawn"])
+trigger_timing = 1
+consumes_rxn = false

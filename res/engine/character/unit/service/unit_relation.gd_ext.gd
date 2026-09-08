@@ -76,9 +76,25 @@ static func _append_valid(units:Array[Unit], unit:Unit) -> void:
 #
 # TO REMOVE THIS, once an engine can express dual tangibility - the Kraken genuinely holding both
 # states, and a held character genuinely gaining INTANGIBLE for the length of its turn:
-#   - delete can_affect outright: its self short-circuit, both cut-off guards, the widened branch and
-#     the bridged_by_the_black_sea local that exists only to feed that branch. Delete
-#     tangibility_is_the_only_objection and is_reachable_from_the_black_sea with it; both are
+#   - STOP. THE WIDENED BRANCH IS NO LONGER THE KRAKEN'S ALONE. It now also carries the BANSHEE's
+#     tear hook - the `if not tear_bridges(...)` line inside the `if not tangibility_line_is_bridged`
+#     block - AND the grant half of the BANSHEE's bend rule - the
+#     `or bend_proxy_tangibility_matches(...)` disjunct feeding that same
+#     `tangibility_line_is_bridged` local - because GDScript permits only one can_affect per script
+#     and the Banshee had nowhere else to put either. See the BANSHEE banner at the bottom of this
+#     file. Deleting can_affect by following the steps below would silently take BOTH the tear window
+#     and the bend rule's grant with it, and nothing at the deletion site would warn you. EXTRACT
+#     both into the replacement first: they belong wherever "vanilla refused, and tangibility was the
+#     only objection" is decided.
+#   - the bend rule's REFUSAL half is NOT inside the widened branch - `bend_proxy_tangibility_differs`
+#     is called from its own early-return near the top of can_affect, right after the self
+#     short-circuit and before the cut-off guards, because it must run BEFORE super (super allows a
+#     tangible proxy against a tangible target, and nothing downstream can take that back). Deleting
+#     can_affect takes this line too. EXTRACT it into whatever now runs first in the replacement -
+#     the check has no dependency on the Kraken machinery being deleted around it.
+#   - delete can_affect outright: its self short-circuit, the bend refusal, both cut-off guards, the
+#     widened branch and the bridged_by_the_black_sea local that exists only to feed that branch.
+#     Delete tangibility_is_the_only_objection and is_reachable_from_the_black_sea with it; both are
 #     can_affect helpers and have no other caller. Every pairing they arbitrate is answered by
 #     vanilla's own can_affect once the statuses are real - the Kraken reaches the intangible because
 #     it IS intangible, and a prisoner is cut off from its tangible allies for the same reason while
@@ -137,6 +153,11 @@ static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerabilit
 	if origin_unit == target_unit:
 		return super.can_affect(origin_unit, target_unit, ignore_invulnerability)
 
+	# BANSHEE (To Bend Reality). A bend is judged on the Banshee's tangibility, not the proxy's.
+	# This must run before super, because super ALLOWS a tangible proxy against a tangible target and
+	# there is no later hook that can take it back.
+	if bend_proxy_tangibility_differs(origin_unit, target_unit): return false
+
 	# A held character's turn is spent in the black sea: it may reach its captor, and anything else
 	# that is itself intangible, and nothing at all besides. Symmetric, so its own allies cannot
 	# reach in either.
@@ -171,9 +192,15 @@ static func can_affect(origin_unit:Unit, target_unit:Unit, ignore_invulnerabilit
 		var tangibility_line_is_bridged := (
 			counts_as_every_tangibility(origin_unit) or counts_as_every_tangibility(target_unit)
 			or bridged_by_the_black_sea
+			or bend_proxy_tangibility_matches(origin_unit, target_unit) # BANSHEE (To Bend Reality)
 		)
 		if not tangibility_line_is_bridged:
-			return false
+			# BANSHEE (Tear) hook. GDScript has no way to layer a second `can_affect` in this same
+			# file - see the BANSHEE banner at the bottom of the file for why - so the tear check is
+			# wired in HERE, at the one point that already means "the Tide did not bridge this pair
+			# and tangibility is the only remaining objection". A tear only ever turns this `false`
+			# into a `true`; it changes nothing about the Kraken's own rule above.
+			if not tear_bridges(origin_unit, target_unit): return false
 	return true
 
 ## What a cut-off character may still touch: the Kraken holding it, and anything genuinely INTANGIBLE.
@@ -309,3 +336,121 @@ static func get_weapons_that_can_overwatch(
 	):
 		return [] as Array[SpecificAction]
 	return super.get_weapons_that_can_overwatch(from_unit, target_unit, use_normal_range_instead_of_threat)
+
+# ============================================================================================
+# BANSHEE (Tear, and To Bend Reality below it). A tear is a window between tangible and intangible
+# space; a bend is a targeting relay that must never launder an attack across that same line. Both
+# rules key off tangibility and both had nowhere else to live, for the same reason - see the
+# INTEGRATION NOTE below.
+#
+#   "They are visible to both tangible and INTANGIBLE characters, and act as a window between
+#    tangible and intangible space."
+#
+# vanilla refuses any interaction across the tangibility line (unit_relation.gd:397). A tear
+# overturns that for one pairing, in both directions, when the line between them routes through it.
+#
+# UNIVERSAL by agreement: any character routes through any tear, including enemies shooting the
+# Banshee through its own. So this deliberately does NOT check whether either unit is a Banshee.
+#
+# NOTE this file already carries the Kraken's tangibility workaround, which widens the same
+# function. The Tear composes with it exactly as claimed below: tear_bridges is consulted only
+# where the Kraken's own branch already means "tangibility is the only remaining objection", and it
+# only ever turns that NO into a YES, never the reverse.
+#
+# The bend does NOT share that shape, and this note used to claim it did before To Bend Reality was
+# added - a maintainer reading the two together would have concluded every rule fenced by this
+# banner is grant-only, which stopped being true the moment bend_proxy_tangibility_differs shipped.
+# That refusal deliberately turns a vanilla YES (a tangible proxy against a tangible target) into a
+# NO, because a bend must never launder an attack across the tangibility line - see its own doc
+# comment below. It composes with the Kraken's Tide by its own exemption, not by sharing the Tear's
+# one-directional shape: see bend_proxy_tangibility_differs below for why a party that
+# counts_as_every_tangibility is let out of the refusal.
+#
+# INTEGRATION NOTE, a deviation from the original task brief: the brief called for a second
+# top-level `can_affect` in this file, chaining to the Kraken's via `super.can_affect`. GDScript
+# refuses that outright with a parse error - "Function can_affect has the same name as a previously
+# declared function" (verified: it silently killed the WHOLE extension, taking the Kraken's own
+# suite down with it) - because two functions of that name would live in the SAME script/class, not
+# in a super/subclass pair. There is only one `can_affect` per script, and this file already has one
+# (the Kraken's, above).
+#
+# So `tear_bridges` below is called from INSIDE the Kraken's `can_affect`, at the single point that
+# already means "the Tide did not bridge this pairing and tangibility is the only remaining
+# objection" - see the one added line there. That preserves the brief's intended order (the Kraken's
+# widening runs first; a tear is only consulted if the Kraken did not already allow the pairing)
+# without a second function of the same name, and it is the reason this section has no `can_affect`
+# of its own.
+#
+# Design notes: D:\DEV\lancer-tactics-claude\specs\2026-09-06-banshee-tear-design.md
+# ============================================================================================
+
+const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
+
+## Would can_affect have said yes but for the tangibility line, with a tear bridging it? Called from
+## the Kraken's can_affect above, at the point where every other objection has already been ruled
+## out and tangibility is the last thing standing between the pair.
+##
+## Ordered for cost. can_affect runs inside AI targeting loops and per-tile filtering, so the cheap
+## status comparison runs before any tear lookup, and a map with no tears pays almost nothing.
+##
+## EYE HEIGHT, and why both directions are asked. routes_between measures its FIRST leg from the
+## height it is handed and its second from the tear's own terrain, so the height it gets is the
+## viewer's. Until 2026-09-08 this passed none, which measured the first leg from the ground while the
+## LOS seam (unit_tile.gd_ext.gd, both overrides) passed UnitTile.effective_height - so can_affect and
+## the targeting overlay could disagree about the same pair over a low wall: the crosshair appeared and
+## the shot was refused, or the reverse.
+##
+## Passing the height fixes that but makes the call ASYMMETRIC, because the two units need not stand
+## at the same height - and can_affect is asked as can_affect(a,b) at one call site and can_affect(b,a)
+## at another (map_state.gd:320, ai_action_decider.gd:386, tilepicker_compcon.gd:379). A pair the
+## engine believes can shoot only one way is a real defect, not a rounding error. So both directions
+## are asked, each measured from its own viewer, and either one bridging is enough. That is the same
+## shape TearRouting._tears_on_the_line uses for the collinearity term and for the same reason.
+##
+## NO RANGE CAP HERE, DELIBERATELY, AND IT IS A KNOWN GAP. Clause 7 ("an attack cannot travel more
+## than half its maximum range after passing through a tear") needs a weapon, and can_affect has none
+## in scope - it is a permission question about a PAIR, asked by AoE filters and AI scorers that have
+## no attack in hand at all. Nothing here can enforce it; see the range-cap coverage note on
+## unit_tile.gd_ext.gd's get_tiles_within for what does and what does not.
+static func tear_bridges(origin_unit:Unit, target_unit:Unit) -> bool:
+	if not Unit.is_valid(origin_unit) or not Unit.is_valid(target_unit): return false
+	# Only ever relevant across the line. A same-tangibility pair is vanilla's business.
+	if origin_unit.has_status(Lancer.STATUS.INTANGIBLE) == target_unit.has_status(Lancer.STATUS.INTANGIBLE): return false
+	if not is_instance_valid(origin_unit.map): return false
+	var map:MapState = origin_unit.map
+	var origin_tile:Vector2i = origin_unit.tile()
+	var target_tile:Vector2i = target_unit.tile()
+	return (
+		TearRouting.routes_between(map, origin_tile, target_tile, UnitTile.effective_height(origin_unit, true, origin_tile))
+		or TearRouting.routes_between(map, target_tile, origin_tile, UnitTile.effective_height(target_unit, true, target_tile))
+	)
+
+## TO BEND REALITY. A bend never crosses the tangibility line - "instead of changing an attack's
+## tangibility" is a restriction, not flavour. The relay proxy carries no status of its own, so both
+## sides of that judgement have to be made on EFFECTIVE tangibility.
+static func bend_proxy_tangibility_matches(origin_unit:Unit, target_unit:Unit) -> bool:
+	if not (TearRouting.is_bend_proxy(origin_unit) or TearRouting.is_bend_proxy(target_unit)): return false
+	return TearRouting.effective_tangibility(origin_unit) == TearRouting.effective_tangibility(target_unit)
+
+## The refusal half. Needed as its own test because vanilla can_affect ANSWERS TRUE for a tangible
+## proxy against a tangible target, so the widening hook inside can_affect - which only ever runs
+## after `not super.can_affect(...)` - is never consulted for that pairing.
+##
+## Exempts either party being counts_as_every_tangibility (the Kraken's Tide) before comparing
+## EFFECTIVE tangibility. Without this, a bend is judged more harshly than a direct attack against
+## the exact same Kraken: TearRouting.effective_tangibility knows nothing about the Tide, so it
+## reads the Kraken's real, untouched status - meaning an INTANGIBLE Banshee's proxy reads intangible
+## while a Tide-raised Kraken still reads tangible, and this function would refuse the pairing right
+## here, before super.can_affect or the widened branch below ever run. The SAME Banshee attacking the
+## SAME Kraken directly, with no proxy, is allowed: super refuses on the identical raw mismatch, and
+## then counts_as_every_tangibility(target_unit) bridges it a few lines down. Routing the interaction
+## through a bend would flip the answer for no reason a player could name - a Kraken with the Tide up
+## counts as every tangibility, so it should match whatever the far end of a bend is, exactly as it
+## matches a direct attacker. The grant half (bend_proxy_tangibility_matches) needs no matching
+## exemption: it feeds a disjunction in can_affect that already ORs in
+## counts_as_every_tangibility(origin_unit) and counts_as_every_tangibility(target_unit) directly, so
+## the Tide bridges a bend's grant on its own without this function's help.
+static func bend_proxy_tangibility_differs(origin_unit:Unit, target_unit:Unit) -> bool:
+	if not (TearRouting.is_bend_proxy(origin_unit) or TearRouting.is_bend_proxy(target_unit)): return false
+	if counts_as_every_tangibility(origin_unit) or counts_as_every_tangibility(target_unit): return false
+	return TearRouting.effective_tangibility(origin_unit) != TearRouting.effective_tangibility(target_unit)

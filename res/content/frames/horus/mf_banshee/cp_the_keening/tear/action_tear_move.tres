@@ -1,0 +1,16 @@
+[gd_resource type="Resource" format=3 uid="uid://cwr74u4ltck01"]
+
+[ext_resource type="Script" uid="uid://bfqtffduhd3vx" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/action_tear_move.gd" id="1_move"]
+[ext_resource type="Script" uid="uid://df1yicp7kbf3x" path="res://engine/character/gear_action/resources/target_requirements.gd" id="2_reqs"]
+[ext_resource type="Texture2D" uid="uid://cbfe3ed7ln782" path="res://assets/icons/move.svg" id="90_icon"]
+
+[sub_resource type="Resource" id="Resource_move_reqs"]
+script = ExtResource("2_reqs")
+
+[resource]
+script = ExtResource("1_move")
+icon_override = ExtResource("90_icon")
+action_type = 3
+target_requirements_override = SubResource("Resource_move_reqs")
+usage_group = &"action_tear_move"
+emit_text_popcorn_on_use = true
