@@ -171,6 +171,82 @@ static func owned_tears(unit:Unit) -> Array[Unit]:
 		if tear.state.is_owned_by(unit): mine.append(tear)
 	return mine
 
+# ---------------------------------------------------------------------------- picking a tear
+
+## Loaded lazily rather than as a plain `static var ... = load(...)` (the shape every engine file
+## uses). This script is preloaded by unit_tile.gd_ext.gd and unit_relation.gd_ext.gd, which
+## ModLoader installs during mod_main's _init - far earlier than any engine script's own static
+## initialisers run - and a static var initialiser would drag choice_bus.tres and camera_bus.tres
+## into that window for no benefit. Nothing here needs a bus until a player is actually asked
+## something. load() is cached, so this is the same instance SpecFactory's responder connects to.
+static var _choice_bus:ChoiceBus
+static var _camera_bus:CameraBus
+
+static func _bus() -> ChoiceBus:
+	if _choice_bus == null: _choice_bus = load('res://ui/choice_controller/choice_bus.tres')
+	return _choice_bus
+
+static func _camera() -> CameraBus:
+	if _camera_bus == null: _camera_bus = load('res://engine/level/camera/camera_bus.tres')
+	return _camera_bus
+
+## "Which of my tears?" - the ONE implementation, shared by clause 8's two verbs
+## (action_tear_move.gd, action_tear_close.gd) and clause 9's relocation
+## (action_mourning_call.gd's _maybe_relocate_tear).
+##
+## A TILE PICK, NEVER A UNIT PICK, AND THAT IS THE WHOLE POINT OF THIS FUNCTION EXISTING.
+## All three sites used choice_bus.choose_unit(tears) until 2026-09-08, and all three were dead
+## clicks in play. tilepicker_unit.gd builds its clickable set straight from each candidate's
+## occupied_tiles() (lines 26-28), so a tear's tile lights up and looks pickable - but it resolves
+## the click through get_pickable_units_at_tile (lines 87-90), which calls
+## map.get_all_units_at_tile(tile) with include_markers defaulting to FALSE (map_state.gd:314-318).
+## A tear is Frame.ENTITY.MARKER, so that list is always empty, and line 78-79 is a bare
+## `if units_at_tile.is_empty(): pass` - no pick, no cancel, no feedback. The action hangs forever
+## waiting for a choice that cannot arrive. The player reported it as "I can't seem to move the void
+## tears"; action_bend_reality.gd had already documented the same trap and dodged it by targeting
+## tiles, and this is that dodge made reusable.
+##
+## choose_target_tiles routes to tilepicker_ability.gd, which takes the tile set as given
+## (update_tiles_in_range overrides it wholesale) and never asks what unit is standing there:
+## tilepicker_compcon.handle_pressed_tile only ever uses the unit lookup to FILL IN pick.unit, and
+## appends the pick regardless of whether it found one. So a marker's tile picks cleanly.
+##
+## Returns null when there is nothing to pick or the player cancelled - callers must treat null as
+## an abort, not as "the first one".
+static func choose_tear(specific:SpecificAction, tears:Array[Unit]) -> Unit:
+	var candidates:Array[Unit] = []
+	for tear:Unit in tears:
+		if Unit.is_valid(tear): candidates.append(tear)
+	if candidates.is_empty(): return null
+	# ONE CANDIDATE, NO PROMPT. There is nothing to decide, and a prompt here is pure friction - it
+	# was also, until this rewrite, an unanswerable one, which is how the single-tear case (much the
+	# commonest) reproduced the bug every time.
+	if candidates.size() == 1: return candidates.front()
+	if not SpecificAction.is_valid(specific): return null
+
+	var tiles:Array[Vector2i] = []
+	for tear:Unit in candidates:
+		for tile:Vector2i in tear.occupied_tiles():
+			if not tiles.has(tile): tiles.append(tile)
+	if tiles.is_empty(): return null
+
+	_camera().show_all_tiles(tiles, true)
+	var plan:CompconPlan = await _bus().choose_target_tiles(specific, tiles)
+	if plan == null or plan.target_tiles.is_empty(): return null
+	return tear_at_tile(candidates, plan.target_tiles.front())
+
+## Resolve a picked tile back to one of `candidates`.
+##
+## Matches against the candidate list we already hold rather than asking the map, DELIBERATELY. The
+## obvious `map.get_all_units_at_tile(tile)` is the exact call that made the unit pick dead, and
+## even its `include_markers = true` form would answer with tears this caller has no business
+## moving - somebody else's, or one outside the offered set. The list is the authority.
+static func tear_at_tile(candidates:Array[Unit], tile:Vector2i) -> Unit:
+	for tear:Unit in candidates:
+		if not Unit.is_valid(tear): continue
+		if tear.occupied_tiles().has(tile): return tear
+	return null
+
 # ---------------------------------------------------------------------------- collinearity
 
 ## Which of `candidates` lie ON THE LINE between the two tiles. The geometric half of clauses 4 and 5.

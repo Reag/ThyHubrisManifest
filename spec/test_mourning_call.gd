@@ -466,6 +466,61 @@ func test_a_kill_lets_the_banshee_relocate_a_tear_within_sensors():
 	assert_false(offered_tiles.is_empty(), 'sanity: the relocation prompt actually offered candidate tiles.')
 	assert_eq(tear.tile(), offered_tiles.front(), 'The tear moves to the chosen tile within sensor range.')
 
+func test_the_relocation_pick_is_not_an_unanswerable_unit_pick():
+	# THE THIRD SITE of the 2026-09-08 dead-click bug, and the only one that needs a kill fixture to
+	# reach. Clause 9 asked choice_bus.choose_unit(tears) to decide WHICH tear to relocate, guarded by
+	# `tears.size() > 1` so it only bit with several open. A tear is Frame.ENTITY.MARKER and
+	# tilepicker_unit.gd resolves clicks through map.get_all_units_at_tile with include_markers false,
+	# so that prompt could never be answered - see spec/test_tear_pick.gd for the full account and for
+	# the two sibling sites.
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	banshee.state.overcharge_actions = 99 # two tears plus the attack plus Mourning Call in one turn
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1
+	target.core.frame.stat.health = 8
+	target.core.full_repair()
+
+	# TWO tears, which is what the old `tears.size() > 1` guard needed before it would prompt at all.
+	await SpecFactory.use(game, banshee, KEENING_KIT_ID, &'action_tear', [Vector2i(4, 4)])
+	await SpecFactory.use(game, banshee, KEENING_KIT_ID, &'action_tear', [Vector2i(0, 4)])
+	var tears:Array[Unit] = TearRouting.open_tears(game.map)
+	if tears.size() != 2: return fail_test('Fixture: two tears, so the relocation genuinely has to ask.')
+	var tear_tiles:Array[Vector2i] = [tears[0].tile(), tears[1].tile()]
+
+	# Listening alongside SpecFactory's responder, which still answers everything.
+	var unit_picks_offering_a_tear:Array[int] = [0]
+	var watch_unit_picks := func(_request, from_units, _can_cancel, _specific, _secondary):
+		for candidate in from_units:
+			if candidate is Unit and TearRouting.is_tear(candidate):
+				unit_picks_offering_a_tear[0] += 1 # mutated IN PLACE; see the capture note above
+				break
+	var tile_picks:Array = []
+	var watch_tile_picks := func(_request, _specific, from_tiles): tile_picks.append(from_tiles.duplicate())
+	SpecFactory.choice_bus.on_choose_unit.connect(watch_unit_picks)
+	SpecFactory.choice_bus.on_choose_target_tiles.connect(watch_tile_picks)
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits, does not crit, kills
+
+	SpecFactory.choice_bus.on_choose_unit.disconnect(watch_unit_picks)
+	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(watch_tile_picks)
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_eq(unit_picks_offering_a_tear[0], 0,
+		'Clause 9 picks a tear by tile. A unit pick over MARKERs is a prompt the player cannot answer.')
+
+	# And the pick it DID make is the tear tiles - not merely "some tile pick happened", which the
+	# destination and landing picks would satisfy on their own.
+	var offered_the_tears := false
+	for offered:Array in tile_picks:
+		if offered.size() != tear_tiles.size(): continue
+		var all_tears := true
+		for tile:Vector2i in offered:
+			if not tear_tiles.has(tile): all_tears = false
+		if all_tears: offered_the_tears = true
+	assert_true(offered_the_tears,
+		'The player was offered exactly the two tear tiles to choose between.')
+
 func test_a_tile_beyond_sensors_is_not_offerable():
 	var banshee := _arm_banshee(Vector2i(0, 0))
 	# A private copy: load(BANSHEE_FRAME) is shared (cached) across every test in this file via

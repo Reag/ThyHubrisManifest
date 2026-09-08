@@ -257,11 +257,12 @@ func _maybe_relocate_tear(context:Context, activation:EventCore, unit:Unit) -> v
 	if not confirmed or not Unit.is_valid(unit): return
 
 	# Multiple tears (MAX_TEARS = 15 in tear_routing.gd) are possible; pick one the same way clause 8
-	# does -- highlight the candidates, then ask -- rather than silently grabbing the first.
-	var chosen:Unit = tears.front()
-	if tears.size() > 1 and player_decides:
-		camera_bus.show_all_tiles(UnitTile.collect_all_occupied_tiles(tears), true)
-		chosen = await choice_bus.choose_unit(tears)
+	# does, rather than silently grabbing the first. TearRouting.choose_tear is that shared way, and
+	# it picks by TILE - choice_bus.choose_unit, which this used until 2026-09-08, cannot resolve a
+	# click on a MARKER at all, so the prompt hung. It also returns the lone candidate without
+	# prompting, so the old `tears.size() > 1` guard is now its job rather than this caller's.
+	var chosen:Unit = tears.front() # the AI's default; see player_decides above
+	if player_decides: chosen = await TearRouting.choose_tear(SpecificAction.from_context(context), tears)
 	if not Unit.is_valid(chosen) or not Unit.is_valid(unit): return
 
 	# "within SENSORS" is exactly the set TILE_GROUP.SENSORS resolves to

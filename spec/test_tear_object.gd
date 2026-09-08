@@ -166,15 +166,20 @@ func test_cancelling_the_pick_costs_nothing():
 	# spend_actions sits BELOW the pick in activate() precisely so a player who opens the menu and
 	# changes their mind has not spent their turn. abort_all makes the responder abort the request,
 	# which is what the cancel button does.
+	#
+	# TWO tears, not one: since 2026-09-08 a single candidate is taken without prompting at all (see
+	# TearRouting.choose_tear, and spec/test_tear_pick.gd for why the prompt was worse than useless
+	# for a lone tear), so there is no pick to cancel unless there is a real choice to make.
 	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
-	if TearRouting.open_tears(game.map).is_empty(): return fail_test('A tear was placed to close.')
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(6,6)])
+	if TearRouting.open_tears(game.map).size() != 2: return fail_test('Two tears were placed, so a pick is offered.')
 	var before:int = UnitAction.current_total(banshee)
 
 	SpecFactory.current_responder.abort_all = true
 	await _close_a_tear()
 	SpecFactory.current_responder.abort_all = false
 
-	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'Cancelling leaves the tear open.')
+	assert_eq(TearRouting.open_tears(game.map).size(), 2, 'Cancelling leaves both tears open.')
 	assert_eq(UnitAction.current_total(banshee), before, 'And costs no action.')
 
 func test_closing_a_tear_shuts_its_window():

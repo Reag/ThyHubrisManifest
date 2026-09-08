@@ -61,9 +61,10 @@ func activate(context:Context, activation:EventCore) -> void:
 	var tears := TearRouting.owned_tears(unit)
 	if activation.abort_when(tears.is_empty()): return
 
-	# The Shepherd pick, verbatim in shape: highlight the candidates, then ask.
-	camera_bus.show_all_tiles(UnitTile.collect_all_occupied_tiles(tears), true)
-	var chosen:Unit = await choice_bus.choose_unit(tears)
+	# The pick. NOT Shepherd's choice_bus.choose_unit, which this used to copy verbatim and which is
+	# an unanswerable prompt for a MARKER - see TearRouting.choose_tear for the full story. It picks
+	# by tile, and skips the prompt entirely when there is only one tear.
+	var chosen:Unit = await TearRouting.choose_tear(SpecificAction.from_context(context), tears)
 	if activation.abort_when(not Unit.is_valid(chosen)): return
 
 	# "up to your speed" - the BANSHEE's speed, not the tear's. A tear is a marker with no speed of
@@ -72,9 +73,17 @@ func activate(context:Context, activation:EventCore) -> void:
 	var pre_speed := chosen.core.current.speed
 	chosen.core.current.speed = base
 
-	await _move_the_tear(SpecificAction.from_context(context), chosen, activation)
+	var moved:bool = await _move_the_tear(SpecificAction.from_context(context), chosen, activation)
 
 	if Unit.is_valid(chosen): chosen.core.current.speed = pre_speed
+
+	# NOTHING MOVED, NOTHING IS CHARGED. _move_the_tear returns normally when the player cancels the
+	# movement plan (abort_without_movement_plan), and until 2026-09-08 the two lines below ran
+	# anyway: cancelling the plan still ate the base movement, and once the expenditure started being
+	# RECORDED (playtest fix 8.4, above) it also burned the once-per-round allowance permanently, for
+	# a tear that had not budged. The abort guards inside the loop cannot cover this - the whole point
+	# of them is to leave activate() running so the lent speed gets handed back on the line above.
+	if not moved: return
 
 	# Spend the base movement, leaving any boost surplus. Done AFTER the move rather than before so
 	# an aborted pick costs nothing - the player who opens the menu and changes their mind has not
@@ -92,26 +101,34 @@ func activate(context:Context, activation:EventCore) -> void:
 
 ## The movement loop, following Shepherd's shape. Repeats until the lent budget runs out or the
 ## player declines a further leg, so "up to your speed" can be spent in pieces.
-func _move_the_tear(specific:SpecificAction, chosen:Unit, activation:EventCore) -> void:
+##
+## Returns whether the tear actually MOVED - which is what activate() bills on, and the distinction
+## every exit below is careful about. Cancelling the very first leg returns false (nothing happened,
+## charge nothing); declining a SECOND leg after a successful first returns true (the base movement
+## was genuinely spent, and the player got what they paid for).
+func _move_the_tear(specific:SpecificAction, chosen:Unit, activation:EventCore) -> bool:
 	var map:MapState = chosen.map
+	var moved := false
 	while Unit.is_valid(chosen) and chosen.core.current.speed > 0:
 		var movement_type := MovementType.create_for_involuntary(specific.unit)
 		movement_type.spend_move = true
 		var pathfinder:Pathfinder = await Pathfinder.generate_for_movement_budget(chosen, chosen.core.current.speed, movement_type)
-		if activation.abort_without_units([chosen, specific.unit]): return
+		if activation.abort_without_units([chosen, specific.unit]): return moved
 
 		var plan:CompconPlan = await TargetActionUtil.ask_for_movement_alt(chosen, pathfinder, specific)
-		if activation.abort_without_movement_plan(plan, specific.unit): return
+		if activation.abort_without_movement_plan(plan, specific.unit): return moved
 
 		await run_system_fxgs(specific.unit)
-		if activation.abort_without_units([chosen, specific.unit]): return
+		if activation.abort_without_units([chosen, specific.unit]): return moved
 
 		var move_events := pathfinder.generate_events(chosen, plan.move_path, [], specific)
 		if move_events.is_empty(): break
 		await activation.execute_events(move_events)
 		if move_events[0].aborted: break
+		moved = true
 
 		# The tear has changed tile, and every cache in tear_routing is keyed on tile. Invalidating
 		# inside the loop rather than once at the end keeps each leg's routing answers honest for the
 		# next leg's pathfinding.
 		TearRouting.invalidate(map)
+	return moved

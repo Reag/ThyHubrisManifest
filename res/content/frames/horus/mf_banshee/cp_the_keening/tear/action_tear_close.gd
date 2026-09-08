@@ -38,9 +38,11 @@ func activate(context:Context, activation:EventCore) -> void:
 	var tears := TearRouting.owned_tears(unit)
 	if activation.abort_when(tears.is_empty()): return
 
-	# The pick, in the same shape as action_tear_move's: highlight the candidates, then ask.
-	camera_bus.show_all_tiles(UnitTile.collect_all_occupied_tiles(tears), true)
-	var chosen:Unit = await choice_bus.choose_unit(tears)
+	# The pick, in the same shape as action_tear_move's - literally so, since both now call the one
+	# shared helper. It picks by TILE: choice_bus.choose_unit, which this used until 2026-09-08, is
+	# an unanswerable prompt for a MARKER, so this fix's own predecessor traded one unreachable route
+	# for another. See TearRouting.choose_tear. It also skips the prompt for a single tear.
+	var chosen:Unit = await TearRouting.choose_tear(SpecificAction.from_context(context), tears)
 	# Cancelling costs nothing: spend_actions is below this line, not above it.
 	if activation.abort_when(not Unit.is_valid(chosen)): return
 
