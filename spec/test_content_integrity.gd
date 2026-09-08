@@ -6,12 +6,13 @@
 extends GutTest
 
 const ModContentAudit := preload('res://testkit/mod_content_audit.gd')
+const Compat := preload('res://testkit/modkit_compat.gd')
 const PassiveEarthstep := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_earthstep/passive_earthstep.gd')
 
 const MOD_ID := 'Reag-ThyHubris'
 
 func test_the_mod_is_actually_loaded():
-	assert_true(ModLoaderMod.is_mod_active(MOD_ID), '%s is loaded and active.' % MOD_ID)
+	assert_true(Compat.is_mod_active(MOD_ID), '%s is loaded and active.' % MOD_ID)
 
 func test_no_resource_is_filed_under_the_wrong_index():
 	# ContentLibrary sorts by filename prefix, not script class. See mod_content_audit.gd.
