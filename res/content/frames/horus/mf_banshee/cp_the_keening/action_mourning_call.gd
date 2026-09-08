@@ -17,6 +17,51 @@ const MARK_BUFF_ID := &'buff_mourning_call_mark'
 ## would corrupt each other's tallies the instant both existed on the same group.
 const REFUND_USAGE_GROUP := &'action_mourning_call_refund'
 
+
+## PLAYTEST FIX 8.2: Mourning Call is not a button. It is only ever reached from
+## onhit_mourning_call.gd, after a ranged attack has hit and with that attack's target in hand.
+## Clicked cold off the gear bar it has no target at all, so activate() falls straight out of its
+## first guard -- a live, clickable, silent no-op sitting next to Tear.
+##
+## It cannot simply be removed from cp_the_keening.tres's actions: SpecificAction.from_id is how
+## onhit_mourning_call.gd finds it, and that searches the kit's action list. So it stays listed and
+## is refused UNLESS THE OFFER WINDOW IS OPEN. Paired with hide_if_disabled = true on
+## action_mourning_call.tres, which is what actually takes the button off the bar (gear_bar.gd:147).
+##
+## ------------------------------------------------------------------------------------------------
+## WHY A WINDOW AND NOT A FLAT `return false`, which is what this was first written as.
+##
+## A flat false ALSO kills the on-hit path, and the reason is not where you would look for it.
+## is_available_to_activate is reached through UnitAction.can_activate_gear (unit_action.gd:156), and
+## it is true that CommonActionUtil.choose_and_use never calls can_activate_gear itself -- but the
+## event it BUILDS does: event_gear_activate.check_specific_context ends with
+## `return UnitAction.can_activate_gear(specific, as_freebie)` (content/events/event_gear_activate.gd:50),
+## and AS_FREEBIE does not exempt it (can_activate_gear runs is_gear_available BEFORE its
+## `if as_freebie: return true`). So a flat false aborts every activation of this action, from any
+## caller, with `[ Gear not available ] reason : specific`. Measured: 24 red tests.
+##
+## The window is opened by onhit_mourning_call.gd immediately before it hands off and closed
+## immediately after, so the action is activatable for exactly the span in which it is legitimate.
+## It lives on the GEAR rather than in a static so two Banshees on one map cannot open each other's.
+##
+## Preferred over is_situationally_activated = true, which would ALSO strip the effect text out of
+## the core power's tooltip (kit.gd:229) -- the player would stop being told what Mourning Call does.
+## ------------------------------------------------------------------------------------------------
+const OFFER_WINDOW_KEY := 'mourning_call_offer_open'
+
+static func open_offer_window(gear:GearCore) -> void:
+	if GearCore.is_valid(gear): gear.set_state(OFFER_WINDOW_KEY, true)
+
+static func close_offer_window(gear:GearCore) -> void:
+	if GearCore.is_valid(gear): gear.set_state(OFFER_WINDOW_KEY, false)
+
+static func is_offer_window_open(gear:GearCore) -> bool:
+	return GearCore.is_valid(gear) and bool(gear.get_state(OFFER_WINDOW_KEY, false))
+
+func is_available_to_activate(unit:Unit, gear:GearCore) -> bool:
+	if not super.is_available_to_activate(unit, gear): return false
+	return is_offer_window_open(gear)
+
 func activate(context:Context, activation:EventCore) -> void:
 	# Mirrors action_castigate.gd / action_unstable_system.gd in spending our own cost from inside
 	# activate() -- but NOT through Action.spend_actions(), and that difference is the whole of
@@ -119,12 +164,11 @@ func activate(context:Context, activation:EventCore) -> void:
 	# clause 4: become tangible.
 	UnitCondition.clear_status(activation, unit, Lancer.STATUS.INTANGIBLE)
 
-	# clause 7: mark the target immediately before dealing the damage. mt_mourning_call_wreckless
-	# (a permanent trait on the Banshee, see action_mourning_call_wreckless.gd for why it isn't on
-	# the target) checks the dying unit for this mark during DEATH:PRE and strips LEAVES_WRECK only
+	# clause 7: mark the target immediately before dealing the damage. action_mourning_call_wreckless
+	# (a DEATH:PRE reaction on the Banshee, sharing this very Kit since 2026-09-08 -- see that file
+	# for why it isn't on the target) checks the dying unit for this mark and strips LEAVES_WRECK only
 	# when it's present -- that's what scopes "no wreckage" to THIS kill instead of to the target
-	# generally. from_gear = context.gear (cp_the_keening) since that's also where the wreckless
-	# trait's sibling Kit lives.
+	# generally. from_gear = context.gear (cp_the_keening), which is now also the reaction's own gear.
 	var mark_buff:Buff = ContentLibrary.get_buff(MARK_BUFF_ID)
 	var mark:BuffCore = UnitCondition.apply_buff(activation, target, mark_buff, context.gear)
 

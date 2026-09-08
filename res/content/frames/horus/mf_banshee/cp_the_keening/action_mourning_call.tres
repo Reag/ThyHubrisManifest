@@ -7,3 +7,4 @@ script = ExtResource("1_mourning_call")
 action_type = 1
 consumes_cp = true
 usage_group = &"action_mourning_call"
+hide_if_disabled = true

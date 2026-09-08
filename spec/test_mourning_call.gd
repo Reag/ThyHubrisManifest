@@ -16,6 +16,7 @@ const RANGED_WEAPON_ID := &'mw_smartgun' # weapon_type unset -> defaults to RIFL
 const MELEE_WEAPON_ID := &'mw_tactical_melee_weapon' # weapon_type = MELEE, aim_range = 0
 const KEENING_KIT_ID := &'cp_the_keening'
 const MOURNING_CALL_USAGE_GROUP := &'action_mourning_call'
+const MourningCallAction := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/action_mourning_call.gd')
 
 var game:Gamemaster
 
@@ -747,3 +748,77 @@ func test_the_player_picks_the_landing_tile():
 		'sanity: wherever it landed, it landed adjacent to the target.'
 	)
 	assert_eq(banshee.tile(), offered_tiles.front(), 'The Banshee lands on the tile that was chosen.')
+
+
+# ============================================================================
+# WHAT THE PLAYER IS SHOWN (playtest fixes 8.1 and 8.2). Every test above this line asserts
+# BEHAVIOUR, and behaviour was never the problem with these two: both abilities worked exactly as
+# specified while presenting themselves wrongly. Task 1 this week found a completely unreachable
+# action that 510 green tests had missed for the same reason - nothing asked what the player could
+# actually see or click.
+# ============================================================================
+
+func test_mourning_call_is_not_offered_as_a_clickable_action():
+	# It sat on the gear bar next to Tear and did nothing when clicked: reached cold it has no target,
+	# so activate() falls out of its first guard. It cannot simply be deleted from the Kit -
+	# SpecificAction.from_id is how onhit_mourning_call.gd finds it - so it is refused instead.
+	var banshee := _arm_banshee()
+	banshee.core.has_core_power = true
+	banshee.state.actions = Lancer.ACTION_COST_FULL
+
+	var mourning_call := SpecificAction.from_id(banshee, KEENING_KIT_ID, &'action_mourning_call')
+	assert_true(SpecificAction.is_valid(mourning_call),
+		'The action is still on the Kit, so the on-hit hand-off can still find it.')
+	assert_false(UnitAction.can_activate_gear(mourning_call),
+		'But it is never offered as something to click - this is the question the UI and the AI ask.')
+
+	# WHY it is refused, spelled out so a later reader does not mistake this for "the Banshee cannot
+	# act". onhit_mourning_call.gd opens an offer window for the span of the hand-off and shuts it
+	# again immediately; outside that window the action is unreachable from anywhere, gear bar
+	# included. The window is also why a flat `return false` was wrong here: the event choose_and_use
+	# builds runs this same check (event_gear_activate.gd:50), so a flat false killed the on-hit path
+	# too.
+	var keening:GearCore = banshee.get_gear(KEENING_KIT_ID)
+	assert_false(MourningCallAction.is_offer_window_open(keening), 'The offer window is shut at rest.')
+	MourningCallAction.open_offer_window(keening)
+	assert_true(UnitAction.can_activate_gear(mourning_call),
+		'And it IS reachable inside the window - which is the only reason the on-hit hand-off works.')
+	MourningCallAction.close_offer_window(keening)
+
+	# THE POSITIVE CONTROL. Without it this test would also pass on a Banshee that simply could not
+	# act at all, which is not what is being asserted.
+	var tear := SpecificAction.from_id(banshee, KEENING_KIT_ID, &'action_tear')
+	assert_true(UnitAction.can_activate_gear(tear),
+		'Its sibling on the same Kit, with the same core point and the same actions, IS offered.')
+
+func test_mourning_call_hides_itself_rather_than_sitting_greyed_out():
+	# is_available_to_activate takes it out of play; hide_if_disabled is what takes it off the bar
+	# (gear_bar.gd:147). Without the flag the player just gets a permanently dead button instead.
+	var kit:Kit = ContentLibrary.get_kit(KEENING_KIT_ID)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % KEENING_KIT_ID)
+	var action:Action = kit.get_action(&'action_mourning_call')
+	if not Action.is_valid(action): return fail_test('action_mourning_call is on the Kit.')
+	assert_true(action.hide_if_disabled, 'Mourning Call hides rather than greying out.')
+	# And the reason it is NOT is_situationally_activated, which would have done the same job:
+	# situational actions are stripped out of the kit tooltip (kit.gd:229), so the player would stop
+	# being told what Mourning Call does.
+	assert_true(action.show_in_tooltip(kit), 'It still describes itself in The Keening\'s tooltip.')
+
+func test_the_wreckless_reaction_is_not_a_frame_trait():
+	# It used to have a Kit of its own wired into mf_banshee.tres's traits, purely to carry one
+	# hidden reaction - and the playtest saw it in the book as a fourth, nameless trait with no text.
+	# It now rides on cp_the_keening. test_content_integrity.gd pins the trait list itself; this pins
+	# the half that matters here, that folding it in did not stop it working.
+	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
+	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
+	for kit:Kit in frame.traits:
+		assert_ne(kit.compcon_id, &'mt_mourning_call_wreckless', 'No nameless helper trait in the list.')
+
+	var kit:Kit = ContentLibrary.get_kit(KEENING_KIT_ID)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % KEENING_KIT_ID)
+	var reaction:Action = kit.get_action(&'action_mourning_call_wreckless')
+	assert_true(Action.is_valid(reaction), 'The reaction rides on the core power instead.')
+	if not Action.is_valid(reaction): return
+	assert_false(reaction.show_in_tooltip(kit), 'And it stays out of the core power\'s tooltip.')
+	assert_eq(reaction.usage_group, &'action_mourning_call_wreckless',
+		'With its own usage_group, so it does not eat Tear\'s or Mourning Call\'s round allowance.')

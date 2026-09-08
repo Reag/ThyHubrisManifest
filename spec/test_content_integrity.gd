@@ -627,13 +627,13 @@ const BANSHEE_CORE_POWER := &'cp_the_keening'
 const BANSHEE_TEAR := &'action_tear'
 const BANSHEE_MOURNING_CALL := &'action_mourning_call'
 const BANSHEE_CORE_POWER_MODES := [BANSHEE_TEAR, BANSHEE_MOURNING_CALL]
-## Task 3's kill rider (clause 7): a hidden, always-on trait carrying the DEATH:PRE reaction that
-## strips LEAVES_WRECK on a Mourning Call kill. Deliberately NOT one of BANSHEE_TRAITS above -- it
-## has no book entry, no player-facing name, and nothing to say for itself (see
-## action_mourning_call_wreckless.gd for why it has to be a trait on the Banshee at all rather than
-## living on the target) -- so it's excluded from the localization checks below and only checked for
-## wiring/registration on its own.
-const BANSHEE_MOURNING_CALL_WRECKLESS := &'mt_mourning_call_wreckless'
+## Task 3's kill rider (clause 7): the DEATH:PRE reaction that strips LEAVES_WRECK on a Mourning
+## Call kill. It has no book entry, no player-facing name and nothing to say for itself, and until
+## 2026-09-08 it had a Kit of its own (mt_mourning_call_wreckless) wired into the frame's traits --
+## where the playtest found it showing up as a fourth, nameless trait. It now lives on
+## cp_the_keening alongside the ability it belongs to; see action_mourning_call_wreckless.gd for why
+## it has to be on the BANSHEE at all rather than on the target.
+const BANSHEE_MOURNING_CALL_WRECKLESS := &'action_mourning_call_wreckless'
 
 func test_banshee_frame_is_registered():
 	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
@@ -643,20 +643,24 @@ func test_banshee_frame_is_registered():
 	assert_eq(frame.role_secondary, Lancer.SQUAD_ROLE.NONE, 'And pure Artillery - no secondary role.')
 
 func test_banshee_traits_and_core_power_are_registered():
-	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER, BANSHEE_MOURNING_CALL_WRECKLESS]:
+	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER]:
 		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
+	assert_false(Kit.is_valid(ContentLibrary.get_kit(&'mt_mourning_call_wreckless')),
+		'And the old standalone wreckless Kit is gone from the index entirely.')
 
 func test_the_banshee_frame_carries_its_traits_in_book_order():
 	var frame:Frame = ContentLibrary.get_mech_frame(&'mf_banshee')
 	if not is_instance_valid(frame): return fail_test('mf_banshee loaded.')
 	var wired:Array[StringName] = []
 	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
-	# the three book traits, then the core power, then Task 3's hidden wreckless trait tacked on
-	# after everything player-facing.
-	assert_eq(wired, BANSHEE_TRAITS + [BANSHEE_CORE_POWER, BANSHEE_MOURNING_CALL_WRECKLESS], 'Three traits, then the core power, then the hidden wreckless trait.')
+	# WHAT THE PLAYER SEES IN THE FRAME'S TRAIT LIST, and nothing else. There used to be a fifth
+	# entry here -- mt_mourning_call_wreckless, a Kit that existed only to carry one hidden reaction
+	# -- and the playtest saw it: a nameless trait in the book with no text and no effect. The
+	# reaction moved onto cp_the_keening; this assertion is what keeps it from coming back.
+	assert_eq(wired, BANSHEE_TRAITS + [BANSHEE_CORE_POWER], 'Three traits, then the core power. Nothing hidden in the list.')
 
 func test_banshee_traits_are_flagged_as_traits():
-	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER, BANSHEE_MOURNING_CALL_WRECKLESS]:
+	for kit_id:StringName in BANSHEE_TRAITS + [BANSHEE_CORE_POWER]:
 		var kit:Kit = ContentLibrary.get_kit(kit_id)
 		if not Kit.is_valid(kit): continue
 		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
@@ -698,7 +702,8 @@ func test_the_keening_has_two_parts_with_the_right_economy():
 	# unnoticed, which is why both assertions are kept.
 	var player_facing:Array = kit.actions.filter(func(action:Action) -> bool: return action.show_in_tooltip(kit)) 		.map(func(action:Action) -> StringName: return action.get_id())
 	assert_eq(player_facing, BANSHEE_CORE_POWER_MODES, 'It shows the player exactly its two parts.')
-	assert_eq(kit.actions.size(), 4, 'Two player-facing parts plus the hidden Move Tear and Close Tear verbs, and nothing else.')
+	assert_eq(kit.actions.size(), 5, 'Two player-facing parts, the hidden Move Tear and Close Tear verbs, and the hidden wreckless reaction.')
+	assert_true(by_id.has(BANSHEE_MOURNING_CALL_WRECKLESS), 'The wreckless reaction rides on this Kit, not on a trait of its own.')
 
 	var tear:Action = by_id.get(BANSHEE_TEAR)
 	if Action.is_valid(tear):

@@ -18,6 +18,19 @@
 # within the boost surplus, you are still at or above your full base allowance; the instant you dip
 # below it you have eaten into base movement. Spending is the mirror: subtract get_speed_max(), which
 # leaves any boost surplus untouched and still lets you BOOST afterwards for more.
+#
+# THE POOL CANNOT BE THE ONLY TEST, and that was playtest fix 8.4. Because boost ADDS to the same
+# number this action subtracts from, the pool test is restored by boosting: move tear (pool drops by
+# base) -> BOOST (pool rises by base) -> `current.speed >= get_speed_max()` is true again -> move
+# tear again, and again for every boost the player can afford. The prose gives one base movement per
+# turn, not one per boost. So the expenditure is now RECORDED rather than only inferred: activate()
+# increments this action's own usage counters, and both the check below and vanilla's own
+# per-round limit for naturally-free actions (action.gd:156-158 caps them at 1/round, enforced by
+# UnitAction.is_under_per_round_limit) then refuse a second one.
+#
+# The pool test STAYS alongside it. The two answer different questions and neither subsumes the
+# other: the counter catches "you already spent your base movement on a tear", the pool catches "you
+# already spent it walking".
 extends ActionSystem
 
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
@@ -32,6 +45,9 @@ func is_available_to_activate(unit:Unit, gear:GearCore) -> bool:
 	if not Unit.is_valid(unit): return false
 	# Nothing to move.
 	if TearRouting.owned_tears(unit).is_empty(): return false
+	# Already spent the base movement on a tear this round - see the note at the top of this file
+	# about why boosting would otherwise hand it back.
+	if GearCore.is_valid(gear) and gear.get_uses_this_round(self) > 0: return false
 	# A unit with no base movement cannot spend base movement.
 	var base:int = unit.core.get_speed_max()
 	if base <= 0: return false
@@ -65,6 +81,14 @@ func activate(context:Context, activation:EventCore) -> void:
 	# spent their turn's movement.
 	if Unit.is_valid(unit):
 		unit.core.current.speed = maxi(0, unit.core.current.speed - base)
+		# RECORD the expenditure, so it survives a boost topping the pool back up. This is the whole
+		# of playtest fix 8.4 - see the header. Deliberately NOT spend_actions(): that would also run
+		# the self-heat, logging and popcorn path AND consume any ACTION_FREE buff the Banshee is
+		# holding (unit_action.gd:260-262), which a naturally-free action has no business eating.
+		# increment_action_usage is the narrow half that only writes the counters, and this action
+		# has its own usage_group (action_tear_move) so nothing else on The Keening is billed.
+		if GearCore.is_valid(context.gear):
+			context.gear.increment_action_usage(context.gear.get_usage_group_for_action(self))
 
 ## The movement loop, following Shepherd's shape. Repeats until the lent budget runs out or the
 ## player declines a further leg, so "up to your speed" can be spent in pieces.

@@ -4,7 +4,7 @@
 # action_mourning_call.gd applies this to the TARGET immediately before dealing its own damage, and
 # clears it again immediately afterwards (if the target survived). It carries no logic of its own --
 # a pure marker, hidden from the player -- because the reaction that actually strips the wreck lives
-# on the BANSHEE instead (mt_mourning_call_wreckless / action_mourning_call_wreckless.gd), which
+# on the BANSHEE instead (action_mourning_call_wreckless.gd, on cp_the_keening), which
 # checks the DYING unit for this buff during DEATH:PRE. See that file for why the reaction sits
 # there rather than here.
 #

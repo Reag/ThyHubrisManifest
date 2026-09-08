@@ -94,3 +94,34 @@ func test_it_only_offers_the_banshees_own_tears():
 
 	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'Fixture: exactly one tear, and it is theirs.')
 	assert_false(_available(), 'Another Banshee tear is not ours to move.')
+
+func test_boosting_after_moving_a_tear_does_not_hand_the_verb_back():
+	# PLAYTEST FIX 8.4. Base and boost movement are POOLED, so the availability rule this file is
+	# built on - current.speed >= get_speed_max() - is RESTORED by boosting. Before the fix that made
+	# the verb repeatable: move tear, boost, move tear, boost, for as long as the boosts held out.
+	# The prose gives one base movement per turn.
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	if not _available(): return fail_test('The verb is offered once.')
+
+	var base:int = banshee.core.get_speed_max()
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear_move')
+	assert_lt(banshee.core.current.speed, base, 'sanity: the base movement was actually spent.')
+
+	# Exactly what BOOST does: it adds to the same pool this action just subtracted from
+	# (event_unit_boost.gd:37). The pool test alone would now say yes again.
+	banshee.core.current.speed += base
+	assert_true(banshee.core.current.speed >= base, 'fixture: the pool is back at full base allowance.')
+	assert_false(_available(), 'But the base movement was already spent on a tear, and boost does not buy another.')
+
+func test_moving_a_tear_is_recorded_against_its_own_usage_group():
+	# The recording is what survives the boost. It must be billed to action_tear_move's own group and
+	# nothing else's, or moving a tear would silently spend Tear's or Mourning Call's round allowance.
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear', [Vector2i(4,4)])
+	var gear:GearCore = banshee.get_gear(&'cp_the_keening')
+	await SpecFactory.use(game, banshee, &'cp_the_keening', &'action_tear_move')
+	assert_eq(gear.get_uses_this_round_alt(&'action_tear_move'), 1, 'Billed once, to its own group.')
+	assert_eq(gear.get_uses_this_round_alt(&'action_tear'), 1,
+		'The Tear group shows only its own single use - the tear move did not add to it.')
+	assert_eq(gear.get_uses_this_round_alt(&'action_mourning_call'), 0, 'And the Mourning Call group is untouched.')
+	assert_eq(gear.get_uses_this_round_alt(&'cp_the_keening'), 0,
+		'Nothing fell back to the shared gear-id group, which is what a missing usage_group would do.')

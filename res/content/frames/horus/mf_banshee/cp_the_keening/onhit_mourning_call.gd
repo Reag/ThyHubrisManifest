@@ -145,6 +145,16 @@ func on_resolution(activation:EventCore) -> void:
 	# no_spend makes the deferred parent spend a no-op; action_mourning_call.gd's activate() then does
 	# the one real spend itself, explicitly stripping AS_FREEBIE so the QUICK the author chose is
 	# still charged. See that file's activate() for the other half.
+	# PLAYTEST FIX 8.2: open the offer window around the hand-off, and only around it.
+	#
+	# Mourning Call refuses to activate at any other time, which is what takes it off the gear bar --
+	# clicked cold it has no target and does nothing. That refusal runs on THIS activation too:
+	# event_gear_activate.check_specific_context calls UnitAction.can_activate_gear on the event
+	# choose_and_use builds, and AS_FREEBIE does not exempt it. See action_mourning_call.gd's
+	# is_available_to_activate for the full trace. Closed immediately afterwards, on every path,
+	# including the one where the player declines inside choose_and_use.
+	MourningCall.open_offer_window(mourning_call.gear)
 	await CommonActionUtil.choose_and_use(
 		activation, mourning_call, [mourning_call], CommonActionUtil.choose_and_use_no_spend, attacked_unit
 	)
+	MourningCall.close_offer_window(mourning_call.gear)

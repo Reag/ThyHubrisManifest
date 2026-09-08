@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_wreckless")
+usage_group = &"action_mourning_call_wreckless"
 triggers_on = Array[StringName]([&"death"])
 trigger_timing = 0
 consumes_rxn = false
