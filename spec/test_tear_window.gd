@@ -35,6 +35,16 @@ func test_line_of_sight_is_widened_through_a_tear():
 	# (test_elevation_blocks_los_in_abstract): a blocker at (2,1)-(2,3), with (4,0) visible around its
 	# open end and (4,1) shadowed behind it.
 	#
+	# THE TEAR STANDS ON THE WALL, at (2,1), and that placement is forced by strict collinearity
+	# (2026-09-08). The rule is now "the tear is ON the line a<->b", and line((1,1),(4,1)) runs
+	# (2,1),(3,1),(4,1) - so the old fixture's tear at (4,0), off to the side of the wall's open end,
+	# no longer bridges anything. Nor could any tear beside the wall: line-of-sight here is permissive
+	# (a tile is visible if ANY path is clear), so a tear standing clear of the wall ON the line would
+	# mean the line itself is clear and the target was never hidden. The window's leverage under
+	# collinearity is ELEVATION, not lateral dodging - the tear sits on top of the blocker, sees over
+	# it, and the Banshee sees the top of it from below. That is a real consequence of the author's
+	# decision and is recorded here rather than worked around.
+	#
 	# The HEIGHT is deliberately 4 rather than that test's 2. That test queries can_tile_see with an
 	# explicit layer of 1, whereas get_tiles_in_los derives its height from
 	# UnitTile.effective_height(unit, ...) and then takes maxi(from_height, to_height) - and a unit
@@ -55,12 +65,49 @@ func test_line_of_sight_is_widened_through_a_tear():
 	assert_false(Tile.in_bitwise_array(before, hidden_tile),
 		'Sanity check: the wall genuinely blocks direct sight to the hidden tile.')
 
-	# Placed around the open end of the wall: visible to the Banshee directly (same spot vanilla
-	# proves visible from (1,1)), and with a plain, unobstructed line of its own to the hidden tile.
-	_place_tear(Vector2i(4,0))
+	# On top of the blocker, on the line from the Banshee to the hidden tile. Visible from (1,1)
+	# because is_tile_in_los_alt uses maxi(from_height, to_height) (unit_tile.gd:513), so looking AT
+	# the high ground is measured at the high ground's own layer; and it sees over its own bulk to the
+	# shadowed tile for the same reason.
+	_place_tear(Vector2i(2,1))
 	var after := UnitTile.get_tiles_in_los(banshee)
 	assert_true(Tile.in_bitwise_array(after, hidden_tile),
 		'Opening a tear changes what the Banshee can see. If this is red the unit_tile seam is dead.')
+
+func test_a_ghost_off_the_line_stays_hidden_even_though_the_tear_can_see_it():
+	# THE PLAYTEST DEFECT AT THE SEAM. Same fixture as above, with a second intangible ghost the tear
+	# can see perfectly well but which is not on the Banshee's line through it. Before strict
+	# collinearity both ghosts were revealed, because the rule was los(banshee -> tear) AND
+	# los(tear -> ghost) - a bent path, which is To Bend Reality's rule and not the window's.
+	#
+	# line((1,1),(4,3)) runs (2,2),(3,2),(4,3) and the reverse runs (3,2),(2,2),(1,1); neither
+	# contains the tear at (2,1). line((1,1),(4,1)) runs (2,1),(3,1),(4,1) and does.
+	SpecFactory.set_tiles_elevation(game.map, 4, [Vector2i(2,1), Vector2i(2,2), Vector2i(2,3)])
+	game.map.calculate_los_blockers()
+
+	var on_line_tile := Vector2i(4,1)
+	var off_line_tile := Vector2i(4,3)
+	var on_line_ghost := SpecFactory.create_unit(game.map, on_line_tile, Faction.AI_ENEMY)
+	SpecFactory.apply(on_line_ghost, Lancer.STATUS.INTANGIBLE)
+	var off_line_ghost := SpecFactory.create_unit(game.map, off_line_tile, Faction.AI_ENEMY)
+	SpecFactory.apply(off_line_ghost, Lancer.STATUS.INTANGIBLE)
+
+	var before := UnitTile.get_tiles_in_los(banshee)
+	assert_false(Tile.in_bitwise_array(before, on_line_tile),
+		'Sanity: the on-line ghost is genuinely hidden to start with.')
+	assert_false(Tile.in_bitwise_array(before, off_line_tile),
+		'Sanity: so is the off-line one - otherwise the assertion below is vacuous.')
+
+	_place_tear(Vector2i(2,1))
+	assert_true(TearRouting.sees_between(game.map, Vector2i(2,1), off_line_tile),
+		'Sanity: the tear itself can see the off-line ghost, so the refusal below is the line rule.')
+
+	var after := UnitTile.get_tiles_in_los(banshee)
+	assert_true(Tile.in_bitwise_array(after, on_line_tile),
+		'The ghost on the line through the tear is revealed.')
+	assert_false(Tile.in_bitwise_array(after, off_line_tile),
+		'The ghost the tear can see but that is off the line is NOT. Clauses 4 and 5 are a window, ' +
+		'not a periscope that swivels.')
 
 func test_get_tiles_within_falls_back_through_a_tear():
 	# THE OTHER SEAM. unit_tile.gd_ext.gd overrides two functions: get_tiles_in_los (tested above) and
@@ -91,7 +138,8 @@ func test_get_tiles_within_falls_back_through_a_tear():
 	assert_false(before.has(hidden_tile),
 		'Sanity check: the wall blocks the fallback path too, before any tear is open.')
 
-	_place_tear(Vector2i(4,0))
+	# On the blocker and on the line - see the collinearity note in the sweep test above.
+	_place_tear(Vector2i(2,1))
 	var after := UnitTile.get_tiles_within(banshee, 20, true)
 	assert_true(after.has(hidden_tile),
 		'Opening a tear reaches the hidden tile through get_tiles_within too. If this is red, ' +
@@ -182,6 +230,7 @@ func test_a_tangible_pair_gets_no_periscope_through_the_seam():
 	assert_false(Tile.in_bitwise_array(UnitTile.get_tiles_in_los(banshee), hidden_tile),
 		'Sanity: the wall blocks the tangible pair before any tear exists.')
 
-	_place_tear(Vector2i(4,0))
+	# On the blocker and on the line, so the pair rule is the only thing left to refuse this.
+	_place_tear(Vector2i(2,1))
 	assert_false(Tile.in_bitwise_array(UnitTile.get_tiles_in_los(banshee), hidden_tile),
 		'A tangible pair sees nothing through a tear - clauses 4 and 5 both need a mismatch.')

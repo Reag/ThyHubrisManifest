@@ -40,6 +40,76 @@ func test_routing_is_symmetric():
 		TearRouting.routes_between(game.map, Vector2i(11,11), Vector2i(1,1)),
 		'Routing gives the same answer in both directions.')
 
+# ---------------------------------------------------------------------------- strict collinearity
+
+func test_a_target_off_the_line_does_not_route():
+	# THE PLAYTEST DEFECT, 2026-09-07: "I was able to attack a unit that was clearly not in a line
+	# from the tear." Clauses 4 and 5 say sight is drawn "if the LINE passes through a tear"; the old
+	# implementation asked only los(a -> tear) AND los(tear -> b), which is a BENT path - To Bend
+	# Reality's rule, not the window's. On this flat map every tile sees every other, so before the
+	# collinearity term this pair routed. (1,1) -> (11,1) runs due east and the tear sits five tiles
+	# off that line.
+	_place_tear(Vector2i(6,6))
+	assert_true(TearRouting.sees_between(game.map, Vector2i(1,1), Vector2i(6,6)),
+		'Sanity: the shooter can see the tear, so a refusal below is the line rule and not sight.')
+	assert_true(TearRouting.sees_between(game.map, Vector2i(6,6), Vector2i(11,1)),
+		'Sanity: the tear can see the target too - both legs of the old bent rule are satisfied.')
+	assert_false(TearRouting.routes_between(game.map, Vector2i(1,1), Vector2i(11,1)),
+		'A target the tear can see but that is not on the line does NOT route. Strict collinearity.')
+
+func test_a_collinear_target_still_routes():
+	# The control for the test above, on the same fixture, so "nothing routes any more" cannot pass
+	# for a fix. (1,1) -> (11,11) is the pure diagonal and (6,6) sits on it.
+	_place_tear(Vector2i(6,6))
+	assert_true(TearRouting.routes_between(game.map, Vector2i(1,1), Vector2i(11,11)),
+		'A target on the far side of the tear, in line with it, still routes.')
+
+func test_the_line_test_names_the_engines_own_line():
+	# is_on_the_line is AoeCalculator's line - the one LINE weapons fire down and the pathfinder walks
+	# for straight movement - so "on the line" means to this rule what it means everywhere else the
+	# player can see a line drawn. Asserted directly rather than only through routing, because a
+	# routing failure cannot tell a geometry bug from a sight bug.
+	assert_true(TearRouting.is_on_the_line(game.map, Vector2i(1,1), Vector2i(11,11), Vector2i(6,6)),
+		'The midpoint of a diagonal is on that diagonal.')
+	assert_false(TearRouting.is_on_the_line(game.map, Vector2i(1,1), Vector2i(11,1), Vector2i(6,6)),
+		'A tile five rows off a due-east line is not on it.')
+	assert_false(TearRouting.is_on_the_line(game.map, Vector2i(1,1), Vector2i(11,11), Vector2i(6,7)),
+		'ONE TILE OFF IS OFF. Author decision 2026-09-08: no tolerance - the free tear-move verb ' +
+		'exists so the player can line a tear up.')
+
+func test_standing_in_the_window_counts_at_either_end():
+	# AoeCalculator.line starts at ring 1, so it never contains its own origin: a tear directly under
+	# the viewer is missing from line(viewer, target) and a tear under the target is missing from
+	# line(target, viewer). Checking both directions covers both ends - which is the right answer,
+	# since a character standing IN the window is as much on the line as one standing beside it.
+	assert_true(TearRouting.is_on_the_line(game.map, Vector2i(1,1), Vector2i(11,11), Vector2i(1,1)),
+		'A tear under the viewer is on the line.')
+	assert_true(TearRouting.is_on_the_line(game.map, Vector2i(1,1), Vector2i(11,11), Vector2i(11,11)),
+		'A tear under the target is on the line.')
+
+func test_the_line_test_is_symmetric_across_the_whole_map():
+	# THE SYMMETRY TRAP, pinned directly rather than at one hand-picked pair.
+	#
+	# AoeCalculator.line walks rings outward from the ORIGIN and keeps one tile per ring by angular
+	# proximity, so line(a,b) and line(b,a) genuinely need not agree - two tiles in a ring can be
+	# equally well aimed and the tie breaks on ring order. can_affect is asked as can_affect(a,b) at
+	# one call site and can_affect(b,a) at another, so a single asymmetric pair anywhere on the map is
+	# a unit that can be shot by something it cannot shoot back at.
+	#
+	# A hand-picked pair cannot prove this: the obvious fixtures - a due-east row and a 45-degree
+	# diagonal - are the two cases where line() is symmetric by construction, so a one-directional
+	# implementation would sail past them. This sweeps every tile of the board instead.
+	_place_tear(Vector2i(6,6))
+	var asymmetric:Array[Vector2i] = []
+	for x:int in 12:
+		for y:int in 12:
+			var target := Vector2i(x,y)
+			var forward := TearRouting.routes_between(game.map, Vector2i(1,1), target)
+			var backward := TearRouting.routes_between(game.map, target, Vector2i(1,1))
+			if forward != backward: asymmetric.append(target)
+	assert_eq(asymmetric, [] as Array[Vector2i],
+		'Every tile on the map routes the same in both directions.')
+
 func test_tiles_visible_via_tears_reaches_a_cross_tangible_unit():
 	# tiles_visible_via_tears returns the tiles of units the viewer may LEGITIMATELY route to, not
 	# every tile a tear happens to see. Clauses 4 and 5 both require a tangibility mismatch, so a

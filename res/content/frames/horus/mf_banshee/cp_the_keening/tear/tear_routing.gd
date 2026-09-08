@@ -9,10 +9,20 @@
 # delivery is itself gated on can_affect (passive_aura.gd:68), so a buff lookup here closes a real
 # cycle. Ask about tears, geometry and tangibility STATUS - nothing else.
 #
-# THE RULE, after the agreed terrain relaxation:
+# THE RULE, after the agreed terrain relaxation and the 2026-09-08 collinearity correction:
 #
-#     routes(a, b) = los(a -> tear) AND los(tear -> b)   for some open tear
+#     routes(a, b) = tear IS ON THE LINE a<->b AND los(a -> tear) AND los(tear -> b)
+#         for some open tear
 #         AND exactly one of a, b is INTANGIBLE
+#
+# THE COLLINEARITY TERM IS NOT DECORATION - it is the difference between two abilities. Clauses 4
+# and 5 say "if the LINE passes through a tear"; To Bend Reality says the Banshee may "use tears to
+# change an attack's TRAJECTORY". Until 2026-09-08 this file implemented only the two LOS legs, which
+# is a BENT path - To Bend Reality's rule - so on open ground an intangible Banshee could shoot very
+# nearly anything a tear could see. Playtest found it ("I was able to attack a unit that was clearly
+# not in a line from the tear"), and the real cost was that the core power and the signature trait
+# stopped being distinguishable. See _tears_on_the_line, and note bends_within_range keeps the bent
+# path on purpose.
 #
 # That second line was missing until the final review, and its absence was a real bug rather than a
 # technicality. Clause 4 is "INTANGIBLE characters can draw line of sight to TANGIBLE targets if the
@@ -161,6 +171,53 @@ static func owned_tears(unit:Unit) -> Array[Unit]:
 		if tear.state.is_owned_by(unit): mine.append(tear)
 	return mine
 
+# ---------------------------------------------------------------------------- collinearity
+
+## Which of `candidates` lie ON THE LINE between the two tiles. The geometric half of clauses 4 and 5.
+##
+## Uses AoeCalculator.line_full - the engine's OWN line, the one LINE weapons fire down
+## (range_pattern.gd:60) and the one the pathfinder walks for straight movement (pathfinder.gd:578,
+## 678, 718) - so "on the line" means the same thing here as everywhere a player can see a line drawn.
+## STRICT: no tolerance ring, no fudge. Author decision, 2026-09-08. The tear-move verb is free
+## precisely so the player can line a tear up rather than being handed slack.
+##
+## BOTH DIRECTIONS, AND THAT IS LOAD-BEARING. AoeCalculator.line walks rings outward from the ORIGIN
+## and keeps one tile per ring by angular proximity, so line(a,b) and line(b,a) need not contain the
+## same tiles - a tie between two equally-angled tiles in a ring breaks whichever way the ring happens
+## to be ordered. can_affect is asked as can_affect(a,b) at one call site and can_affect(b,a) at
+## another (see unit_relation.gd_ext.gd's tear_bridges), and an asymmetric answer would let a
+## character be shot by something it cannot shoot back at. Accepting a tear found on EITHER line makes
+## the predicate symmetric by construction, which is why this returns a union rather than testing one
+## direction. test_tear_routing.gd pins the symmetry directly.
+##
+## The union also settles the degenerate ends for free: line() starts at ring 1, so it never contains
+## its own origin - a tear UNDER the viewer is missing from line(viewer, target) but present as the
+## endpoint of line(target, viewer), and vice versa for a tear under the target. Standing in the
+## window counts, in both directions.
+##
+## Takes the candidates rather than reading tear_tiles itself so callers can apply their own cheap
+## rejects first - the two line walks are O(distance^2) via Tile.get_rings, so a caller with an
+## arithmetic filter to hand should run it before paying for them.
+static func _tears_on_the_line(map:MapState, from_tile:Vector2i, to_tile:Vector2i, candidates:Array[Vector2i]) -> Array[Vector2i]:
+	var on_line:Array[Vector2i] = []
+	if candidates.is_empty(): return on_line
+	# AoeCalculator.line dereferences map_shape for its playability test, so a MapState without one
+	# would crash rather than answer. Declining is the safe direction: it falls back to vanilla
+	# geometry, exactly as the is_tile_in_los seam does when it cannot identify the viewer.
+	if map.shape == null: return on_line
+	var forward := AoeCalculator.line_full(from_tile, to_tile, map.shape)
+	var backward := AoeCalculator.line_full(to_tile, from_tile, map.shape)
+	for tear_tile:Vector2i in candidates:
+		if forward.has(tear_tile) or backward.has(tear_tile): on_line.append(tear_tile)
+	return on_line
+
+## Is this one tile on the line between two others? The public face of _tears_on_the_line, for specs
+## and for any caller that already knows which tear it means.
+static func is_on_the_line(map:MapState, from_tile:Vector2i, to_tile:Vector2i, tile:Vector2i) -> bool:
+	if not is_instance_valid(map): return false
+	var candidates:Array[Vector2i] = [tile]
+	return not _tears_on_the_line(map, from_tile, to_tile, candidates).is_empty()
+
 # ---------------------------------------------------------------------------- routing
 
 ## Does some open tear bridge these two tiles? PURE GEOMETRY - it asks nothing about tangibility, so
@@ -177,7 +234,11 @@ static func routes_between(map:MapState, from_tile:Vector2i, to_tile:Vector2i, f
 	if not is_instance_valid(map): return false
 	var tiles := tear_tiles(map)
 	if tiles.is_empty(): return false # fast path: no open tear, no route, no sweep.
-	for tear_tile:Vector2i in tiles:
+	# COLLINEARITY FIRST, then sight. "The line passes through a tear" is a geometric precondition on
+	# the pair, not a second sight check - see _tears_on_the_line. Both LOS legs are kept behind it:
+	# they carry the agreed terrain relaxation and reuse the visibility cache, and a tear on the line
+	# behind a wall is still a tear you cannot see through.
+	for tear_tile:Vector2i in _tears_on_the_line(map, from_tile, to_tile, tiles):
 		if not _sees_from(map, from_tile, tear_tile, from_height): continue
 		# The second leg is measured from the TEAR, whose own eye height is the terrain it sits on -
 		# so the cached terrain-level sweep is the right answer here, not an approximation.
@@ -222,10 +283,16 @@ static func routes_within_range(map:MapState, from_tile:Vector2i, to_tile:Vector
 	var tiles := tear_tiles(map)
 	if tiles.is_empty(): return false
 	var half:int = Util.half(max_range)
+	var affordable:Array[Vector2i] = []
 	for tear_tile:Vector2i in tiles:
 		var after:int = Tile.distance(tear_tile, to_tile)
 		if after > half: continue
 		if Tile.distance(from_tile, tear_tile) + after > max_range: continue
+		affordable.append(tear_tile)
+	# The same collinearity precondition routes_between applies - this is the tear WINDOW with a range
+	# budget bolted on, not a second geometry. Run after the arithmetic, before the sweeps: the two
+	# line walks are O(distance^2) and the distance comparisons are two subtractions.
+	for tear_tile:Vector2i in _tears_on_the_line(map, from_tile, to_tile, affordable):
 		if not _sees_from(map, from_tile, tear_tile, from_height): continue
 		if _sees(map, tear_tile, to_tile): return true
 	return false
@@ -239,9 +306,17 @@ static func routes_within_range(map:MapState, from_tile:Vector2i, to_tile:Vector
 ## re-pointing the tests at the production path instead is a bigger change than a docstring fix
 ## should carry.
 ##
-## Same shape as routes_within_range with the half-range cap REMOVED, and deliberately a separate
-## function rather than a parameterised one. Clause 7 belongs to the tear window and TBR is a
-## different mode; keeping them apart means neither can drift when the other is edited.
+## Same shape as routes_within_range with the half-range cap REMOVED and NO COLLINEARITY TERM, and
+## deliberately a separate function rather than a parameterised one. Clause 7 belongs to the tear
+## window and TBR is a different mode; keeping them apart means neither can drift when the other is
+## edited.
+##
+## THE MISSING COLLINEARITY TERM IS THE WHOLE POINT OF THIS FUNCTION, not an oversight to be tidied
+## up the next time the two are read side by side. To Bend Reality is the ability that "uses tears to
+## change an attack's TRAJECTORY" - a bent path is exactly what it buys, and the player pays a core
+## power and a tear pick for it. The tear window (routes_between, routes_within_range) requires the
+## tear to sit ON the line, because clauses 4 and 5 say the line passes THROUGH it. Conflating the two
+## is the 2026-09-07 playtest bug; do not re-conflate them by "fixing" this to match its neighbour.
 ##
 ## Note this asks nothing about tangibility. The same-tangibility precondition lives in can_affect,
 ## where the pair is known - see unit_relation.gd_ext.gd's bend_proxy_tangibility_differs.
