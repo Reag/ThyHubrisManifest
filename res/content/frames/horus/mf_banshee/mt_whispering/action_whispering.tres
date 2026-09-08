@@ -1,9 +1,11 @@
 [gd_resource type="Resource" script_class="ActionSystemApplyStatus" format=3]
 
 [ext_resource type="Script" uid="uid://dbws6wytsdd7j" path="res://engine/character/gear_action/archtypes/action_system_apply_status.gd" id="1_action_apply_status"]
+[ext_resource type="Texture2D" uid="uid://cx56yprgp2tl7" path="res://assets/icons/buffs/buff_flash_cloak.svg" id="90_icon"]
 
 [resource]
 script = ExtResource("1_action_apply_status")
+icon_override = ExtResource("90_icon")
 applied_statuses = Array[StringName]([&"intangible"])
 apply_until = 3
 apply_to_self = true

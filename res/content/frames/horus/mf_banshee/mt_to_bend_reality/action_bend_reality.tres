@@ -1,7 +1,9 @@
 [gd_resource type="Resource" format=3]
 
 [ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/action_bend_reality.gd" id="1_bend"]
+[ext_resource type="Texture2D" uid="uid://di4m4ojbo4ygt" path="res://assets/icons/arcing.svg" id="90_icon"]
 
 [resource]
 script = ExtResource("1_bend")
+icon_override = ExtResource("90_icon")
 localization_key_override = "mt_to_bend_reality"

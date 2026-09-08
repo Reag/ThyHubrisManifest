@@ -1,9 +1,11 @@
 [gd_resource type="Resource" script_class="ActionSystem" format=3]
 
 [ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/action_mourning_call.gd" id="1_mourning_call"]
+[ext_resource type="Texture2D" uid="uid://bj1ouxe746h58" path="res://assets/icons/actions/cp_dhiyed_articulation/action_hologram_teleport.svg" id="90_icon"]
 
 [resource]
 script = ExtResource("1_mourning_call")
+icon_override = ExtResource("90_icon")
 action_type = 1
 consumes_cp = true
 usage_group = &"action_mourning_call"

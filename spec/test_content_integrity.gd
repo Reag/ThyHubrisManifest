@@ -789,3 +789,62 @@ func test_the_banshee_has_art():
 		return
 
 	assert_true(true, 'The Banshee has a sprite.')
+
+# --- Banshee icons (2026-09-08) ---
+#
+# Every player-facing Kit and Action on the Banshee carries an icon_override. Without one the
+# engine falls back to Kit.DEFAULT_SYSTEM_ICON / Action.DEFAULT_ICON - the generic grey box - which
+# is not an error and produces no warning, so a lost or mistyped reference is invisible except by
+# looking at the gear bar.
+#
+# Asserts only that an icon is SET and LOADS, deliberately not WHICH one. The choice of art is the
+# author's and may well change; a test naming specific files would have to be edited every time
+# somebody picked a better icon, which is a test fighting its owner rather than protecting anything.
+#
+# Buffs are excluded on purpose: every buff on this frame is hide_from_player = true, so it has no
+# icon to show. Both reactions (action_mourning_call_wreckless, action_tear_neither_side) are
+# excluded for the same reason - ActionReaction is filtered out of the gear bar entirely.
+
+const BANSHEE_ICON_TARGETS := {
+	# action_tear_close sits on cp_the_keening, NOT on the tear's own kit. It was moved there on
+	# 2026-09-08: a tear is ENTITY.MARKER, so it never takes a turn and an action on its own kit is
+	# unreachable in play. mt_tear_banshee now carries only the visual passive and no actions.
+	&'cp_the_keening': [&'action_tear', &'action_mourning_call', &'action_tear_move', &'action_tear_close'],
+	&'mt_tear_banshee': [],
+	&'mt_to_bend_reality': [],
+	&'mt_to_twist_truth': [],
+	&'mt_whispering': [&'action_whispering'],
+}
+
+## action_bend_reality belongs to no Kit. It is a VARIANT action: buff_to_bend_reality swaps it in
+## over the pilot's own weapon action at activation time, so it is never in any kit.actions array
+## and has to be reached by path.
+const BEND_REALITY_ACTION := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/action_bend_reality.tres'
+
+func test_the_bend_reality_variant_has_an_icon():
+	# It is what the player clicks in the variant picker, so it needs one as much as any gear-bar action.
+	var action:Action = load(BEND_REALITY_ACTION)
+	assert_true(Action.is_valid(action), 'action_bend_reality loads')
+	if not Action.is_valid(action): return
+	assert_not_null(action.icon_override, 'action_bend_reality has an icon_override')
+
+func test_every_player_facing_banshee_kit_has_an_icon():
+	for kit_id:StringName in BANSHEE_ICON_TARGETS:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		assert_true(Kit.is_valid(kit), '%s is registered' % kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_not_null(kit.icon_override, '%s has an icon_override' % kit_id)
+
+func test_every_player_facing_banshee_action_has_an_icon():
+	# action_tear_close lives on the TEAR's kit, not the Banshee's, so this walks the map rather
+	# than assuming one owner.
+	for kit_id:StringName in BANSHEE_ICON_TARGETS:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		var by_id := {}
+		for action:Action in kit.actions: by_id[action.get_id()] = action
+		for action_id:StringName in BANSHEE_ICON_TARGETS[kit_id]:
+			assert_true(by_id.has(action_id), '%s carries %s' % [kit_id, action_id])
+			if not by_id.has(action_id): continue
+			assert_not_null(by_id[action_id].icon_override,
+				'%s.%s has an icon_override' % [kit_id, action_id])
