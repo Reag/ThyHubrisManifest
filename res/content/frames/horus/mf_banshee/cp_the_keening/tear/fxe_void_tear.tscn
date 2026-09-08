@@ -10,11 +10,14 @@ shader = ExtResource("3_shader")
 shader_parameter/distortion_intensity = 0.2
 shader_parameter/noise_influence = 0.0
 shader_parameter/shake_color_rate = 0.02
-shader_parameter/strength = 0.1
+shader_parameter/tint = Color(0.07, 0.09, 0.22, 1)
+shader_parameter/see_through = 0.35
+shader_parameter/fresnel_color = Color(0.45, 0.55, 1, 1)
+shader_parameter/fresnel_power = 3.0
+shader_parameter/fresnel_strength = 1.4
 shader_parameter/proximity_color = Color(0.06666667, 0.17254902, 0.4392157, 1)
 shader_parameter/proximity_distance = 0.1
 shader_parameter/transparency = 1.0
-shader_parameter/edge_color = Color(0.25, 0, 0.9, 1)
 
 [node name="Fxe" type="Node3D"]
 script = ExtResource("1_fxe")
