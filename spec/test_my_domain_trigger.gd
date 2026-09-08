@@ -25,6 +25,8 @@
 # cancel_offers_for says which of those the player backs out of.
 extends GutTest
 
+const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
+
 const TRAIT_ID := &'mt_my_domain'
 const TETHER_BUFF_ID := &'buff_my_domain_tether'
 const GRAPPLE_KIT := &'mw_grapple'
@@ -39,34 +41,15 @@ const OUTSIDE_BURST := Vector2i(9, 9)     ## comfortably beyond it
 
 var game:Gamemaster
 var responder:DomainWatcher
-var marker:MarkerWatcher
+var marker:PromptWatcher
 var kraken:Unit
 var near_enemy:Unit
 var other_near_enemy:Unit
 var far_enemy:Unit
 
 ## What the board is currently saying about who. The trait names the character it is offering by
-## raising the whois panel and drawing a line to it, and both are bus signals - so a spec can watch
-## them the same way a player watches the screen.
-class MarkerWatcher:
-	extends Node
-
-	static var choice_bus:ChoiceBus = load('res://ui/choice_controller/choice_bus.tres')
-	static var effect_bus:EffectsControllerBus = load('res://engine/gamemaster/effects_controller/effects_controller_bus.tres')
-
-	var named:Unit = null      ## who the whois panel is naming, null while it is down
-	var line_drawn:bool = false
-
-	func _ready() -> void:
-		choice_bus.on_show_whois.connect(_named)
-		choice_bus.on_hide_whois.connect(_unnamed)
-		effect_bus.on_show_target_line.connect(_line_shown)
-		effect_bus.on_hide_target_line.connect(_line_hidden)
-
-	func _named(unit) -> void: named = unit if Unit.is_valid(unit) else null
-	func _unnamed() -> void: named = null
-	func _line_shown(_start, _end, _flavor, _hide_prev) -> void: line_drawn = true
-	func _line_hidden() -> void: line_drawn = false
+## raising the whois panel and drawing a line to it; PromptWatcher reads both off the buses on
+## either engine (`named`, `line_drawn`).
 
 ## The ordinary responder, plus a record of the Grapple targeting the trait opened: who each one was
 ## handed, what the board was saying about who at that moment, and how far the Kraken's Grapple
@@ -78,7 +61,7 @@ class DomainWatcher:
 
 	var grapple_kit:StringName = &''    ## only the trait's own Grapple; the gear being fired asks its own questions
 	var grapple_action:StringName = &''
-	var marker:MarkerWatcher            ## what the board was showing when each offer opened
+	var marker:PromptWatcher            ## what the board was showing when each offer opened
 	var sample:Callable                 ## returns the reach to record
 
 	var grapple_targets:Array[Unit] = []    ## the character each offer was about, in order
@@ -90,20 +73,21 @@ class DomainWatcher:
 	## is declining instead of counting.
 	var cancel_offers_for:Array[Unit] = []
 
-	func choose_compcon_plan(
-		request:ChoiceRequest,
-		specific:SpecificAction,
-		pathfinder:Pathfinder,
-		mandatory_target_unit:Unit = null,
-		reaction_to:SpecificAction = null,
-	):
-		if is_the_traits_grapple(specific):
-			grapple_targets.append(mandatory_target_unit)
-			named_when_asked.append(marker.named if is_instance_valid(marker) else null)
-			if sample.is_valid(): reach_when_asked.append(sample.call())
-			if cancel_offers_for.has(mandatory_target_unit):
-				chosen_plan_queue.push_front(CompconPlan.create_aborted())
-		await super.choose_compcon_plan(request, specific, pathfinder, mandatory_target_unit, reaction_to)
+	func _ready() -> void:
+		super()
+		# Recorded, not overridden: the responder emits this before its inherited answer reads
+		# chosen_plan_queue, so pushing an aborted plan here still declines the offer.
+		plan_prompt.connect(_on_plan_prompt)
+
+	func _on_plan_prompt(info:Dictionary) -> void:
+		var specific:SpecificAction = info.using
+		if not is_the_traits_grapple(specific): return
+		var mandatory_target_unit:Unit = info.unit
+		grapple_targets.append(mandatory_target_unit)
+		named_when_asked.append(marker.named if is_instance_valid(marker) else null)
+		if sample.is_valid(): reach_when_asked.append(sample.call())
+		if cancel_offers_for.has(mandatory_target_unit):
+			chosen_plan_queue.push_front(CompconPlan.create_aborted())
 
 	func is_the_traits_grapple(specific:SpecificAction) -> bool:
 		if not SpecificAction.is_valid(specific): return false
@@ -112,7 +96,7 @@ class DomainWatcher:
 func before_each():
 	# add_responder = false: we install our own, which records the targeting it was shown.
 	game = SpecFactory.setup_gamemaster(self, false, null, {}, false)
-	marker = add_child_autoqfree(MarkerWatcher.new())
+	marker = add_child_autoqfree(PromptWatcher.new())
 	responder = add_child_autoqfree(DomainWatcher.new())
 	responder.grapple_kit = GRAPPLE_KIT
 	responder.grapple_action = GRAPPLE_ACTION
