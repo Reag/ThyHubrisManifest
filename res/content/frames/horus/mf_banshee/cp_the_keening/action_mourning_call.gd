@@ -18,9 +18,36 @@ const MARK_BUFF_ID := &'buff_mourning_call_mark'
 const REFUND_USAGE_GROUP := &'action_mourning_call_refund'
 
 func activate(context:Context, activation:EventCore) -> void:
-	# mirrors action_castigate.gd / action_unstable_system.gd: call spend_actions() ourselves so the
-	# deferred_spend chain from choose_and_use actually runs before we're done.
-	spend_actions(activation)
+	# Mirrors action_castigate.gd / action_unstable_system.gd in spending our own cost from inside
+	# activate() -- but NOT through Action.spend_actions(), and that difference is the whole of
+	# playtest fix 6.1.
+	#
+	# THE DOUBLE BILLING. onhit_mourning_call.gd hands choose_and_use the same SpecificAction as both
+	# `using` and `chosen`. choose_and_use always stamps Action.FLAG.AS_FREEBIE onto the CHILD
+	# activation (common_action_util.gd:666-670) and installs a deferred_spend that spends the PARENT,
+	# so under the default choose_and_use_spend_action this one action was billed twice:
+	# UnitAction.spend_actions_gain_heat ran once for the parent (NON-freebie, reached via
+	# context.run_deferred_spend() at unit_action.gd:219) and again for the child (freebie).
+	# unit.state.actions sits inside spend()'s `if not as_freebie` guard (unit_action.gd:242), so the
+	# QUICK was charged exactly once -- which is why the action-economy spec stayed green and hid
+	# this through a whole build cycle -- but everything OUTSIDE that guard ran twice:
+	# spend_core_power (two "-CP" popups and two core_power barks), increment_action_usage_for_action,
+	# log_usage and popcorn_usage.
+	#
+	# The fix has two halves. onhit_mourning_call.gd now passes
+	# CommonActionUtil.choose_and_use_no_spend, so the deferred parent spend is a no-op and the
+	# billing happens exactly once -- here. But `no_spend` on its own would leave only the CHILD
+	# spend, which choose_and_use has already flagged AS_FREEBIE, and a freebie never touches
+	# unit.state.actions: the QUICK the author deliberately chose would have silently become free.
+	# So spend explicitly with AS_FREEBIE stripped, instead of calling spend_actions() and inheriting
+	# the flag. spec/test_mourning_call.gd counts both halves -- one "-CP" popup, one recorded use.
+	var specific := SpecificAction.from_context(activation.context)
+	if not SpecificAction.is_valid(specific): return
+	# duplicate(): spend() appends SPENT_OVERCHARGE to the REAL activation.context.flags, which must
+	# keep its AS_FREEBIE for everything downstream that reads it.
+	var spend_flags:Array = activation.context.flags.duplicate()
+	spend_flags.erase(Action.FLAG.AS_FREEBIE)
+	UnitAction.spend_actions_gain_heat(specific, activation, spend_flags)
 
 	var unit:Unit = context.unit
 	if not Unit.is_valid(unit): return
@@ -51,22 +78,34 @@ func activate(context:Context, activation:EventCore) -> void:
 	var crit:bool = DeclaredAttackSummary.is_valid(summary) and summary.get_all_crit_units().has(target)
 	var amount:int = 6 if crit else 4
 
-	# clauses 3, 6: teleport to a free space adjacent to the target, even while IMMOBILIZED (or
-	# GRAPPLED/SHUTDOWN -- UnitCondition.is_immobilized covers those too; flagged, not trimmed).
-	# voluntary = false is the escape hatch: every gate in the engine reads
-	# `movement_type.voluntary and UnitCondition.is_immobilized(unit)` (pathfinder.gd:330,
-	# action_system_movement.gd:26, action_reaction_movement.gd:48). MovementType.new()'s own default
-	# (which create_for_involuntary never overrides) is voluntary = false, so this is automatic --
-	# proven by spec/test_mourning_call_probe.gd's probe 3, including its voluntary=true control.
-	var movement_type := MovementType.create_for_involuntary(unit)
-	movement_type.teleport = true
+	# clauses 3, 6: teleport to a free space adjacent to the target, even while IMMOBILIZED. See
+	# landing_tiles() / is_teleport_blocked() below for how far that waiver reaches and where it
+	# deliberately stops (playtest fix 6.5 -- GRAPPLED is NOT licensed by the prose).
+	var movement_type := teleport_movement_type(unit)
+	var free_tiles:Array[Vector2i] = landing_tiles(unit, target)
 
-	var free_tile := Tile.INVALID
-	var katamari := Katamari.create(unit)
-	for tile:Vector2i in UnitTile.get_adjacent_tiles(target):
-		if Pathfinder.is_tile_standable(unit, tile, movement_type, katamari):
-			free_tile = tile
-			break
+	# PLAYTEST FIX 6.6: which side of the target the Banshee lands on is a real tactical decision --
+	# cover, engagement, what it can reach next turn -- and the old code simply took the first
+	# standable tile in UnitTile.get_adjacent_tiles order without asking. Offer the choice.
+	#
+	# The old comment here claimed that a Banshee ALREADY adjacent to its target "stays put" because
+	# its own tile reads as standable. That was wrong on both counts, and the reviewer who flagged it
+	# was right: its own tile does read as standable (Occupation never lets a unit block itself), but
+	# the loop took the FIRST standable tile in direction order, which is almost never the tile the
+	# Banshee is standing on -- so an already-adjacent Banshee was silently shuffled sideways. Its
+	# current tile is still in this list, so staying put is now something the player can actually
+	# choose.
+	var free_tile:Vector2i = free_tiles.front() if not free_tiles.is_empty() else Tile.INVALID
+	if free_tiles.size() > 1 and unit.is_player_controlled():
+		camera_bus.show_all_tiles(free_tiles, true)
+		var landing_plan:CompconPlan = await choice_bus.choose_target_tiles(SpecificAction.from_context(context), free_tiles)
+		if not Unit.is_valid(unit) or not Unit.is_valid(target): return
+		# Cancelling the pick must NOT cancel the whole activation -- the core point and the quick
+		# action are already spent by this point, so bailing here would eat both for nothing. Fall
+		# back to the same tile the old code would have taken.
+		if landing_plan != null and not landing_plan.target_tiles.is_empty():
+			free_tile = landing_plan.target_tiles.front()
+
 	# onhit_mourning_call.gd already checked for a free adjacent tile before offering the prompt, so
 	# this should never come up empty in play -- but don't teleport into a wall if it somehow does.
 	if free_tile != Tile.INVALID:
@@ -118,10 +157,18 @@ func activate(context:Context, activation:EventCore) -> void:
 		# independently correct (each recomputes has_status fresh when it runs), so the Banshee still
 		# ends up intangible; see spec/test_mourning_call.gd's "ends intangible" test, which asserts
 		# the final state rather than merely that the status was applied at some point.
+		#
+		# PLAYTEST FIX 6.2: START_OF_TURN, not MANUAL. MANUAL never expires on its own --
+		# event_unit_intangible.get_until() clamps the first flag and hands it straight to
+		# UnitCondition.apply_status -- so a single kill left the Banshee permanently intangible,
+		# which nothing in the prose promises. Author decision (2026-09-08): it lasts until the start
+		# of the Banshee's next turn, matching Whispering's own apply_until = START_OF_TURN. The enum
+		# index was checked against engine/utils/lancer.gd rather than taken on trust: UNTIL reads
+		# MANUAL, END_OF_NEXT_TURN, END_OF_THIS_TURN, START_OF_TURN, so START_OF_TURN is 3.
 		if not Unit.is_valid(unit): return
 		await activation.execute_event(&'event_unit_intangible', {
 			unit = unit,
-			flags = [Lancer.UNTIL.MANUAL],
+			flags = [Lancer.UNTIL.START_OF_TURN],
 		})
 
 		# Task 4. Both re-check Unit.is_valid(unit) -- the intangibility event above just awaited, and
@@ -148,17 +195,27 @@ func _maybe_relocate_tear(context:Context, activation:EventCore, unit:Unit) -> v
 	var tears:Array[Unit] = TearRouting.owned_tears(unit)
 	if tears.is_empty(): return # nothing to move -- do not prompt at all.
 
-	var confirmed:bool = await choice_bus.quick_yesno(
-		unit.tile(),
-		tr('gear.cp_the_keening.action_mourning_call.name'),
-		tr('gear.cp_the_keening.action_mourning_call.relocate_tear_prompt'),
-	)
+	# PLAYTEST FIX 6.4 (same defect as the offer prompt in onhit_mourning_call.gd, one clause later):
+	# an AI Banshee was raising ITS decisions as human dialogs -- the player was asked whether the
+	# enemy should relocate its own tear, and then which tear, and then to where. Vanilla always
+	# guards a quick_yesno on is_player_controlled and gives the AI a straight default
+	# (action_blinkspace_jump.gd:14, action_mag_parry.gd:29, action_consume_lock_on.gd:52-56); the
+	# default here is yes, as it is there. Everything below is likewise gated so the AI decides for
+	# itself instead of borrowing the player's hands.
+	var player_decides:bool = unit.is_player_controlled()
+	var confirmed:bool = true # AI always takes the free relocation
+	if player_decides:
+		confirmed = await choice_bus.quick_yesno(
+			unit.tile(),
+			tr('gear.cp_the_keening.action_mourning_call.name'),
+			tr('gear.cp_the_keening.action_mourning_call.relocate_tear_prompt'),
+		)
 	if not confirmed or not Unit.is_valid(unit): return
 
 	# Multiple tears (MAX_TEARS = 15 in tear_routing.gd) are possible; pick one the same way clause 8
 	# does -- highlight the candidates, then ask -- rather than silently grabbing the first.
 	var chosen:Unit = tears.front()
-	if tears.size() > 1:
+	if tears.size() > 1 and player_decides:
 		camera_bus.show_all_tiles(UnitTile.collect_all_occupied_tiles(tears), true)
 		chosen = await choice_bus.choose_unit(tears)
 	if not Unit.is_valid(chosen) or not Unit.is_valid(unit): return
@@ -176,13 +233,16 @@ func _maybe_relocate_tear(context:Context, activation:EventCore, unit:Unit) -> v
 		if Pathfinder.is_tile_standable(chosen, tile, movement_type, katamari): standable_tiles.append(tile)
 	if standable_tiles.is_empty(): return
 
-	var plan:CompconPlan = await choice_bus.choose_target_tiles(SpecificAction.from_context(context), standable_tiles)
-	if plan == null or plan.target_tiles.is_empty(): return
+	var destination:Vector2i = standable_tiles.front() # the AI's default; see player_decides above
+	if player_decides:
+		var plan:CompconPlan = await choice_bus.choose_target_tiles(SpecificAction.from_context(context), standable_tiles)
+		if plan == null or plan.target_tiles.is_empty(): return
+		destination = plan.target_tiles.front()
 	if not Unit.is_valid(chosen) or not Unit.is_valid(unit): return
 
 	await activation.execute_event(&'event_unit_move', {
 		unit = chosen,
-		target_tiles = [plan.target_tiles.front()],
+		target_tiles = [destination],
 		resource = movement_type,
 	})
 	# The tear changed tile, and every cache in tear_routing is keyed on tile -- see action_tear.gd
@@ -210,3 +270,66 @@ func _maybe_refund_core_point(gear:GearCore, unit:Unit) -> void:
 	if gear.get_uses_this_scene_alt(REFUND_USAGE_GROUP) > 0: return
 	gear.increment_action_usage(REFUND_USAGE_GROUP)
 	unit.core.has_core_power = true
+
+
+# ============================================================================
+# The teleport's shared vocabulary. onhit_mourning_call.gd has to answer "can this even happen?"
+# BEFORE it prompts, and activate() has to answer "where exactly?" after. Those two answers must
+# never disagree -- an offer for a teleport that then cannot run costs the player a core point for
+# nothing -- so both live here, as statics, and onhit preloads this script rather than keeping its
+# own copy. (It used to keep its own copy, and the copies had already drifted: onhit's built the
+# MovementType inline while activate() built a second one a few lines later.)
+# ============================================================================
+
+## The involuntary teleport, and the ONE thing it is not allowed to escape.
+##
+## PLAYTEST FIX 6.5. `voluntary = false` (MovementType.new()'s default, which create_for_involuntary
+## never overrides) waives every immobility gate in the engine, because they all read
+## `movement_type.voluntary and UnitCondition.is_immobilized(unit)` -- pathfinder.gd:330,
+## action_system_movement.gd:26, action_reaction_movement.gd:48. That is exactly what clause 6 wants
+## for IMMOBILIZED. But UnitCondition.is_immobilized (unit_condition.gd:412-417) is a THREE-status
+## predicate: IMMOBILIZED, GRAPPLED (unless this unit is the larger party) and SHUTDOWN. The prose
+## licenses one of those -- "You may do so even while IMMOBILIZED" -- and says nothing about slipping
+## a grapple, which in this engine is a contested hold another unit is actively maintaining.
+##
+## So the waiver is kept and then narrowed by hand: the movement itself stays involuntary (that is
+## what makes it a teleport rather than a walk, and what makes it ignore reactions and engagement),
+## and the two statuses the prose does not cover are refused here instead. A GRAPPLED or SHUTDOWN
+## Banshee is simply not offered Mourning Call -- onhit_mourning_call.gd calls landing_tiles() before
+## it prompts, so nothing is spent.
+##
+## SHUTDOWN is in scope only for completeness: a SHUTDOWN unit cannot take the attack that triggers
+## Mourning Call in the first place, so in play this gate is about GRAPPLED.
+static func is_teleport_blocked(unit:Unit) -> bool:
+	if not Unit.is_valid(unit): return true
+	return (
+		(UnitCondition.has_status(unit, Lancer.STATUS.GRAPPLED) and not unit.state.is_larger_in_grapple) or
+		UnitCondition.has_status(unit, Lancer.STATUS.SHUTDOWN)
+	)
+
+static func teleport_movement_type(unit:Unit) -> MovementType:
+	var movement_type := MovementType.create_for_involuntary(unit)
+	movement_type.teleport = true
+	return movement_type
+
+## Every tile adjacent to the TARGET that the Banshee could actually land on -- the offer in
+## activate(), and the "is this worth prompting for?" test in onhit_mourning_call.gd.
+##
+## The target's neighbours, not the Banshee's: the teleport lands next to the target. (That was
+## Defect 1 of the original build -- the old check walked the teleporting unit's own neighbours,
+## which are nearly always free at ranged distance and so validated nothing.)
+##
+## If the Banshee is ALREADY adjacent to the target, one of these tiles is the Banshee's own current
+## tile, and it correctly reads as standable: Pathfinder's Occupation explicitly refuses to let a
+## unit block itself. So staying exactly where it is remains one of the offered options rather than
+## being treated as impossible. Occupying_size (2+ frames) is handled inside is_tile_standable, so
+## no size-specific logic is needed here.
+static func landing_tiles(teleporting_unit:Unit, target_unit:Unit) -> Array[Vector2i]:
+	var tiles:Array[Vector2i] = []
+	if not Unit.is_valid(teleporting_unit) or not Unit.is_valid(target_unit): return tiles
+	if is_teleport_blocked(teleporting_unit): return tiles
+	var movement_type := teleport_movement_type(teleporting_unit)
+	var katamari := Katamari.create(teleporting_unit)
+	for tile:Vector2i in UnitTile.get_adjacent_tiles(target_unit):
+		if Pathfinder.is_tile_standable(teleporting_unit, tile, movement_type, katamari): tiles.append(tile)
+	return tiles

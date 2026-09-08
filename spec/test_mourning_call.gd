@@ -551,3 +551,199 @@ func test_the_core_point_does_not_come_back_a_second_time_in_the_same_scene():
 		banshee.core.has_core_power,
 		'The refund is once per scene: the second kill spends the point again but does not get it back.'
 	)
+
+
+# ============================================================================
+# Task 6 (playtest fixes): the accounting and the prompting around Mourning Call. The mechanics
+# above -- damage, the crit path, the kill test, wreck-stripping, the refund -- were all already
+# proven; what nothing here counted was HOW MANY TIMES each of them was billed, or WHETHER the
+# prompt should have been shown at all. That is what this section counts.
+# ============================================================================
+
+## Every `-CP` popup the run emitted. spend_core_power (unit_action.gd:286-289) plays exactly this
+## text once per call, so counting the popup counts the calls -- which is the only direct evidence
+## of the double-billing bug that does not require instrumenting the engine.
+var _cp_pops:int = 0
+func _count_cp_pop(text:String, _tile:Vector2i, _is_large:bool) -> void:
+	if text == X.tr('battle.spent.cp.pop'): _cp_pops += 1
+
+## Every yes/no prompt title the run raised. Titles, not a bare count, so a test can say WHICH
+## prompt it did or did not expect without being confused by an unrelated confirmation.
+var _yesno_titles:Array[String] = []
+func _record_yesno(_request, _tile:Vector2i, title:String, _description:String, _encourage_yes:bool) -> void:
+	_yesno_titles.append(title)
+
+func _mourning_call_prompt_title() -> String:
+	return X.tr('battle.confirm.use').format({action = tr('gear.cp_the_keening.action_mourning_call.name')})
+
+func _mourning_call_prompts() -> int:
+	var count := 0
+	for title:String in _yesno_titles:
+		if title == _mourning_call_prompt_title(): count += 1
+	return count
+
+func _watch_buses() -> void:
+	_cp_pops = 0
+	_yesno_titles = []
+	SpecFactory.effect_bus.on_play_text.connect(_count_cp_pop)
+	SpecFactory.choice_bus.on_quick_yesno.connect(_record_yesno)
+
+func _unwatch_buses() -> void:
+	if SpecFactory.effect_bus.on_play_text.is_connected(_count_cp_pop):
+		SpecFactory.effect_bus.on_play_text.disconnect(_count_cp_pop)
+	if SpecFactory.choice_bus.on_quick_yesno.is_connected(_record_yesno):
+		SpecFactory.choice_bus.on_quick_yesno.disconnect(_record_yesno)
+
+func _uses_this_round(unit:Unit) -> int:
+	var gear:GearCore = unit.get_gear(KEENING_KIT_ID)
+	if not GearCore.is_valid(gear): return -1
+	return gear.get_uses_this_round_alt(MOURNING_CALL_USAGE_GROUP)
+
+## SUB-FIX 1. onhit_mourning_call.gd handed the SAME SpecificAction to choose_and_use as both
+## `using` and `chosen`, so UnitAction.spend ran twice for it: once non-freebie (via the
+## deferred_spend that choose_and_use_spend_action installs) and once as the child activation's own
+## freebie spend. unit.state.actions is guarded by `if not as_freebie` so the QUICK was only ever
+## charged once -- which is why the pre-existing action-economy test above stayed green -- but
+## everything OUTSIDE that guard ran twice: spend_core_power (two "-CP" popups and two core_power
+## barks), increment_action_usage_for_action, log_usage and popcorn_usage.
+func test_activating_spends_the_core_point_exactly_once():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.health = 100 # survive, so the refund cannot muddy the count
+	target.core.full_repair()
+
+	_watch_buses()
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+	_unwatch_buses()
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_eq(_cp_pops, 1, 'The core point is spent ONCE -- one "-CP" popup, not two.')
+
+## SUB-FIX 1, the other half of the same double spend: gear usage is recorded twice, so a
+## once-per-round Mourning Call would read as already-spent the instant it was first used.
+func test_activating_records_exactly_one_use():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.health = 100
+	target.core.full_repair()
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+
+	assert_eq(_uses_this_round(banshee), 1, 'One activation records exactly one use of the usage group.')
+
+## SUB-FIX 2. The kill rider used Lancer.UNTIL.MANUAL, which never expires -- an accidental permanent
+## intangibility. Author decision: START_OF_TURN, matching Whispering (see spec/test_whispering.gd's
+## own expiry test, whose shape this mirrors).
+func test_the_intangibility_from_a_kill_expires_at_the_start_of_the_next_turn():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.structure = 1
+	target.core.frame.stat.health = 8 # weapon's 4 (survives) + Mourning Call's 4 (dies)
+	target.core.full_repair()
+
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+
+	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
+	assert_true(banshee.has_status(Lancer.STATUS.INTANGIBLE), 'sanity: the kill phased the Banshee out.')
+
+	await SpecFactory.end_turn(game, banshee)
+	assert_true(
+		banshee.has_status(Lancer.STATUS.INTANGIBLE),
+		'Still intangible through the end of this turn -- START_OF_TURN, not END_OF_THIS_TURN.'
+	)
+
+	await SpecFactory.start_turn(game, banshee)
+	assert_false(banshee.has_status(Lancer.STATUS.INTANGIBLE), 'Tangible again at the start of its next turn.')
+
+## SUB-FIX 3. After a non-killing use the core point is gone for the rest of the mission, but the
+## prompt kept being offered on every subsequent ranged hit; accepting then failed deep inside
+## UnitAction with NO_CORE_POWER, to the console only. Nothing player-facing said why.
+func test_no_prompt_is_offered_without_a_core_point():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	banshee.core.has_core_power = false # already spent it earlier in the mission
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.health = 100
+	target.core.full_repair()
+
+	_watch_buses()
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+	_unwatch_buses()
+
+	assert_eq(_mourning_call_prompts(), 0, 'With no core point, the prompt is not offered at all.')
+	assert_false(_mourning_call_ran(banshee), 'And Mourning Call does not run.')
+
+## SUB-FIX 4. An AI Banshee was raising ITS decision as a human yes/no dialog -- the human player was
+## being asked whether the enemy should use its core power. Vanilla always guards these on
+## is_player_controlled and gives the AI a default (action_blinkspace_jump.gd, action_mag_parry.gd,
+## action_consume_lock_on.gd all do exactly this); the default here is yes, as it is there.
+func test_an_ai_banshee_is_never_prompted():
+	var banshee := SpecFactory.create_unit(game.map, Vector2i(1, 1), Faction.AI_ENEMY)
+	banshee.core.change_mech_frame(load(BANSHEE_FRAME))
+	SpecFactory.apply_passive_buffs(banshee)
+	banshee.core.has_core_power = true
+	await SpecFactory.start_turn(game, banshee)
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	assert_false(banshee.is_player_controlled(), 'sanity: this Banshee is AI-controlled.')
+
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.PLAYER)
+	target.core.frame.stat.health = 100
+	target.core.full_repair()
+
+	_watch_buses()
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+	_unwatch_buses()
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: the AI still used Mourning Call (its default is yes).')
+	assert_eq(_mourning_call_prompts(), 0, 'The AI never hands its own decision to the human player.')
+
+## SUB-FIX 5. MovementType.create_for_involuntary + voluntary = false waives every gate that reads
+## `voluntary and UnitCondition.is_immobilized(unit)` -- and is_immobilized (unit_condition.gd:412)
+## covers GRAPPLED and SHUTDOWN as well as IMMOBILIZED. The prose licenses IMMOBILIZED only; being
+## held in a grapple is not something "even while IMMOBILIZED" excuses.
+func test_a_grappled_banshee_cannot_mourning_call():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.health = 100
+	target.core.full_repair()
+	SpecFactory.apply(banshee, Lancer.STATUS.GRAPPLED)
+	assert_true(UnitCondition.is_immobilized(banshee), 'sanity: a grapple immobilizes.')
+
+	_watch_buses()
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+	_unwatch_buses()
+
+	assert_eq(_mourning_call_prompts(), 0, 'GRAPPLED, the teleport cannot happen, so nothing is offered.')
+	assert_false(_mourning_call_ran(banshee), 'And Mourning Call does not run.')
+	assert_true(banshee.core.has_core_power, 'And the core point is not spent.')
+
+## SUB-FIX 6. The teleport took the first standable tile in UnitTile.get_adjacent_tiles order, with
+## no say from the player -- which side of the target you land on is a real tactical decision
+## (cover, engagement, the next turn's reach). The player now picks from the free adjacent tiles.
+func test_the_player_picks_the_landing_tile():
+	var banshee := _arm_banshee()
+	banshee.core.equip_system(RANGED_WEAPON_ID)
+	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	target.core.frame.stat.health = 100 # survive, so the tear-relocation pick never runs and cannot
+	target.core.full_repair()           # overwrite what this capture saw
+
+	# Same capture shape as the tear-relocation tests above: SpecFactory's own responder still
+	# answers (front of the offered list), so the landing tile must be offered_tiles.front().
+	var offered_tiles:Array[Vector2i] = []
+	var capture_offer := func(_request, _specific, from_tiles):
+		offered_tiles.assign(from_tiles)
+	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
+	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
+	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+
+	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
+	assert_false(offered_tiles.is_empty(), 'The player is offered the free tiles adjacent to the target.')
+	assert_true(
+		UnitRelation.is_adjacent(banshee, target),
+		'sanity: wherever it landed, it landed adjacent to the target.'
+	)
+	assert_eq(banshee.tile(), offered_tiles.front(), 'The Banshee lands on the tile that was chosen.')

@@ -30,6 +30,10 @@
 # leaving the default avoids implying a distinction the field doesn't actually enforce on this path.
 extends OnHitEffect
 
+## The teleport's feasibility test and its landing set both live on the action itself, so the offer
+## and the thing being offered can never drift apart -- see that file's "shared vocabulary" section.
+const MourningCall := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/action_mourning_call.gd')
+
 const KEENING_KIT_ID := &'cp_the_keening'
 const MOURNING_CALL_ACTION_ID := &'action_mourning_call'
 
@@ -59,6 +63,17 @@ func on_resolution(activation:EventCore) -> void:
 
 	var mourning_call := SpecificAction.from_id(unit, KEENING_KIT_ID, MOURNING_CALL_ACTION_ID)
 	if not SpecificAction.is_valid(mourning_call): return
+
+	# PLAYTEST FIX 6.3. action_mourning_call.tres sets consumes_cp = true, so with the core point
+	# already spent the activation dies inside UnitAction with NO_CORE_POWER -- a console line and
+	# nothing else. Before this check, that meant EVERY subsequent ranged hit for the rest of the
+	# mission raised the prompt again and then did nothing at all when accepted.
+	#
+	# unit.core.has_core_power directly, NOT UnitAction.can_activate_gear: can_activate_gear also
+	# consults Action.is_available_to_activate, and the planned gear-bar fix overrides exactly that to
+	# false so Mourning Call stops rendering as a clickable no-op. Routing this gate through
+	# can_activate_gear would then switch the whole trait off the moment that lands.
+	if not unit.core.has_core_power: return
 
 	# apply_on_resolutions runs once for the WHOLE declared attack (event_unit_attack_declared.gd:211),
 	# not once per target the way apply_on_hits was -- so, unlike the old on_hit(activation,
@@ -90,14 +105,24 @@ func on_resolution(activation:EventCore) -> void:
 	# fake silently.
 	var attacked_unit:Unit = living_hit_units.front()
 
-	# Don't ask the player to pay a core point for a teleport that cannot happen. The teleport
-	# itself is Task 2's job; this only needs the check so the prompt is honest.
-	if not _has_free_adjacent_tile(unit, attacked_unit): return
+	# Don't ask for a core point for a teleport that cannot happen. This is the exact set activate()
+	# will offer the player to land in, so an offer made here is always an offer that can be honoured
+	# -- and it is also where GRAPPLED/SHUTDOWN are refused (playtest fix 6.5): the prose licenses
+	# "even while IMMOBILIZED" and nothing more, but the involuntary MovementType that delivers that
+	# waives all three at once. See MourningCall.landing_tiles / is_teleport_blocked.
+	if MourningCall.landing_tiles(unit, attacked_unit).is_empty(): return
 
-	var confirmed:bool = await choice_bus.quick_yesno(
-		unit.tile(),
-		tr('battle.confirm.use').format({action = Translate.action(mourning_call.gear.kit, mourning_call.action, 'name')})
-	)
+	# PLAYTEST FIX 6.4: only ASK a player. An AI Banshee was raising its own decision as a human
+	# yes/no dialog -- the player was being asked whether the enemy should spend its core power.
+	# Vanilla guards every one of these on is_player_controlled and gives the AI a flat default
+	# (action_blinkspace_jump.gd:14, action_mag_parry.gd:29, action_consume_lock_on.gd:52-56); yes is
+	# the default here, as it is there -- Mourning Call is a finisher an AI should take when offered.
+	var confirmed:bool = true
+	if unit.is_player_controlled():
+		confirmed = await choice_bus.quick_yesno(
+			unit.tile(),
+			tr('battle.confirm.use').format({action = Translate.action(mourning_call.gear.kit, mourning_call.action, 'name')})
+		)
 	if not Unit.is_valid(unit) or not confirmed: return
 
 	# Pass attacked_unit explicitly as choose_and_use's target_unit_or_tiles. decompose_variant_targets
@@ -106,26 +131,20 @@ func on_resolution(activation:EventCore) -> void:
 	# reads that directly. (The old on_hit-stage code didn't need this: `activation` there WAS the
 	# per-target event_unit_attack core, which carries its own target_unit. That core doesn't exist at
 	# on_resolution's altitude -- see action_mourning_call.gd for the other half of this change.)
+	# PLAYTEST FIX 6.1: choose_and_use_no_spend, NOT choose_and_use_spend_action.
+	#
+	# `using` and `chosen` are the SAME SpecificAction here -- this on-hit effect is not choosing
+	# between weapons, it is offering exactly one action -- and choose_and_use bills them separately:
+	# the child activation is flagged AS_FREEBIE and additionally carries a deferred_spend that spends
+	# the parent non-freebie. With spend_action that meant UnitAction.spend ran TWICE for one
+	# activation. unit.state.actions is inside spend()'s `if not as_freebie` guard so the QUICK was
+	# charged once and the action-economy spec never noticed, but spend_core_power,
+	# increment_action_usage_for_action, log_usage and popcorn_usage are all outside it -- two "-CP"
+	# popups, two barks, two log lines, two recorded uses, every single time.
+	#
+	# no_spend makes the deferred parent spend a no-op; action_mourning_call.gd's activate() then does
+	# the one real spend itself, explicitly stripping AS_FREEBIE so the QUICK the author chose is
+	# still charged. See that file's activate() for the other half.
 	await CommonActionUtil.choose_and_use(
-		activation, mourning_call, [mourning_call], CommonActionUtil.choose_and_use_spend_action, attacked_unit
+		activation, mourning_call, [mourning_call], CommonActionUtil.choose_and_use_no_spend, attacked_unit
 	)
-
-# The teleport lands next to the TARGET, not next to the Banshee -- so the check has to walk
-# target_unit's neighbours, not teleporting_unit's. (This was Defect 1: the old code checked
-# teleporting_unit's own neighbours, which is nearly always free at ranged distance and
-# validated nothing.)
-#
-# If teleporting_unit is ALREADY adjacent to target_unit, one of target_unit's adjacent tiles is
-# teleporting_unit's own current tile. Occupation.calculate_for explicitly excludes a unit from
-# blocking its own current tile (pathfinder.gd's "other_unit == unit: return false"), so that
-# tile still reads as standable and this correctly returns true -- the teleport is then a no-op
-# rather than "impossible", which is the right call: the Banshee doesn't need a free tile to
-# stay exactly where it already is. Occupying_size (2+ frames) is likewise already handled by
-# Occupation/is_tile_standable, so no extra size-specific logic is needed here.
-func _has_free_adjacent_tile(teleporting_unit:Unit, target_unit:Unit) -> bool:
-	var movement_type := MovementType.create_for_involuntary(teleporting_unit)
-	movement_type.teleport = true
-	var katamari := Katamari.create(teleporting_unit)
-	for tile:Vector2i in UnitTile.get_adjacent_tiles(target_unit):
-		if Pathfinder.is_tile_standable(teleporting_unit, tile, movement_type, katamari): return true
-	return false
