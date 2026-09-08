@@ -20,6 +20,5 @@ shader_parameter/edge_color = Color(0.25, 0, 0.9, 1)
 script = ExtResource("1_fxe")
 
 [node name="void_tear_distort" type="MeshInstance3D" parent="."]
-transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, -0.25, 0)
 mesh = ExtResource("2_mesh")
 surface_material_override/0 = SubResource("ShaderMaterial_void_tear")
