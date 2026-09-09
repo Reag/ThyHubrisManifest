@@ -114,7 +114,8 @@ static func pick_tile_from(specific:SpecificAction, tiles:Array[Vector2i]) -> Ve
 # ------------------------------------------------------------------ observing movement picks
 
 ## Calls on_pick(request, unit, pathfinder) every time a movement pick opens for the player. The
-## connection is permanent: use it from a node that lives as long as the choice controller.
+## wrapper is disconnected when the node that owns `on_pick` leaves the tree, so it is safe to call
+## from a per-game node.
 ##
 ## TORN DOWN ON on_pick's OWNER EXITING THE TREE, and that guard is load-bearing, not tidiness. The
 ## adapter below is a bare closure with no bound object of its own - Godot only auto-disconnects a

@@ -3,7 +3,8 @@
 # THE BUG THIS FILE EXISTS FOR, reported from play as "I can't seem to move the void tears when I
 # select the option that expends my base movement to change their location."
 #
-# All three sites asked with choice_bus.choose_unit(tears). That is served by
+# All three sites asked with choice_bus.choose_unit(tears), observed here through
+# testkit/prompt_watcher.gd. That is served by
 # ui/choice_controller/unit/tilepicker_unit.gd, which builds its clickable set straight from each
 # candidate's occupied_tiles() (lines 26-28) -- so the tear's tile HIGHLIGHTS and looks pickable --
 # but resolves the click through get_pickable_units_at_tile (lines 87-90), i.e.
@@ -13,7 +14,8 @@
 # waiting for an answer that cannot arrive.
 #
 # WHY 569 GREEN TESTS MISSED IT, and the thing to keep in mind when adding to this file.
-# SpecFactory's ChoiceBusResponder answers on_choose_unit by handing back from_units.front(). It
+# SpecFactory's ChoiceBusResponder answers every unit pick by handing back from_units.front(), while
+# testkit/prompt_watcher.gd listens alongside it purely to observe what was offered. The responder
 # never touches the tilepicker, so a prompt that is IMPOSSIBLE in the real UI is trivially
 # answerable in a spec. Every test below is therefore written against the PROPERTY the UI needs --
 # that the thing the player is asked to click is something the engine's own pick path can actually
@@ -26,20 +28,19 @@
 extends GutTest
 
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
+const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
 const BANSHEE_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'
 const KEENING_KIT_ID := &'cp_the_keening'
 
 var game:Gamemaster
 var banshee:Unit
+var watcher:PromptWatcher
 
 ## Every tile set offered to a TILE pick during the test, in order. Snapshotted with duplicate(),
 ## since the picker hands out the live array.
 var offered_tile_sets:Array = []
 ## Every candidate list offered to a UNIT pick. Must stay empty of tears -- that is the regression.
 var offered_unit_sets:Array = []
-
-var _capture_tiles:Callable
-var _capture_units:Callable
 
 func before_each():
 	# Same fixture as test_tear_move.gd, including the campaign_core assignment that
@@ -59,15 +60,15 @@ func before_each():
 	offered_unit_sets = []
 	# Listening ALONGSIDE SpecFactory's responder rather than replacing it: it still answers, so the
 	# actions run to completion and the outcome assertions below stay meaningful.
-	_capture_tiles = func(_request, _specific, from_tiles): offered_tile_sets.append(from_tiles.duplicate())
-	_capture_units = func(_request, from_units, _can_cancel, _specific, _secondary): offered_unit_sets.append(from_units.duplicate())
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(_capture_tiles)
-	SpecFactory.choice_bus.on_choose_unit.connect(_capture_units)
+	watcher = add_child_autoqfree(PromptWatcher.new())
+	watcher.prompt.connect(_on_prompt)
 
 func after_each():
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(_capture_tiles)
-	SpecFactory.choice_bus.on_choose_unit.disconnect(_capture_units)
 	TearRouting.invalidate(game.map)
+
+func _on_prompt(kind:StringName, info:Dictionary) -> void:
+	if kind == PromptWatcher.KIND.tile_set: offered_tile_sets.append(info.tiles)
+	elif kind == PromptWatcher.KIND.unit: offered_unit_sets.append(info.units)
 
 # ---------------------------------------------------------------------------- helpers
 

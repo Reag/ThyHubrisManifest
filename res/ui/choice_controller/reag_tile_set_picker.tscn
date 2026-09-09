@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/ui/choice_controller/reag_tile_set_picker.gd" id="1_picker"]
+[ext_resource type="Script" path="res://ui/choice_controller/choice_request_receiver.gd" id="2_receiver"]
+
+[node name="ReagTileSetPicker" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("1_picker")
+
+[node name="ChoiceRequestReceiver" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_receiver")
+required_type = &"reag_tile_set"

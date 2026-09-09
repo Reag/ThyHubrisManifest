@@ -10,6 +10,7 @@
 extends GutTest
 
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
+const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
 
 const BANSHEE_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'
 const RANGED_WEAPON_ID := &'mw_smartgun' # weapon_type unset -> defaults to RIFLE (ranged)
@@ -19,9 +20,11 @@ const MOURNING_CALL_USAGE_GROUP := &'action_mourning_call'
 const MourningCallAction := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/action_mourning_call.gd')
 
 var game:Gamemaster
+var watcher:PromptWatcher
 
 func before_each():
 	game = SpecFactory.setup_gamemaster(self)
+	watcher = add_child_autoqfree(PromptWatcher.new())
 
 ## Arms the Banshee with its own frame. change_mech_frame, NOT core.frame = load(...) - the latter
 ## skips loadout.regenerate_derived_gear (unit_printer.gd:94), so cp_the_keening's
@@ -448,18 +451,11 @@ func test_a_kill_lets_the_banshee_relocate_a_tear_within_sensors():
 	# responder -- it still answers the request (front of the candidate list, same as every other
 	# choose_target_tiles fixture in this mod; see action_bind_thy_flesh.gd's choose_anchor_tile), so
 	# there is exactly one thing "the chosen tile" can mean here: the front of what we captured.
-	#
-	# assign(), NOT `=` -- a GDScript lambda captures an outer local by a COPY of its value at
-	# creation time, so reassigning the captured slot inside the lambda never reaches the outer
-	# variable. Mutating the array IN PLACE (same object, same capture) does.
-	var offered_tiles:Array[Vector2i] = []
-	var capture_offer := func(_request, _specific, from_tiles):
-		offered_tiles.assign(from_tiles)
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
-
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits (evasion 8), does not crit, kills
 
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+	var offers := watcher.kinds(PromptWatcher.KIND.tile_set)
+	var offered_tiles:Array[Vector2i] = []
+	if not offers.is_empty(): offered_tiles.assign(offers.back().tiles)
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
 	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
@@ -488,25 +484,19 @@ func test_the_relocation_pick_is_not_an_unanswerable_unit_pick():
 	if tears.size() != 2: return fail_test('Fixture: two tears, so the relocation genuinely has to ask.')
 	var tear_tiles:Array[Vector2i] = [tears[0].tile(), tears[1].tile()]
 
-	# Listening alongside SpecFactory's responder, which still answers everything.
-	var unit_picks_offering_a_tear:Array[int] = [0]
-	var watch_unit_picks := func(_request, from_units, _can_cancel, _specific, _secondary):
-		for candidate in from_units:
-			if candidate is Unit and TearRouting.is_tear(candidate):
-				unit_picks_offering_a_tear[0] += 1 # mutated IN PLACE; see the capture note above
-				break
-	var tile_picks:Array = []
-	var watch_tile_picks := func(_request, _specific, from_tiles): tile_picks.append(from_tiles.duplicate())
-	SpecFactory.choice_bus.on_choose_unit.connect(watch_unit_picks)
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(watch_tile_picks)
-
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits, does not crit, kills
 
-	SpecFactory.choice_bus.on_choose_unit.disconnect(watch_unit_picks)
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(watch_tile_picks)
+	var unit_picks_offering_a_tear := 0
+	for offer:Dictionary in watcher.kinds(PromptWatcher.KIND.unit):
+		for candidate in offer.units:
+			if candidate is Unit and TearRouting.is_tear(candidate):
+				unit_picks_offering_a_tear += 1
+				break
+	var tile_picks:Array = []
+	for offer:Dictionary in watcher.kinds(PromptWatcher.KIND.tile_set): tile_picks.append(offer.tiles)
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
-	assert_eq(unit_picks_offering_a_tear[0], 0,
+	assert_eq(unit_picks_offering_a_tear, 0,
 		'Clause 9 picks a tear by tile. A unit pick over MARKERs is a prompt the player cannot answer.')
 
 	# And the pick it DID make is the tear tiles - not merely "some tile pick happened", which the
@@ -540,14 +530,11 @@ func test_a_tile_beyond_sensors_is_not_offerable():
 	await SpecFactory.use(game, banshee, KEENING_KIT_ID, &'action_tear', [Vector2i(1, 1)]) # inside the shrunk range
 	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'sanity: the tear was actually placed.')
 
-	var offered_tiles:Array[Vector2i] = []
-	var capture_offer := func(_request, _specific, from_tiles):
-		offered_tiles.assign(from_tiles) # see the sibling test above for why assign(), not `=`
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
-
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
 
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+	var offers := watcher.kinds(PromptWatcher.KIND.tile_set)
+	var offered_tiles:Array[Vector2i] = []
+	if not offers.is_empty(): offered_tiles.assign(offers.back().tiles)
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
 	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
@@ -626,8 +613,8 @@ func _count_cp_pop(text:String, _tile:Vector2i, _is_large:bool) -> void:
 ## Every yes/no prompt title the run raised. Titles, not a bare count, so a test can say WHICH
 ## prompt it did or did not expect without being confused by an unrelated confirmation.
 var _yesno_titles:Array[String] = []
-func _record_yesno(_request, _tile:Vector2i, title:String, _description:String, _encourage_yes:bool) -> void:
-	_yesno_titles.append(title)
+func _record_prompt(kind:StringName, info:Dictionary) -> void:
+	if kind == PromptWatcher.KIND.yesno: _yesno_titles.append(info.title)
 
 func _mourning_call_prompt_title() -> String:
 	return X.tr('battle.confirm.use').format({action = tr('gear.cp_the_keening.action_mourning_call.name')})
@@ -642,13 +629,12 @@ func _watch_buses() -> void:
 	_cp_pops = 0
 	_yesno_titles = []
 	SpecFactory.effect_bus.on_play_text.connect(_count_cp_pop)
-	SpecFactory.choice_bus.on_quick_yesno.connect(_record_yesno)
+	watcher.prompt.connect(_record_prompt)
 
 func _unwatch_buses() -> void:
 	if SpecFactory.effect_bus.on_play_text.is_connected(_count_cp_pop):
 		SpecFactory.effect_bus.on_play_text.disconnect(_count_cp_pop)
-	if SpecFactory.choice_bus.on_quick_yesno.is_connected(_record_yesno):
-		SpecFactory.choice_bus.on_quick_yesno.disconnect(_record_yesno)
+	if watcher.prompt.is_connected(_record_prompt): watcher.prompt.disconnect(_record_prompt)
 
 func _uses_this_round(unit:Unit) -> int:
 	var gear:GearCore = unit.get_gear(KEENING_KIT_ID)
@@ -789,12 +775,11 @@ func test_the_player_picks_the_landing_tile():
 
 	# Same capture shape as the tear-relocation tests above: SpecFactory's own responder still
 	# answers (front of the offered list), so the landing tile must be offered_tiles.front().
-	var offered_tiles:Array[Vector2i] = []
-	var capture_offer := func(_request, _specific, from_tiles):
-		offered_tiles.assign(from_tiles)
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+
+	var offers := watcher.kinds(PromptWatcher.KIND.tile_set)
+	var offered_tiles:Array[Vector2i] = []
+	if not offers.is_empty(): offered_tiles.assign(offers.back().tiles)
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
 	assert_false(offered_tiles.is_empty(), 'The player is offered the free tiles adjacent to the target.')

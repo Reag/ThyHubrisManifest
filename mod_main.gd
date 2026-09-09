@@ -10,6 +10,12 @@ const EXTENDED_AUTOLOADS := {
 	&'UnitTile': 'res://engine/character/unit/service/unit_tile.gd',
 }
 
+# 1.4.0 workaround #2 (see reapply_scene_extensions_140 below)
+const CHOICE_CONTROLLER_SCENE_PATH := 'res://ui/choice_controller/choice_controller.tscn'
+const ChoiceControllerExt := preload('res://unpacked/Reag-ThyHubris/res/ui/choice_controller/choice_controller.tscn_ext.gd')
+## Keeps the re-packed scene alive; see reapply_scene_extensions_140 for why that matters.
+static var _kept_choice_controller_scene:PackedScene
+
 # Runs when this mod is activated (whenever active mods are changed)
 func _init() -> void:
 	ModLoaderLog.info("Activating.", MOD_ID)
@@ -33,7 +39,9 @@ func _init() -> void:
 
 # Runs when this mod's node is added to the tree (whenever active mods are changed)
 func _ready() -> void:
-	if ResourceLoader.exists(MOD_LIBRARY_140): reload_extended_autoloads_140.call_deferred()
+	if ResourceLoader.exists(MOD_LIBRARY_140):
+		reload_extended_autoloads_140.call_deferred()
+		reapply_scene_extensions_140.call_deferred()
 
 ## 1.4.0 installs mods AFTER the autoloads exist and then only reloads an autoload whose PLAIN .gd a
 ## mod replaced: ModApplier.apply_script_changes_to_autoload_nodes matches each mod file's vanilla
@@ -55,6 +63,44 @@ func reload_extended_autoloads_140() -> void:
 		node.set_script(null)
 		node.set_script(extended)
 		ModLoaderLog.info('Reloaded autoload %s with its script extension (1.4.0 workaround).' % autoload_name, MOD_ID)
+
+## 1.4.0 workaround #2. ModLoader's own scene-extension mechanism
+## (addons/mod_loader/internal/scene_extension.gd:_save_scene) packs the extended scene into a LOCAL
+## PackedScene variable and take_over_path()s it onto the vanilla path -- but nothing else keeps that
+## local variable alive once _save_scene() returns, so Godot's refcounting frees it immediately, and a
+## RefCounted Resource's destructor un-registers itself from the resource cache on the way out. Every
+## later load() of choice_controller.tscn -- including the one Gamemaster.create_gamemaster_node does
+## for every real game AND every spec -- therefore returns the plain, UNEXTENDED scene straight off
+## disk: no AcidSpillHighlight, no ReagTileSetPicker.
+##
+## Confirmed 2026-09-09 building Task 6 (the tile-set picker): a load() of choice_controller.tscn
+## issued ONE FRAME after ModLoader's own take_over_path (deferred from inside modify_scene itself, so
+## strictly after _save_scene had already run) came back without either mod child already.
+## test_tile_set_picker.gd's own header calls this out as "the open risk this file exists to settle" --
+## it turned out to be real, and this is the fix, at the same deferred timing as the autoload
+## workaround above (well after ModApplier has finished applying every mod's changes).
+##
+## The fix is the same shape as reload_extended_autoloads_140: redo the extension ourselves, after
+## ModLoader has already run and lost its copy, and this time keep a REAL reference
+## (_kept_choice_controller_scene) so the resource-cache entry has something to survive on. Reuses
+## choice_controller.tscn_ext.gd's own modify_scene() rather than duplicating its logic, and that
+## function is written to be idempotent (skips a child it can already find by name) in case a future
+## engine fix makes ModLoader's own first pass stick after all, so calling it a second time here is
+## always safe.
+func reapply_scene_extensions_140() -> void:
+	var fresh:Node = load(CHOICE_CONTROLLER_SCENE_PATH).instantiate()
+	if fresh == null: return
+	var modified:Node = ChoiceControllerExt.new().modify_scene(fresh)
+	if modified == null: modified = fresh
+	var packed := PackedScene.new()
+	var pack_err := packed.pack(modified)
+	modified.queue_free()
+	if pack_err != OK:
+		ModLoaderLog.error('Failed to re-pack choice_controller.tscn (1.4.0 workaround): error %s' % pack_err, MOD_ID)
+		return
+	packed.take_over_path(CHOICE_CONTROLLER_SCENE_PATH)
+	_kept_choice_controller_scene = packed # load-bearing: see the function header above.
+	ModLoaderLog.info('Re-applied choice_controller.tscn scene extension with a held reference (1.4.0 workaround).', MOD_ID)
 
 # Runs when this mod is deactivated due to user input or the normal mod reset/reactivate sequence.
 # Should undo any non-standard stuff you've done in _init or _ready.

@@ -7,6 +7,7 @@
 extends ActionSystem
 
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
+const Compat := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/reag_compat.gd')
 
 const MARK_BUFF_ID := &'buff_mourning_call_mark'
 
@@ -143,13 +144,12 @@ func activate(context:Context, activation:EventCore) -> void:
 	var free_tile:Vector2i = free_tiles.front() if not free_tiles.is_empty() else Tile.INVALID
 	if free_tiles.size() > 1 and unit.is_player_controlled():
 		camera_bus.show_all_tiles(free_tiles, true)
-		var landing_plan:CompconPlan = await choice_bus.choose_target_tiles(SpecificAction.from_context(context), free_tiles)
+		var landing:Vector2i = await Compat.pick_tile_from(SpecificAction.from_context(context), free_tiles)
 		if not Unit.is_valid(unit) or not Unit.is_valid(target): return
 		# Cancelling the pick must NOT cancel the whole activation -- the core point and the quick
 		# action are already spent by this point, so bailing here would eat both for nothing. Fall
 		# back to the same tile the old code would have taken.
-		if landing_plan != null and not landing_plan.target_tiles.is_empty():
-			free_tile = landing_plan.target_tiles.front()
+		if landing != Tile.INVALID: free_tile = landing
 
 	# onhit_mourning_call.gd already checked for a free adjacent tile before offering the prompt, so
 	# this should never come up empty in play -- but don't teleport into a wall if it somehow does.
@@ -280,9 +280,9 @@ func _maybe_relocate_tear(context:Context, activation:EventCore, unit:Unit) -> v
 
 	var destination:Vector2i = standable_tiles.front() # the AI's default; see player_decides above
 	if player_decides:
-		var plan:CompconPlan = await choice_bus.choose_target_tiles(SpecificAction.from_context(context), standable_tiles)
-		if plan == null or plan.target_tiles.is_empty(): return
-		destination = plan.target_tiles.front()
+		var picked:Vector2i = await Compat.pick_tile_from(SpecificAction.from_context(context), standable_tiles)
+		if picked == Tile.INVALID: return
+		destination = picked
 	if not Unit.is_valid(chosen) or not Unit.is_valid(unit): return
 
 	await activation.execute_event(&'event_unit_move', {
