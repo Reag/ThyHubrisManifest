@@ -97,3 +97,57 @@ func test_the_check_only_happens_on_the_holders_own_turn():
 	assert_eq(Infection.count(unit), 2, 'Untouched by someone else ending their turn.')
 	assert_eq(unit.core.current.heat, 0, 'No heat either.')
 	Dice.CHEAT_ROLL_QUEUE.clear()
+
+# ---------- cleared with Burn ----------
+# "If an action would clear BURN, such as stabilize, it also clears INFECTION." 1.4.0 has an
+# event for that (event_unit_clear_burn, trigger clear_burn); 1.3.3 does not, so Stabilize's
+# stabilize trigger plus its burn variant key is the fallback there. Both engines disable the
+# burn variant on burn <= 0, so an infected unit with no Burn needs action_stabilize.gd_ext.gd to
+# unlock it - and the only proof an extension runs is a test that fails without it.
+
+func equip_stabilize(target:Unit) -> void:
+	if target.get_gear(&'ms_stabilize') == null: target.core.equip_system(&'ms_stabilize')
+
+## Primary group: heat 0 and no EXPOSED makes "skip_primary" available; full HP disables repair.
+func stabilize_burn(target:Unit) -> void:
+	equip_stabilize(target)
+	target.core.current.heat = 0
+	await SpecFactory.start_turn(game, target)
+	await SpecFactory.use_solo(game, target, &'ms_stabilize', [], [], 'skip_primary,burn')
+
+func test_clearing_burn_with_stabilize_clears_infection_too():
+	await infect(unit, 2)
+	unit.state.burn = 2
+	await stabilize_burn(unit)
+	assert_eq(unit.state.burn, 0, 'Burn cleared (vanilla).')
+	assert_false(Infection.is_infected(unit), 'Infection went with it.')
+
+func test_stabilize_offers_burn_clearing_to_an_infected_unit_without_burn():
+	await infect(unit, 2)
+	unit.state.burn = 0
+	equip_stabilize(unit)
+	var specific := SpecificAction.from_id(unit, &'ms_stabilize')
+	var burn_variant:VariantAction = null
+	for group:VariantActionGroup in specific.action.get_alternate_actions(specific):
+		for variant:VariantAction in group.list:
+			if variant.key == &'burn': burn_variant = variant
+	assert_not_null(burn_variant, 'The burn variant is listed.')
+	if burn_variant != null: assert_false(burn_variant.is_disabled, 'And offered, because the unit is infected.')
+
+func test_stabilizing_away_infection_without_burn_works_end_to_end():
+	await infect(unit, 2)
+	unit.state.burn = 0
+	await stabilize_burn(unit)
+	assert_false(Infection.is_infected(unit), 'Cleared through the burn variant with no Burn to clear.')
+
+func test_any_burn_clear_clears_infection_on_140():
+	# Whitewash and the Sealant Gun go through the same event on 1.4.0; Stabilize is the only
+	# path on 1.3.3, which the tests above cover.
+	if not ResourceLoader.exists('res://content/events/event_unit_clear_burn.gd'):
+		pass_test('1.3.3 has no clear-burn event.')
+		return
+	await infect(unit, 2)
+	unit.state.burn = 1
+	await game.execute_event(&'event_unit_clear_burn', {unit = unit})
+	assert_eq(unit.state.burn, 0, 'Burn cleared.')
+	assert_false(Infection.is_infected(unit), 'Infection cleared by the event alone.')

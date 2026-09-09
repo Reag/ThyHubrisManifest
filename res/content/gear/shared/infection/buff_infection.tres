@@ -4,5 +4,5 @@
 
 [resource]
 script = ExtResource("1_infect")
-triggers_on = Array[StringName]([&"end_turn"])
+triggers_on = Array[StringName]([&"end_turn", &"clear_burn", &"stabilize"])
 trigger_timing = 0
