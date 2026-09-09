@@ -13,8 +13,9 @@
 # That context is built at action_attack.gd:266-272 as {unit, gear, action, resource, flags} and
 # nothing else, and Context.target_unit is just target_units[0] (context.gd:12-16) - so it is NULL
 # whenever overkill is being decided. (The AP/IRREDUCIBLE path DOES carry a target: it builds its own
-# tag_buff_context at event_unit_attack_declared.gd:239-242. Overkill never takes that path, and the
-# UI preview's virtual event at attack_preview.gd:135-141 omits it too.)
+# tag_buff_context at event_unit_attack_declared.gd:239-242. Overkill never takes that path. The
+# reaction-preview path (attack_preview.gd get_potential_reaction_previews) omits it too; the main
+# preview context sets both target_unit and resource, so it takes the target_unit branch.)
 #
 # So the targets are read off the DeclaredAttackSummary the declared context does carry
 # (declared_attack_summary.gd:9, re-filtered for validity at event_unit_attack_declared.gd:71). Base

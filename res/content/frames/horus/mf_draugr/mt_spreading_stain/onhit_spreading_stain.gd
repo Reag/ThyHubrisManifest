@@ -8,6 +8,15 @@
 # declared attack rolls damage, so the infection read here is the one the target already had, not one
 # The Seeping Rot is about to add.
 #
+# WHY THE WEAPON-ONLY ARCHETYPE IS NOT A BUG. BuffWeaponTypeOnHit's base only accepts a context whose
+# action is an ActionAttackWeapon (buff_weapon_type.gd:25-31), so a tech attack never reaches this
+# effect - but no tech attack can CRIT either: ActionAttack.can_crit returns false
+# (action_attack.gd:48), only ActionAttackWeapon overrides it to true (:246), and attack_roll.gd:73
+# gates crit on it. Measured 2026-09-09: a natural 20 from ms_fragment_signal logs "hit!" while the
+# same 20 from mw_tactical_melee_weapon logs "crit!". If sub-project 4's Disease is meant to crit, its
+# ActionAttackTech subclass must override can_crit AND this buff must become a plain Buff carrying the
+# same effects array - the two changes only make sense together, and neither is testable alone.
+#
 # 1/ROUND IS KEYED BY ROUND, not by a bool. A plain "used" flag would never reset; a turn-keyed one
 # would reset twice in a round when something grants a second LINKED turn. Same two-part shape as
 # passive_acid_spill.is_armed and action_bind_thy_flesh's LAST_ROUND_KEY. The state lives on the
@@ -62,6 +71,7 @@ func on_crit(activation:EventCore, attacked_unit:Unit) -> void:
 ## the game with no cancel (spec/test_tear_pick.gd). Tech-immune characters are filtered here rather
 ## than left to Infection.apply, which would refuse them silently after the player had already picked.
 static func spread_candidates(draugr:Unit, exclude:Unit) -> Array[Unit]:
+	# TODO(sub-project 6): route through the Carrion Beast reach helper (+5 vs infected targets).
 	return UnitRelation.get_characters_within(
 		draugr, draugr.get_sensor_range(), false,
 		func(other:Unit) -> bool:
@@ -90,7 +100,7 @@ func pick_victim(draugr:Unit, candidates:Array[Unit]) -> Unit:
 ## character", but an AI infecting its own side is a bug, not a flourish.
 static func nearest_hostile(draugr:Unit, candidates:Array[Unit]) -> Unit:
 	var best:Unit = null
-	var best_distance:int = 0
+	var best_distance:int = -1
 	for other:Unit in candidates:
 		if not UnitRelation.are_enemies(draugr, other): continue
 		var distance:int = UnitRelation.distance_between(draugr, other)

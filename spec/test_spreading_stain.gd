@@ -18,6 +18,7 @@ extends GutTest
 
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
+const StainEffect := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_spreading_stain/onhit_spreading_stain.gd')
 const DRAUGR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres'
 
 const MELEE := &'mw_tactical_melee_weapon'
@@ -161,3 +162,16 @@ func test_an_ai_draugr_takes_the_nearest_hostile_without_asking():
 	assert_eq(_unit_prompts().size(), 0, 'The AI was never asked.')
 	assert_eq(Infection.count(near_player), 1, 'It took the nearest hostile that was not the target.')
 	assert_eq(Infection.count(far_player), 0, 'And left the further one alone.')
+
+func test_a_declined_prompt_spreads_nothing_and_keeps_the_round_free():
+	# "may apply": declining is free. The round stamp is written only after a valid pick
+	# (onhit_spreading_stain.gd, the set_state after the pick), so the Draugr can still spread
+	# later this round.
+	await _infect(target, 1)
+	SpecFactory.current_responder.abort_all = true
+	await _crit(draugr, target)
+	SpecFactory.current_responder.abort_all = false
+	assert_eq(_unit_prompts().size(), 1, 'It asked.')
+	assert_eq(Infection.count(bystander), 0, 'Nobody was infected.')
+	var gear:GearCore = draugr.get_gear(TRAIT_ID)
+	assert_eq(gear.get_state(StainEffect.SPREAD_ROUND_KEY, -1), -1, 'The round was not spent.')
