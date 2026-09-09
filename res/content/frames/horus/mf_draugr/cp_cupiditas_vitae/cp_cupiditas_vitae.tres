@@ -6,6 +6,9 @@
 [ext_resource type="Script" uid="uid://5pqtbuyqw6eo" path="res://engine/character/gear_passive/passive_die_counter.gd" id="4_die_counter"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_ceaseless_death.tres" id="5_ceaseless_death"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_ceaseless_death_structure.tres" id="6_ceaseless_death_structure"]
+[ext_resource type="Script" uid="uid://dy4kg537rc55e" path="res://engine/character/gear_passive/passive_buff_applicator.gd" id="7_applicator"]
+[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="8_buff"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/buff_ceaseless_death.tres" id="9_buff_ceaseless_death"]
 
 [sub_resource type="Resource" id="Resource_resilience_counter"]
 script = ExtResource("4_die_counter")
@@ -14,8 +17,12 @@ starting_value = 0
 max_value = 8
 min_value = 0
 
+[sub_resource type="Resource" id="Resource_cupiditas_applicator"]
+script = ExtResource("7_applicator")
+applied_buffs = Array[ExtResource("8_buff")]([ExtResource("9_buff_ceaseless_death")])
+
 [resource]
 script = ExtResource("3_kit")
 actions = Array[ExtResource("1_action")]([ExtResource("5_ceaseless_death"), ExtResource("6_ceaseless_death_structure")])
-passives = Array[ExtResource("2_passive")]([SubResource("Resource_resilience_counter")])
+passives = Array[ExtResource("2_passive")]([SubResource("Resource_resilience_counter"), SubResource("Resource_cupiditas_applicator")])
 is_trait = true

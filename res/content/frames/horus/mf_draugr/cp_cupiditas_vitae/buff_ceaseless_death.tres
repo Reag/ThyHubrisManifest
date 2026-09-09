@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/buff_ceaseless_death.gd" id="1_spend"]
+
+[resource]
+script = ExtResource("1_spend")
+triggers_on = Array[StringName]([&"damage"])
+trigger_timing = 0
+hide_from_player = true
+localization_key_override = "gear.cp_cupiditas_vitae"

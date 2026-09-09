@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuffResistDamage" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/buff_ceaseless_death_cap.gd" id="1_cap"]
+
+[resource]
+script = ExtResource("1_cap")
+resist_everything = true
+resist_self_inflicted = true
+cap_instead_of_resist = true
+to = &"resist_damage"
+is_onetime = true
+hide_from_player = true
+telegraph_when_relevant = true
+localization_key_override = "gear.cp_cupiditas_vitae"
