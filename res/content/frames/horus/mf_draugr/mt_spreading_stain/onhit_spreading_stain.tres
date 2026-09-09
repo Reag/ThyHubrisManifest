@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="OnHitEffect" format=3]
+
+[ext_resource type="Script" uid="uid://bdmr2bdxpt2a8" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_spreading_stain/onhit_spreading_stain.gd" id="1_stain"]
+
+[resource]
+script = ExtResource("1_stain")
+apply_on = 2
