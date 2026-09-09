@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://le1mk3ahh7fa"
-path="res://.godot/imported/mt_irrepressible.svg-557b1f7500f44d0a73248a4677f4b6f7.ctex"
+uid="uid://bdbx1c414cktm"
+path="res://.godot/imported/cp_the_endless_black_sea.svg-e1f3d1776da0c90e260583db15788645.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/mt_irrepressible.svg"
-dest_files=["res://.godot/imported/mt_irrepressible.svg-557b1f7500f44d0a73248a4677f4b6f7.ctex"]
+source_file="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/cp_the_endless_black_sea.svg"
+dest_files=["res://.godot/imported/cp_the_endless_black_sea.svg-e1f3d1776da0c90e260583db15788645.ctex"]
 
 [params]
 

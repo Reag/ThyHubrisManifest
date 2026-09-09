@@ -1,7 +1,7 @@
 [gd_resource type="Resource" format=3 uid="uid://c6ai6j65hwhic"]
 
 [ext_resource type="Script" uid="uid://dcdy1yto5w2cq" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_tide_undertow.gd" id="1_action_script"]
-[ext_resource type="Texture2D" uid="uid://bdbx1c414cktm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/cp_the_endless_black_sea.svg" id="1_c7fdm"]
+[ext_resource type="Texture2D" uid="uid://bdbx1c414cktm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/cp_the_endless_black_sea.svg" id="1_c7fdm"]
 
 [resource]
 script = ExtResource("1_action_script")

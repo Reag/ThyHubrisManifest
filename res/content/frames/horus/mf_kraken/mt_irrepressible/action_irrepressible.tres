@@ -1,6 +1,6 @@
 [gd_resource type="Resource" format=3 uid="uid://ci724nea56aj4"]
 
-[ext_resource type="Texture2D" uid="uid://le1mk3ahh7fa" path="res://unpacked/Reag-ThyHubris/res/assets/frames/horus/mf_kraken/mt_irrepressible.svg" id="1_52ajw"]
+[ext_resource type="Texture2D" uid="uid://le1mk3ahh7fa" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/mt_irrepressible.svg" id="1_52ajw"]
 [ext_resource type="Script" uid="uid://dromtbi5nyale" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/mt_irrepressible/action_irrepressible.gd" id="1_action_script"]
 
 [resource]

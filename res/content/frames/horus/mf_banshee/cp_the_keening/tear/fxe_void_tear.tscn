@@ -1,8 +1,8 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://cyj3t8dii2nl4"]
 
 [ext_resource type="Script" uid="uid://ck34knquhucbv" path="res://engine/gamemaster/effects_controller/fx_endless/fx_endless.gd" id="1_fxe"]
 [ext_resource type="ArrayMesh" uid="uid://bo2et6a2kcq0f" path="res://assets/fx/shields/shield_cubedome.tres" id="2_mesh"]
-[ext_resource type="Shader" path="res://unpacked/Reag-ThyHubris/res/assets/shaders/void_distortion.gdshader" id="3_shader"]
+[ext_resource type="Shader" uid="uid://bbiyxd0un73g7" path="res://unpacked/Reag-ThyHubris/res/assets/shaders/void_distortion.gdshader" id="3_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_void_tear"]
 render_priority = -1
@@ -19,9 +19,9 @@ shader_parameter/proximity_color = Color(0.06666667, 0.17254902, 0.4392157, 1)
 shader_parameter/proximity_distance = 0.1
 shader_parameter/transparency = 1.0
 
-[node name="Fxe" type="Node3D"]
+[node name="Fxe" type="Node3D" unique_id=1191642486]
 script = ExtResource("1_fxe")
 
-[node name="void_tear_distort" type="MeshInstance3D" parent="."]
+[node name="void_tear_distort" type="MeshInstance3D" parent="." unique_id=1117893077]
 mesh = ExtResource("2_mesh")
 surface_material_override/0 = SubResource("ShaderMaterial_void_tear")
