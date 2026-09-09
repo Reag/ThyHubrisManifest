@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BuffWeaponTypeOnHit" format=3]
+
+[ext_resource type="Script" uid="uid://cuj44q6a8leto" path="res://engine/character/buff/archtypes/buff_weapon_type_on_hit.gd" id="1_buff"]
+[ext_resource type="Script" uid="uid://d2nldg6e3doqd" path="res://engine/character/gear_action/resources/on_hit_effect.gd" id="2_onhiteffect"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_seeping_rot/onhit_seeping_rot.tres" id="3_onhit_res"]
+
+[resource]
+script = ExtResource("1_buff")
+effects = Array[ExtResource("2_onhiteffect")]([ExtResource("3_onhit_res")])
+allow_basic = true
+to = &"onhit_effect"
+hide_from_player = true
+localization_key_override = "gear.mt_seeping_rot"
