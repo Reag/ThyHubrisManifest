@@ -113,7 +113,7 @@ func stabilize_burn(target:Unit) -> void:
 	equip_stabilize(target)
 	target.core.current.heat = 0
 	await SpecFactory.start_turn(game, target)
-	await SpecFactory.use_solo(game, target, &'ms_stabilize', [], [], 'skip_primary,burn')
+	await SpecFactory.use_solo(game, target, &'ms_stabilize', [], [], 'burn')
 
 func test_clearing_burn_with_stabilize_clears_infection_too():
 	await infect(unit, 2)
@@ -151,3 +151,46 @@ func test_any_burn_clear_clears_infection_on_140():
 	await game.execute_event(&'event_unit_clear_burn', {unit = unit})
 	assert_eq(unit.state.burn, 0, 'Burn cleared.')
 	assert_false(Infection.is_infected(unit), 'Infection cleared by the event alone.')
+
+# ---------- what must NOT clear it ----------
+
+func test_a_passed_burn_save_at_end_of_turn_does_not_clear_infection():
+	# 1.4.0's end-of-turn Burn resolution fires event_unit_clear_burn when the Engineering save
+	# passes; that is the Burn mechanic, not "an action that would clear BURN", so Infection stays.
+	# 1.3.3 has no event there and behaves this way already; this pins both engines to it.
+	# Roll order at end of turn: the Infection Systems check (PRE) rolls first, then the Burn save.
+	await infect(unit, 2)
+	unit.state.burn = 1
+	unit.core.current.heat = 0
+	Dice.CHEAT_ROLL_QUEUE.append_array([1, 20])
+	await SpecFactory.pass_turn(game, unit)
+	assert_eq(unit.state.burn, 0, 'The Burn save passed and cleared Burn.')
+	assert_eq(Infection.count(unit), 2, 'Infection survived the Burn save.')
+	assert_eq(unit.core.current.heat, 2, 'The failed Infection check still dealt its heat.')
+
+func test_stabilize_keeps_the_burn_variant_disabled_for_an_uninfected_unit():
+	# The extension mutates the variant list; an uninfected unit must see vanilla's list.
+	unit.state.burn = 0
+	equip_stabilize(unit)
+	var specific := SpecificAction.from_id(unit, &'ms_stabilize')
+	var burn_variant:VariantAction = null
+	var has_skip := false
+	for group:VariantActionGroup in specific.action.get_alternate_actions(specific):
+		for variant:VariantAction in group.list:
+			if variant.key == &'burn': burn_variant = variant
+			if variant.key == &'skip_secondary': has_skip = true
+	assert_not_null(burn_variant, 'The burn variant is listed.')
+	if burn_variant != null: assert_true(burn_variant.is_disabled, 'And stays disabled with no Burn and no Infection.')
+	assert_true(has_skip, 'Vanilla still offers the secondary skip.')
+
+func test_stabilizing_without_the_burn_variant_keeps_infection():
+	# The stabilize trigger fires for every Stabilize; only the burn variant may clear Infection.
+	await infect(unit, 2)
+	unit.state.burn = 0
+	SpecFactory.apply(unit, &'impaired', Lancer.UNTIL.MANUAL)
+	equip_stabilize(unit)
+	unit.core.current.heat = 0
+	await SpecFactory.start_turn(game, unit)
+	await SpecFactory.use_solo(game, unit, &'ms_stabilize', [], [], 'condition_self')
+	assert_false(unit.has_status(&'impaired'), 'Stabilize ran its condition-clearing variant.')
+	assert_eq(Infection.count(unit), 2, 'Infection untouched by a Stabilize that did not clear Burn.')
