@@ -43,6 +43,41 @@ func test_implemented_content_is_localized():
 	for key:String in ['frame.mf_draugr.name', 'frame.mf_draugr.flavor.short', 'gear.buff_infection.name']:
 		assert_ne(tr(key), key, '%s resolves to real text.' % key)
 
+# The Draugr license text was transcribed on 2026-09-09, ahead of the gear that will read it. Every
+# rule-text row is asserted here so the compiled artifact cannot silently drift from the CSV (an
+# outdated localizations.en.translation hands back raw keys and looks like broken content). The
+# flavor rows are deliberately blank until the author pastes the lore, so they are not listed.
+const DRAUGR_LICENSE_KEYS := [
+	'gear.mt_spreading_stain.effect', 'gear.mt_spreading_stain.trigger',
+	'gear.mt_raging_plague.effect',
+	'gear.mt_seeping_rot.effect', 'gear.mt_seeping_rot.trigger',
+	'gear.cp_cupiditas_vitae.name', 'gear.cp_cupiditas_vitae.effect', 'gear.cp_cupiditas_vitae.flavor',
+	'gear.cp_cupiditas_vitae.resilience',
+	'gear.cp_cupiditas_vitae.action_ceaseless_death.name', 'gear.cp_cupiditas_vitae.action_ceaseless_death.effect',
+	'gear.cp_cupiditas_vitae.action_plague_vent_dispersal.name', 'gear.cp_cupiditas_vitae.action_plague_vent_dispersal.effect',
+	'gear.ms_disease.name', 'gear.ms_disease.effect',
+	'gear.ms_disease.action_symptom.name', 'gear.ms_disease.action_symptom.effect',
+	'gear.ms_disease.action_spreader.name', 'gear.ms_disease.action_spreader.effect',
+	'gear.ms_root.name', 'gear.ms_root.effect',
+	'gear.ms_root.action_dig_in.name', 'gear.ms_root.action_dig_in.effect', 'gear.ms_root.action_dig_in.trigger',
+	'gear.mw_injector_drill.name', 'gear.mw_injector_drill.effect', 'gear.mw_injector_drill.on_hit',
+	'gear.ms_quarantine.name', 'gear.ms_quarantine.effect',
+	'gear.ms_quarantine.action_alone.name', 'gear.ms_quarantine.action_alone.effect',
+	'gear.ms_quarantine.action_together.name', 'gear.ms_quarantine.action_together.effect',
+	'gear.ms_carrion_beast.name', 'gear.ms_carrion_beast.effect',
+	'gear.ms_carrion_beast.action_atrophy.name', 'gear.ms_carrion_beast.action_atrophy.effect',
+	'gear.ms_carrion_beast.action_atrophy.trigger',
+	'gear.ms_pestilence_class_nhp.name', 'gear.ms_pestilence_class_nhp.default_name',
+	'gear.ms_pestilence_class_nhp.effect',
+	'gear.ms_pestilence_class_nhp.action_kill_host.name', 'gear.ms_pestilence_class_nhp.action_kill_host.effect',
+]
+
+func test_draugr_license_text_is_localized():
+	var raw:PackedStringArray = []
+	for key:String in DRAUGR_LICENSE_KEYS:
+		if tr(key) == key: raw.append(key)
+	assert_eq(raw, PackedStringArray(), 'Every Draugr license rule-text key resolves to real text.')
+
 func test_draugr_traits_are_localized():
 	# The three trait rows exist in localizations.csv but their values are still blank - the mod is
 	# v0.0.1 and this copy has not been written yet. Pending rather than failing: it is a real gap,

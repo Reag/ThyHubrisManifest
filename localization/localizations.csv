@@ -10,20 +10,67 @@ gear.buff_infection.effect,"Infection works similarly to Burn, but applies Heat 
 When characters take Infection, they immediately take an equal amount of Heat, and mark down how much Infection they received. If a character already has Infection, additional Infection is added on top of what they already had. At the end of their turn, Infected characters must roll a Systems check. On a success, they clear all Infection; otherwise, they take Heat equal to the amount of Infection currently marked.
 If an action would clear BURN, such as stabilize, it also clears INFECTION"
 gear.mt_spreading_stain.name,The Spreading Stain
-gear.mt_spreading_stain.effect,
-gear.mt_spreading_stain.trigger,
+gear.mt_spreading_stain.effect,"1/round, on a critical hit against a target with |INFECTION|, the Draugr may apply 1 |INFECTION| to another character within |SENSORS|."
+gear.mt_spreading_stain.trigger,"You critically hit a target with |INFECTION|"
 gear.mt_raging_plague.name,The Raging Plague
-gear.mt_raging_plague.effect,
+gear.mt_raging_plague.effect,"The Draugr's melee attacks gain |OVERKILL| against targets with |INFECTION|."
 gear.mt_raging_plague.trigger,
 gear.mt_seeping_rot.name,The Seeping Rot
-gear.mt_seeping_rot.effect,
-gear.mt_seeping_rot.trigger,
+gear.mt_seeping_rot.effect,"When the Draugr triggers |OVERKILL|, the target gains 1 |INFECTION|."
+gear.mt_seeping_rot.trigger,"You trigger |OVERKILL|"
 gear.cp_cupiditas_vitae.name,CUPIDITAS VITAE
+gear.cp_cupiditas_vitae.effect,"|The Ceaseless Death| is a passive that banks Resilience from nearby deaths and your own missing structure, and spends it to shrug off damage. |Plague-Vent Dispersal| is a |protocol| that spends your core power to flood an area with infectious fog."
 gear.cp_cupiditas_vitae.flavor,"TO YOU ABOVE: if you will not grant us life, then we have no choice but to take it."
+gear.cp_cupiditas_vitae.resilience,Resilience
 gear.cp_cupiditas_vitae.action_ceaseless_death.name,The Ceaseless Death
-gear.cp_cupiditas_vitae.action_ceaseless_death.effect,
-gear.cp_cupiditas_vitae.action_plague_vent_disperal.name,Plague-Vent Dispersal
-gear.cp_cupiditas_vitae.action_plague_vent_disperal.effect,
+gear.cp_cupiditas_vitae.action_ceaseless_death.effect,"The Draugr has charges called Resilience, up to a maximum of 1 + its missing structure. 1/turn, it gains 1 Resilience when a hostile character within |SENSORS| is destroyed or loses a structure. At the start of its turn, it gains 1 Resilience if it has less than 4 structure.
+After |OVERSHIELD| is reduced, if the Draugr would take damage while it has Resilience, it reduces all remaining damage to 1 and loses 1 Resilience. If the Draugr is |SHREDDED| or the damage would ignore |RESISTANCE|, it takes the damage as normal and still loses 1 Resilience."
+gear.cp_cupiditas_vitae.action_plague_vent_dispersal.name,Plague-Vent Dispersal
+gear.cp_cupiditas_vitae.action_plague_vent_dispersal.effect,"Flood a |BLAST 2| centered within |RANGE 2| with sickly fog until the end of your next turn. Hostile characters in the area must make a |SYSTEMS save|, taking 2 |INFECTION| on a failure or 1 on a success.
+While you are inside the fog:
+• Gain 1 Resilience when a hostile character begins their turn inside the fog.
+• Gain +1 |ACCURACY| on attacks against targets in the fog.
+• Hostile characters automatically fail |SYSTEMS| checks to remove |INFECTION| at the end of their turn."
+,
+gear.ms_disease.name,Disease
+gear.ms_disease.effect,"Gain the |Symptom| and |Spreader| options for |Invade|. Each may be used 1/round."
+gear.ms_disease.flavor,
+gear.ms_disease.action_symptom.name,Symptom
+gear.ms_disease.action_symptom.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat|. Choose one tech effect currently affecting the target that lasts until the end of their next turn (other than |STUNNED|). That effect instead lasts until the target clears |INFECTION|."
+gear.ms_disease.action_spreader.name,Spreader
+gear.ms_disease.action_spreader.effect,"Your target takes 1 |INFECTION| and is |SLOWED| for as long as they have |INFECTION|. While they have |INFECTION|, any character that starts their turn |adjacent| to the target, or moves adjacent to them for the first time in a round, must make a |SYSTEMS| check or take 1 |INFECTION|."
+gear.ms_root.name,Root
+gear.ms_root.effect,"Gain the |Dig In| reaction."
+gear.ms_root.flavor,
+gear.ms_root.action_dig_in.name,Dig In
+gear.ms_root.action_dig_in.effect,"1/turn, ignore the forced movement and take |AP KINETIC| equal to the number of spaces ignored."
+gear.ms_root.action_dig_in.trigger,"You would be moved involuntarily"
+gear.mw_injector_drill.name,Injector Drill
+gear.mw_injector_drill.effect,"You may attack with this weapon without expending or requiring charges, and it can be destroyed even with no charges remaining."
+gear.mw_injector_drill.on_hit,"You may expend a charge to use |Invade| or a |Quick Tech| as a |free action| against the target. The tech attack may target |EVASION| instead, or replace a |SYSTEMS save| with an |ENGINEERING save|."
+gear.mw_injector_drill.flavor,
+gear.ms_quarantine.name,Quarantine
+gear.ms_quarantine.effect,"Gain the |Alone| and |Together| |Quick Tech| options."
+gear.ms_quarantine.flavor,
+gear.ms_quarantine.action_alone.name,Alone
+gear.ms_quarantine.action_alone.effect,"Choose a character within |SENSORS| and |line of sight|. They must make a |SYSTEMS save|; on a failure, they cannot benefit from allied tech actions, cannot trigger any of their allies' |reactions|, and are not considered |adjacent| to any character. This lasts until the target makes a |SYSTEMS| check as a |quick action|."
+gear.ms_quarantine.action_together.name,Together
+gear.ms_quarantine.action_together.effect,"Choose a character within |SENSORS| and |line of sight|. They must make a |SYSTEMS save|; on a failure, they are considered |adjacent| to any other character within |RANGE 2| for the purpose of passive effects. Actions that require adjacency (such as |Grapple|) are unaffected. This lasts until the target makes a |SYSTEMS| check as a |quick action|."
+gear.ms_carrion_beast.name,Carrion Beast
+gear.ms_carrion_beast.effect,"When targeting characters with |INFECTION|, your |SENSORS| increase by 5. Gain the |Atrophy| reaction."
+gear.ms_carrion_beast.flavor,
+gear.ms_carrion_beast.action_atrophy.name,Atrophy
+gear.ms_carrion_beast.action_atrophy.effect,"1/turn, reduce the target's |INFECTION| by 1. The target takes +1 |DIFFICULTY| on the triggering roll."
+gear.ms_carrion_beast.action_atrophy.trigger,"A character with |INFECTION| within |SENSORS| is about to roll a save or check"
+gear.ms_pestilence_class_nhp.name,PESTILENCE-class NHP
+gear.ms_pestilence_class_nhp.default_name,Pestilence
+gear.ms_pestilence_class_nhp.effect,"Your mech gains the |AI| tag and the |Kill Host| protocol."
+gear.ms_pestilence_class_nhp.flavor,
+gear.ms_pestilence_class_nhp.action_kill_host.name,Kill Host
+gear.ms_pestilence_class_nhp.action_kill_host.effect,"Take 2 |heat|. All targets with |INFECTION| within |RANGE 5| of you take |AP ENERGY| equal to 2 + twice their current |INFECTION|. Then choose one of the following:
+• Targets become |IMPAIRED| until the end of their next turn, or |JAMMED| if they have at least 3 |INFECTION|.
+• Targets become |SLOWED| until the end of their next turn, or |PRONE| and |IMMOBILIZED| if they have at least 3 |INFECTION|.
+Targets then clear all |INFECTION|."
 ,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)
