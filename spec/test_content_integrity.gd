@@ -30,7 +30,7 @@ func test_infection_is_registered_as_a_buff():
 
 func test_draugr_frame_and_traits_are_registered():
 	assert_true(is_instance_valid(ContentLibrary.get_mech_frame(&'mf_draugr')), 'mf_draugr is in the frames index.')
-	for kit_id:StringName in [&'mt_raging_plague', &'mt_seeping_rot', &'mt_spreading_stain']:
+	for kit_id:StringName in DRAUGR_TRAITS + [DRAUGR_CORE_POWER]:
 		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
 
 func test_draugr_license_grants_the_frame_at_rank_2():
@@ -186,6 +186,7 @@ func test_erinyes_gear_effects_are_written():
 	assert_true(true, 'Every Erinyes trait and the core power has effect text.')
 
 const DRAUGR_TRAITS := [&'mt_spreading_stain', &'mt_raging_plague', &'mt_seeping_rot']
+const DRAUGR_CORE_POWER := &'cp_cupiditas_vitae'
 
 func test_the_draugr_frame_carries_its_traits():
 	# These three loaded and were indexed for two commits while attached to nothing: the frame had
@@ -194,14 +195,36 @@ func test_the_draugr_frame_carries_its_traits():
 	if not is_instance_valid(frame): return fail_test('mf_draugr loaded.')
 	var wired:Array[StringName] = []
 	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
-	assert_eq(wired, DRAUGR_TRAITS, 'All three Draugr traits are on the frame.')
+	assert_eq(wired, DRAUGR_TRAITS + [DRAUGR_CORE_POWER], 'Three traits, then the core power.')
 
 func test_draugr_traits_are_flagged_as_traits():
-	for kit_id:StringName in DRAUGR_TRAITS:
+	for kit_id:StringName in DRAUGR_TRAITS + [DRAUGR_CORE_POWER]:
 		var kit:Kit = ContentLibrary.get_kit(kit_id)
 		if not Kit.is_valid(kit): continue
 		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
 		assert_false(kit.is_destructable(), 'And so is not destructible.')
+
+func test_the_draugr_core_power_reads_as_a_core_power():
+	# Kit.is_core_power() is nothing but a cp_ prefix check, so this is really a filename test -
+	# and the filename is also what puts the kit in the kits index rather than the frames one.
+	var kit:Kit = ContentLibrary.get_kit(DRAUGR_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % DRAUGR_CORE_POWER)
+	assert_true(kit.is_core_power(), '%s is a core power.' % DRAUGR_CORE_POWER)
+
+func test_the_core_power_carries_the_resilience_counter():
+	# The die counter's key is what Translate.gear(kit_id, key) looks up for the tooltip label
+	# (passive_die_counter.gd:48), and gear.cp_cupiditas_vitae.resilience is the row that answers it.
+	var kit:Kit = ContentLibrary.get_kit(DRAUGR_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % DRAUGR_CORE_POWER)
+	var counters:Array[Passive] = kit.get_passives(PassiveDieCounter)
+	assert_eq(counters.size(), 1, 'Exactly one die counter on the core power.')
+	if counters.is_empty(): return
+	var die:PassiveDieCounter = counters[0]
+	assert_eq(die.key, 'resilience', 'Keyed "resilience".')
+	assert_eq(die.starting_value, 0, 'Starts empty.')
+	assert_eq(die.min_value, 0, 'And can reach empty; the engine default of 1 would strand a point.')
+	assert_ne(tr('gear.cp_cupiditas_vitae.%s' % die.key), 'gear.cp_cupiditas_vitae.%s' % die.key,
+		'The counter label resolves to real text.')
 
 # ==================== DHIYED Observation ====================
 # The core power is two sub-abilities on one kit, the way the Denali's Auto-Logistic CompCon carries

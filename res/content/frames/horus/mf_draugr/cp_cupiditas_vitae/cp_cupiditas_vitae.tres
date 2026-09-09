@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Kit" format=3]
+
+[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="1_passive"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
+[ext_resource type="Script" uid="uid://5pqtbuyqw6eo" path="res://engine/character/gear_passive/passive_die_counter.gd" id="3_die_counter"]
+
+[sub_resource type="Resource" id="Resource_resilience_counter"]
+script = ExtResource("3_die_counter")
+key = "resilience"
+starting_value = 0
+max_value = 8
+min_value = 0
+
+[resource]
+script = ExtResource("2_kit")
+passives = Array[ExtResource("1_passive")]([SubResource("Resource_resilience_counter")])
+is_trait = true
