@@ -48,6 +48,7 @@ func test_implemented_content_is_localized():
 # outdated localizations.en.translation hands back raw keys and looks like broken content). The
 # flavor rows are deliberately blank until the author pastes the lore, so they are not listed.
 const DRAUGR_LICENSE_KEYS := [
+	'gear.buff_infection.name.count',
 	'gear.mt_spreading_stain.effect', 'gear.mt_spreading_stain.trigger',
 	'gear.mt_raging_plague.effect',
 	'gear.mt_seeping_rot.effect', 'gear.mt_seeping_rot.trigger',
