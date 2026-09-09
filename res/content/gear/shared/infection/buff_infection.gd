@@ -57,7 +57,12 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 	if not triggering.base.owns_trigger_types().has(ReactionBus.TRIGGER.END_TURN):
 		Infection.clear(activation, unit) # a burn clear, or a burn-clearing Stabilize
 		return
-	var passed:bool = await UnitHasecheck.make_systems_check(activation, unit, 10, null, false, [Infection.CHECK_FLAG])
+	# handle_check directly, not make_systems_check: the wrapper accepts flags_and_statuses and then
+	# passes [] on (unit_hasecheck.gd:29-30, both engines), so CHECK_FLAG would never reach the roll.
+	# Vanilla's own end-of-turn Burn check loses SAVE_FLAG.CLEAR_BURN the same way. Reported upstream.
+	var passed:bool = await UnitHasecheck.handle_check(
+		activation, unit, unit.core.get_sys(), Lancer.HASE.SYS, 10, null, [Infection.CHECK_FLAG], false, false
+	)
 	if activation.abort_without_unit(unit): return
 	if passed:
 		Infection.clear(activation, unit)

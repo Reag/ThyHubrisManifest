@@ -167,6 +167,7 @@ func test_a_passed_burn_save_at_end_of_turn_does_not_clear_infection():
 	assert_eq(unit.state.burn, 0, 'The Burn save passed and cleared Burn.')
 	assert_eq(Infection.count(unit), 2, 'Infection survived the Burn save.')
 	assert_eq(unit.core.current.heat, 2, 'The failed Infection check still dealt its heat.')
+	Dice.CHEAT_ROLL_QUEUE.clear()
 
 func test_stabilize_keeps_the_burn_variant_disabled_for_an_uninfected_unit():
 	# The extension mutates the variant list; an uninfected unit must see vanilla's list.
@@ -194,3 +195,17 @@ func test_stabilizing_without_the_burn_variant_keeps_infection():
 	await SpecFactory.use_solo(game, unit, &'ms_stabilize', [], [], 'condition_self')
 	assert_false(unit.has_status(&'impaired'), 'Stabilize ran its condition-clearing variant.')
 	assert_eq(Infection.count(unit), 2, 'Infection untouched by a Stabilize that did not clear Burn.')
+
+func test_marking_zero_does_nothing():
+	Infection.mark(SpecFactory.dummy_event({unit = unit}), unit, 0)
+	assert_false(Infection.is_infected(unit), 'No buff for a zero mark.')
+	assert_eq(UnitCondition.get_buffs(unit, Infection.BUFF_ID).size(), 0, 'Nothing attached.')
+
+func test_another_unit_clearing_its_own_burn_leaves_the_holder_alone():
+	# The stabilize / clear_burn filters key on the holder; an ally's Stabilize must not reach us.
+	var other := SpecFactory.create_unit(game.map, Vector2i(2, 2))
+	await infect(unit, 2)
+	other.state.burn = 2
+	await stabilize_burn(other)
+	assert_eq(other.state.burn, 0, 'The other unit cleared its own Burn.')
+	assert_eq(Infection.count(unit), 2, 'Our Infection is untouched.')
