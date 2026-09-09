@@ -1,0 +1,15 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_plague_fog_resilience.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+triggers_on_coming_within_range = 2
+triggers_on_allies = false
+when_enter_within = false
+when_start_turn_within = true
+can_trigger_any_number_of_times_per_round = true
+can_only_affect_a_unit_once_per_round = true
+triggers_on = Array[StringName]([&"new_turn"])
+consumes_rxn = false
+suppress_logging = true

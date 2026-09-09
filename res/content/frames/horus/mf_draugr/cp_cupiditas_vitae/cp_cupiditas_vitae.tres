@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="8_buff"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/buff_ceaseless_death.tres" id="9_buff_ceaseless_death"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_plague_vent_dispersal.tres" id="10_plague_vent"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/buff_plague_fog_accuracy.tres" id="11_buff_fog_accuracy"]
 
 [sub_resource type="Resource" id="Resource_resilience_counter"]
 script = ExtResource("4_die_counter")
@@ -20,7 +21,7 @@ min_value = 0
 
 [sub_resource type="Resource" id="Resource_cupiditas_applicator"]
 script = ExtResource("7_applicator")
-applied_buffs = Array[ExtResource("8_buff")]([ExtResource("9_buff_ceaseless_death")])
+applied_buffs = Array[ExtResource("8_buff")]([ExtResource("9_buff_ceaseless_death"), ExtResource("11_buff_fog_accuracy")])
 
 [resource]
 script = ExtResource("3_kit")

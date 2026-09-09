@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="BuffBonus" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/buff_plague_fog_accuracy.gd" id="1_accuracy"]
+
+[resource]
+script = ExtResource("1_accuracy")
+bonus_subtype = &"accuracy"
+bonus_value = 1
+to = &"attack_roll"
+hide_from_player = true
+localization_key_override = "gear.cp_cupiditas_vitae"

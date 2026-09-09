@@ -18,11 +18,16 @@
 #                event_unit_clear_burn, so on 1.4.0 the buff is already gone when clear_burn would
 #                arrive. It is also the only path for the no-Burn case; the variant is offered to
 #                infected units by action_stabilize.gd_ext.gd.
+#              A Draugr's plague fog covering both the holder and its owner makes this check an
+#              automatic failure - no roll (see PlagueFog.auto_fails_infection_check). That is the
+#              only place this file knows about the Draugr's frame; the mechanism lives in
+#              plague_fog.gd so this file never learns what a deployable is.
 # Keep the trigger names in the .tres, not here: ReactionBus.TRIGGER.CLEAR_BURN exists only on
 # 1.4.0 and naming it would not parse on 1.3.3.
 extends Buff
 
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
+const PlagueFog := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/plague_fog.gd')
 
 func name_text(core:BuffCore) -> String:
 	return Translate.buff(core, 'name.count').format({count = core.get_state(Infection.COUNT_KEY, 0)})
@@ -56,6 +61,18 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 	var triggering:EventCore = activation.context.event
 	if not triggering.base.owns_trigger_types().has(ReactionBus.TRIGGER.END_TURN):
 		Infection.clear(activation, unit) # a burn clear, or a burn-clearing Stabilize
+		return
+	# "Hostile characters automatically fail SYSTEMS checks to remove INFECTION at the end of their
+	# turn" while a Draugr's plague fog covers both them and its owner (the core power's third fog
+	# clause; design 2026-09-09-draugr-design.md section 3). No roll is made at all, which is what
+	# "automatically fail" means - and it keeps the CHECK_FLAG marker out of a roll that never
+	# happens. Falls through to the normal failure handling below.
+	if PlagueFog.auto_fails_infection_check(unit):
+		await activation.execute_event(&'event_unit_damage', {
+			unit = unit,
+			number = Infection.count(unit),
+			category = Lancer.DAMAGE_TYPE.HEAT,
+		})
 		return
 	# handle_check directly, not make_systems_check: the wrapper accepts flags_and_statuses and then
 	# passes [] on (unit_hasecheck.gd:29-30, both engines), so CHECK_FLAG would never reach the roll.
