@@ -28,8 +28,7 @@ const STRUCTURE_THRESHOLD := 4
 
 func show_in_tooltip(_kit:Kit) -> bool: return false
 
-func get_required_triggering_context() -> Array[Context.PROP]:
-	return [Context.PROP.unit]
+# No required-context override: see action_ceaseless_death.gd for why (Task 2).
 
 func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> bool:
 	# event_turn_start also fires virtual NEW_TURN cores for a unit's own deployables

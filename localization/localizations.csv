@@ -20,7 +20,7 @@ gear.mt_seeping_rot.name,The Seeping Rot
 gear.mt_seeping_rot.effect,"When the Draugr triggers |OVERKILL|, the target gains 1 |INFECTION|."
 gear.mt_seeping_rot.trigger,"You trigger |OVERKILL|"
 gear.cp_cupiditas_vitae.name,CUPIDITAS VITAE
-gear.cp_cupiditas_vitae.effect,"|The Ceaseless Death| is a passive that banks Resilience from nearby deaths and your own missing structure, and spends it to shrug off damage. |Plague-Vent Dispersal| is a |protocol| that spends your core power to flood an area with infectious fog."
+gear.cp_cupiditas_vitae.effect,"|The Ceaseless Death| is a passive that banks Resilience from nearby deaths and your own missing structure, and spends it to shrug off damage. |Plague-Vent Dispersal| is a |protocol| that spends your core power to flood an area with infectious fog. |Plague-Vent Dispersal| is |Efficient|: your core point returns at the start of the next scene."
 gear.cp_cupiditas_vitae.flavor,"TO YOU ABOVE: if you will not grant us life, then we have no choice but to take it."
 gear.cp_cupiditas_vitae.resilience,Resilience
 gear.cp_cupiditas_vitae.action_ceaseless_death.name,The Ceaseless Death

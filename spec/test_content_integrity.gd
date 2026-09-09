@@ -86,6 +86,10 @@ func test_draugr_license_text_is_localized():
 		if tr(key) == key: raw.append(key)
 	assert_eq(raw, PackedStringArray(), 'Every Draugr license rule-text key resolves to real text.')
 
+func test_the_core_power_names_its_efficient_tag():
+	# The glossary term is only reachable through a |Efficient| label in some rule text.
+	assert_true(tr('gear.cp_cupiditas_vitae.effect').contains('|Efficient|'), 'CUPIDITAS VITAE says it is Efficient.')
+
 func test_draugr_traits_are_localized():
 	# The three trait rows exist in localizations.csv but their values are still blank - the mod is
 	# v0.0.1 and this copy has not been written yet. Pending rather than failing: it is a real gap,

@@ -55,6 +55,10 @@ func triggers_on_event(core:BuffCore, unit:Unit, triggering_event:EventCore) -> 
 	# "if the Draugr would take damage": nothing to cap when Overshield (or armor, already folded
 	# into the preliminary number at event_unit_damage.gd:52-56) absorbs the whole instance.
 	if context.number <= maxi(0, unit.state.overshield): return false
+	# A multi-damage-type attack is several damage events; the engine keeps our one-shot cap alive
+	# across them (SKIP_CONSUMING_RESIST_BUFFS, event_unit_attack_declared.gd:260). One point covers
+	# the whole attack: while the cap is still on us, do not spend again.
+	if not UnitCondition.get_buffs(unit, CAP_BUFF_ID).is_empty(): return false
 	return Resilience.count(unit) > 0
 
 func activate(core:BuffCore, activation:EventCore) -> void:

@@ -35,7 +35,12 @@ func show_in_tooltip(_kit:Kit) -> bool: return false
 
 func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> bool:
 	if not super.triggers_on_event(unit, gear, triggering_event): return false
-	return PlagueFog.owner_is_inside(unit) # "While you are inside the fog"
+	if not PlagueFog.owner_is_inside(unit): return false # "While you are inside the fog"
+	# A Faction.NONE unit is neither ally nor enemy, so triggers_on_allies = false (which only
+	# excludes actual allies) lets it pay for free. The fog inherits its deployer's faction, so
+	# checking hostility against the fog itself reads the same as checking against its owner.
+	if not UnitRelation.are_enemies(unit, triggering_event.context.unit): return false
+	return true
 
 func activate(context:Context, activation:EventCore) -> void:
 	var fog:Unit = context.unit

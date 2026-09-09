@@ -153,3 +153,13 @@ func test_a_hit_armor_zeroes_spends_nothing():
 	await SpecFactory.damage(game, draugr, 1, Lancer.DAMAGE_TYPE.KINETIC)
 	assert_eq(draugr.core.current.health, before, 'Armor ate the point.')
 	assert_eq(Resilience.count(draugr), 1, 'No Resilience spent.')
+
+func test_one_attack_with_two_damage_types_costs_one_point():
+	# The engine fires one damage event per damage type and keeps resist buffs alive between them
+	# (SKIP_CONSUMING_RESIST_BUFFS on all but the last). One Resilience covers the whole attack.
+	Resilience.gain(draugr, 2)
+	var before := draugr.core.current.health
+	await SpecFactory.damage(game, draugr, 3, Lancer.DAMAGE_TYPE.KINETIC, [EventService.DAMAGE_FLAG.SKIP_CONSUMING_RESIST_BUFFS])
+	await SpecFactory.damage(game, draugr, 3, Lancer.DAMAGE_TYPE.ENERGY)
+	assert_eq(before - draugr.core.current.health, 2, 'Each sub-instance capped to 1.')
+	assert_eq(Resilience.count(draugr), 1, 'One point for the whole attack.')
