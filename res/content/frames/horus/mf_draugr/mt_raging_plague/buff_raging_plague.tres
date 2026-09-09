@@ -9,4 +9,4 @@ weapon_types = Array[int]([2])
 allow_basic = true
 to = &"weapon_tag"
 hide_from_player = true
-localization_key_override = "gear.mt_raging_plague"
+localization_key_override = "mt_raging_plague"

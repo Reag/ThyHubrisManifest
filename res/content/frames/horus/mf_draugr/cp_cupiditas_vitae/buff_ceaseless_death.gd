@@ -52,6 +52,9 @@ func triggers_on_event(core:BuffCore, unit:Unit, triggering_event:EventCore) -> 
 	# category_int defaults to 0 = KINETIC when the event carried no type (context.gd:26-28), so
 	# this is safe on an untyped instance and excludes only real HEAT.
 	if context.category_int == Lancer.DAMAGE_TYPE.HEAT: return false
+	# "if the Draugr would take damage": nothing to cap when Overshield (or armor, already folded
+	# into the preliminary number at event_unit_damage.gd:52-56) absorbs the whole instance.
+	if context.number <= maxi(0, unit.state.overshield): return false
 	return Resilience.count(unit) > 0
 
 func activate(core:BuffCore, activation:EventCore) -> void:

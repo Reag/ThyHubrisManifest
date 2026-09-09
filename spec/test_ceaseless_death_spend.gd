@@ -38,10 +38,11 @@ func before_each():
 	draugr = SpecFactory.create_unit(game.map, Vector2i(0, 0))
 	draugr.core.change_mech_frame(load(DRAUGR_FRAME))
 	SpecFactory.apply_passive_buffs(draugr)
-	draugr.core.frame.stat.armor = 0 # armor would confound every damage number below
-	draugr.core.current.armor = 0 # and current is a SEPARATE Statblock, snapshotted by the
-	# full_repair inside apply_passive_buffs (unit_printer.gd:73); damage_modifications.gd:97 reads
-	# current, so the frame stat alone leaves the Draugr with its armor 1 on the first test of the run
+	draugr.core.current.armor = 0 # armor would confound every damage number below; current is a
+	# SEPARATE Statblock, snapshotted by the full_repair inside apply_passive_buffs
+	# (unit_printer.gd:73), and damage_modifications.gd:97 reads current - not frame.stat, which is
+	# also a shared, cached Frame resource that must not be mutated by a spec (memory:
+	# lancer-tactics-engine-gotchas-tear).
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 	draugr.core.current.structure = 1 # three missing, so the cap is 4 and _bank never clips
@@ -133,3 +134,22 @@ func test_self_inflicted_damage_is_capped_like_any_other():
 	assert_eq(await _health_lost_from(5, Lancer.DAMAGE_TYPE.KINETIC, [EventService.DAMAGE_FLAG.SELF_INFLICTED]), 1,
 		'Self-inflicted damage is still damage.')
 	assert_eq(Resilience.count(draugr), 0, 'And costs a point.')
+
+func test_a_hit_overshield_absorbs_entirely_spends_nothing():
+	# "After reducing OVERSHIELD, if the Draugr would take damage": nothing lands, nothing is spent.
+	Resilience.gain(draugr, 1)
+	draugr.state.overshield = 5
+	var before := draugr.core.current.health
+	await SpecFactory.damage(game, draugr, 3, Lancer.DAMAGE_TYPE.KINETIC)
+	assert_eq(draugr.core.current.health, before, 'Overshield took all of it.')
+	assert_eq(draugr.state.overshield, 2, 'Three points of overshield gone.')
+	assert_eq(Resilience.count(draugr), 1, 'No Resilience spent on a hit that dealt nothing.')
+
+func test_a_hit_armor_zeroes_spends_nothing():
+	# The Draugr has armor 1: a 1-damage kinetic hit is already 0 before Resilience is asked.
+	Resilience.gain(draugr, 1)
+	draugr.core.current.armor = 1
+	var before := draugr.core.current.health
+	await SpecFactory.damage(game, draugr, 1, Lancer.DAMAGE_TYPE.KINETIC)
+	assert_eq(draugr.core.current.health, before, 'Armor ate the point.')
+	assert_eq(Resilience.count(draugr), 1, 'No Resilience spent.')

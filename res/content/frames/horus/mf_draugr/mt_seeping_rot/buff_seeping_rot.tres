@@ -10,4 +10,4 @@ effects = Array[ExtResource("2_onhiteffect")]([ExtResource("3_onhit_res")])
 allow_basic = true
 to = &"onhit_effect"
 hide_from_player = true
-localization_key_override = "gear.mt_seeping_rot"
+localization_key_override = "mt_seeping_rot"
