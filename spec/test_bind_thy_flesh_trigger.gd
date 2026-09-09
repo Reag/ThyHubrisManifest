@@ -186,6 +186,36 @@ func test_the_anchor_goes_when_the_last_chained_character_dies():
 	await game.execute_event(&'event_unit_die', {unit = enemy_far})
 	assert_eq(_anchors().size(), 0, 'No anchor left once everyone it held is gone.')
 
+# "...or the object is moved or destroyed." Destroying the shackle is the third way a chain ends, and
+# it is the one the trait's own blasts cause: the anchor stands inside the pattern, so a second
+# BLAST at a chained character hits the shackle too, and a Grenade Launcher kills it in a few shots.
+#
+# Reported from play (CCC Grenade Launcher build): the first chain works, and once it is broken
+# nothing ever chains again. With the anchor gone, the chain buff stayed on every character it held -
+# no movement restriction, no burn from Know Thy Sins, just a dead icon - and the trigger skips
+# anyone who still carries the buff, so those characters could never be caught again.
+func _destroy_anchor() -> void:
+	var anchors := _anchors()
+	if anchors.is_empty(): return fail_test('An anchor was standing to destroy.')
+	await game.execute_event(&'event_unit_die', {unit = anchors[0]})
+
+func test_destroying_the_anchor_frees_everyone_chained_to_it():
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	assert_eq(_chain_count(), 2, 'Two characters chained.')
+
+	await _destroy_anchor()
+	assert_eq(_anchors().size(), 0, 'The anchor is gone.')
+	assert_eq(_chain_count(), 0, 'And nobody is left carrying a chain to nothing.')
+
+func test_a_blast_after_the_anchor_is_destroyed_chains_again():
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	await _destroy_anchor()
+	assert_eq(_chain_count(), 0, 'Everyone was freed when the shackle broke.')
+
+	await _fire(BLAST_WEAPON, enemy_near.tile())
+	assert_eq(_chain_count(), 2, 'The next blast chains them all over again.')
+	assert_eq(_anchors().size(), 1, 'To a fresh shackle.')
+
 func test_two_characters_chained_to_one_anchor_can_both_break_free_in_the_same_turn():
 	# The escape lives on the shared anchor gear, and Action's per-turn limit is recorded against
 	# the GEAR rather than the unit. At the defaults a QUICK action is 1/turn, so the first

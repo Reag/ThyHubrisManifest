@@ -66,9 +66,17 @@ func on_clear(event:EventCore, core:BuffCore, unit:Unit) -> void:
 
 	var anchor := get_anchor(core, map)
 	if not Unit.is_valid(anchor): return # already destroyed, which is one of the ways this ends
+	if is_anchor_already_dying(event, anchor): return # its death is what is clearing us; do not kill it twice
 	if is_still_binding_anyone(anchor, map, core): return
 
 	event.queue_event(&'event_unit_die', {unit = anchor})
+
+## action_chain_erinyes_release clears the chains from inside the anchor's own death event, and at
+## PRE timing the anchor is still standing - so without this the last chain to go would queue a
+## second event_unit_die for a shackle that is already dying.
+func is_anchor_already_dying(event:EventCore, anchor:Unit) -> bool:
+	if not is_instance_valid(event) or not is_instance_valid(event.base): return false
+	return event.base.event_type == &'event_unit_die' and event.context.unit == anchor
 
 func is_still_binding_anyone(anchor:Unit, map:MapState, ignoring:BuffCore) -> bool:
 	var anchor_id := String(anchor.core.persistent_id)

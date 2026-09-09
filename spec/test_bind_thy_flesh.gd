@@ -99,9 +99,10 @@ func test_the_chained_character_is_offered_an_escape_action():
 func test_the_escape_is_a_quick_action_hull_check():
 	var kit:Kit = ContentLibrary.get_kit(ANCHOR_KIT)
 	if not Kit.is_valid(kit): return fail_test('%s loaded.' % ANCHOR_KIT)
-	assert_eq(kit.actions.size(), 1, 'One action on the anchor kit.')
-	if kit.actions.is_empty(): return
-	var escape:Action = kit.actions[0]
+	# The kit also carries the release reaction that frees everyone when the shackle is destroyed,
+	# so the escape is found by id rather than assumed to be the only action.
+	var escape:Action = kit.get_action(&'action_chain_erinyes_escape')
+	if not is_instance_valid(escape): return fail_test('The escape action is on the anchor kit.')
 	assert_eq(escape.action_type, Lancer.ACTION.QUICK, 'A quick action, as the trait says.')
 	assert_eq(escape.make_save_type, Lancer.HASE.HULL, 'Against HULL.')
 	assert_true(escape.is_check_instead_of_save, 'And it is a check, not a save.')
