@@ -240,6 +240,28 @@ func test_the_plague_fog_is_registered_and_named():
 		'Its own kit, then vanilla expiration - which is what makes it last until the end of the next turn.')
 	assert_ne(tr('frame.dep_plague_fog.name'), 'frame.dep_plague_fog.name', 'And it has a name.')
 
+func test_the_core_power_carries_all_four_of_its_actions():
+	# Two named abilities plus two pieces of bookkeeping. The bookkeeping pair have no localization
+	# rows and hide themselves from the tooltip, so nothing else would notice them going missing.
+	var kit:Kit = ContentLibrary.get_kit(DRAUGR_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % DRAUGR_CORE_POWER)
+	var action_ids:Array[StringName] = []
+	for action:Action in kit.actions: action_ids.append(action.get_id())
+	for expected:StringName in [
+		&'action_ceaseless_death', &'action_ceaseless_death_structure',
+		&'action_plague_vent_dispersal', &'action_cupiditas_vitae_efficient',
+	]:
+		assert_true(action_ids.has(expected), '%s is on the core power.' % expected)
+
+	# Sharing a usage_group would make one action's use silently consume another's allowance
+	# (gear_core.gd:166-168). The Erinyes was bitten by exactly this; see
+	# action_face_thy_judgement.gd's header.
+	var groups:Array[StringName] = []
+	for action:Action in kit.actions:
+		if action.usage_group.is_empty(): continue
+		assert_false(groups.has(action.usage_group), '%s has a usage group of its own.' % action.get_id())
+		groups.append(action.usage_group)
+
 # ==================== DHIYED Observation ====================
 # The core power is two sub-abilities on one kit, the way the Denali's Auto-Logistic CompCon carries
 # Force Multiplier and Optimizer. Still stubs: these assert the wiring and the action economy, which

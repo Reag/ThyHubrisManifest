@@ -259,3 +259,5 @@ gear.cp_the_keening.action_tear_close.name,Close Tear
 gear.cp_the_keening.action_tear_close.effect,"Close one of your void tears."
 gear.mt_to_bend_reality.variant.name,Bend Reality
 gear.mt_to_bend_reality.variant.effect,"Draw range and line of sight through a tear. A bent line is fired as two attacks: the segment past the tear rolls separately and deals half damage, and a character standing on the bend is hit by both."
+lancer.term.efficient,Efficient
+lancer.term.efficient.desc,"An |efficient| ability refunds its |CORE POWER| at the end of any scene, so it is available again in the next one."

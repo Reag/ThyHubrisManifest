@@ -33,12 +33,30 @@ func _init() -> void:
 	# 3. Installs any SCRIPTS (.gd) that already existed as a script_extension. (Warning: cannot extend class_name scripts)
 	LancerTacticsMod.add_overwrite_extend_mod_resources(MOD_ID)
 
+	register_glossary_terms()
+
 	# In case you need to manually replace your own resources // script extensions, you can do so with these:
 	#var mod_dir_path := ModLoaderMod.get_unpacked_dir().path_join(MOD_ID)
 	#var res_dir_path := LancerTacticsMod.get_mod_res_dir(MOD_ID)
 	#LancerTacticsMod.replace_resource(MOD_ID, "res://some_vanilla_resource.tres", mod_dir_path.path_join("your_replacement_resource.tres"))
 	#LancerTacticsMod.extend_script(MOD_ID, mod_dir_path.path_join("your_extending_script.gd"))
 	#LancerTacticsMod.extend_scene(MOD_ID, mod_dir_path.path_join("your_extending_script.tscn_ext.gd"))
+
+## Terms the mod uses in its rule text that the base game's glossary does not list.
+##
+## GlossaryItem.process_glossed_text turns |markup| into a link only when find_key_from_label can
+## resolve the label to a key in cached_term_keys (glossary_item.gd:174-209), and that list is
+## loaded from the game's own glossary json - which has no "efficient" entry, in either engine.
+## Appending to the cache is how gavstarb-horus_alts_1st_party/mod_main.gd:32-35 does it, and the
+## priming call is load-bearing: the cache is filled lazily on the first lookup, so appending before
+## that would be overwritten by the fill.
+##
+## find_key_from_label also refuses any key whose ".desc" row is missing (:203-206), so both CSV
+## rows have to exist for this to have any effect at all.
+func register_glossary_terms() -> void:
+	GlossaryItem.find_key_from_label('') # force the lazy cache fill before we append to it
+	for term:StringName in [&'lancer.term.efficient']:
+		if not GlossaryItem.cached_term_keys.has(term): GlossaryItem.cached_term_keys.append(term)
 
 # Runs when this mod's node is added to the tree (whenever active mods are changed)
 func _ready() -> void:
