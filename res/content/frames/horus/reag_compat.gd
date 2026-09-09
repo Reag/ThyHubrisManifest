@@ -90,7 +90,9 @@ static func choose_unit_with_brochure(specific:SpecificAction, units:Array, titl
 		var brochure = load(BROCHURE_CORE_140).create({title = title, description = desc, show_continue = false})
 		return await bus().choose_unit_for({units = units, brochure = brochure, using = specific, can_voluntarily_cancel = can_cancel})
 	bus().show_informational_brochure(title, desc, '', false)
-	return await bus().choose_unit(units, can_cancel, specific)
+	# No `specific` on 1.3.3: tilepicker_unit.gd:42-45 recentres the camera on specific.unit when given one,
+	# discarding whatever framing the caller just set up (1.4.0 commented that block out).
+	return await bus().choose_unit(units, can_cancel)
 
 # ------------------------------------------------------------------ whois marker (no question asked)
 
