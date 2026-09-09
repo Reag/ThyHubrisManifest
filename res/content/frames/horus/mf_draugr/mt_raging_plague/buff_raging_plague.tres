@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BuffWeaponTypeTag" format=3]
+
+[ext_resource type="Script" uid="uid://0fwqtdftjfdv" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_raging_plague/buff_raging_plague.gd" id="1_plague"]
+
+[resource]
+script = ExtResource("1_plague")
+added_tag = &"overkill"
+weapon_types = Array[int]([2])
+allow_basic = true
+to = &"weapon_tag"
+hide_from_player = true
+localization_key_override = "gear.mt_raging_plague"
