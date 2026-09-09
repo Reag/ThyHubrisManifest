@@ -66,3 +66,34 @@ func test_clear_removes_the_buff_and_the_count():
 	Infection.clear(SpecFactory.dummy_event(), unit)
 	assert_false(Infection.is_infected(unit), 'Gone.')
 	assert_eq(UnitCondition.get_buffs(unit, Infection.BUFF_ID).size(), 0, 'Buff gone with it.')
+
+# ---------- end of the holder's turn ----------
+# Mirrors burn (event_turn_end.gd:92-107) but as a reactive buff, because the victim owns none
+# of the Draugr's gear. Dice.CHEAT_ROLL_QUEUE feeds the d20: 20 passes, 1 fails, on a stock unit
+# with +0 Systems against target 10.
+
+func test_passing_the_check_clears_infection():
+	await infect(unit, 3)
+	unit.core.current.heat = 0
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await SpecFactory.pass_turn(game, unit)
+	assert_eq(Infection.count(unit), 0, 'Cleared on a passed check.')
+	assert_eq(unit.core.current.heat, 0, 'No heat on a pass.')
+
+func test_failing_the_check_deals_heat_equal_to_the_count_and_keeps_it():
+	await infect(unit, 3)
+	unit.core.current.heat = 0
+	Dice.CHEAT_ROLL_QUEUE.append(1)
+	await SpecFactory.pass_turn(game, unit)
+	assert_eq(unit.core.current.heat, 3, 'Heat equal to the marked count.')
+	assert_eq(Infection.count(unit), 3, 'Still infected, at the same count.')
+
+func test_the_check_only_happens_on_the_holders_own_turn():
+	var other := SpecFactory.create_unit(game.map, Vector2i(2, 2))
+	await infect(unit, 2)
+	unit.core.current.heat = 0
+	Dice.CHEAT_ROLL_QUEUE.append(1)
+	await SpecFactory.pass_turn(game, other)
+	assert_eq(Infection.count(unit), 2, 'Untouched by someone else ending their turn.')
+	assert_eq(unit.core.current.heat, 0, 'No heat either.')
+	Dice.CHEAT_ROLL_QUEUE.clear()
