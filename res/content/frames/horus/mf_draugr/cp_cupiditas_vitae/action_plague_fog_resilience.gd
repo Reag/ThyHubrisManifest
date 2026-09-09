@@ -8,15 +8,18 @@
 # to spend.
 #
 # The .tres does almost all the filtering declaratively: when_start_turn_within, triggers_on_allies
-# = false, triggers_only_on_characters (default true), triggers_on_coming_within_range = 2. The base
-# also refuses the reaction's own owner at :49, which is what keeps a Draugr standing in its own gas
-# from paying itself at the start of its own turn. All this override adds is the "while YOU are
-# inside the fog" gate, which nothing declarative can express.
+# = false, triggers_only_on_characters (default true), triggers_on_coming_within_range = 2. It is
+# triggers_on_allies = false that keeps a Draugr standing in its own gas from paying itself at the
+# start of its own turn - the fog inherits its deployer's faction, so the Draugr reads as an ally to
+# its own cloud. All this override adds is the "while YOU are inside the fog" gate, which nothing
+# declarative can express.
 #
 # can_trigger_any_number_of_times_per_round = true with can_only_affect_a_unit_once_per_round = true
 # is the caustic-earth pairing: several hostiles may each start a turn in the cloud in one round and
-# each should pay, but one hostile granted a second activation should not pay twice. The per-unit
-# stamp is the base class's own buff_track_affection bookkeeping (:96-107).
+# each should pay - and a hostile granted a second activation in the round pays twice, matching
+# vanilla's action_apocalypse_burn (action_reaction_on_coming_within.gd:29). The per-unit stamp is
+# the base class's own buff_track_affection bookkeeping (:96-107); buff_track_affection.tres clears
+# it at START_OF_TURN, i.e. the victim's own next turn start reopens it.
 #
 # The point goes to the fog's OWNER, not to the fog - the cloud has no core power and
 # Resilience.gain on it would be a silent no-op.

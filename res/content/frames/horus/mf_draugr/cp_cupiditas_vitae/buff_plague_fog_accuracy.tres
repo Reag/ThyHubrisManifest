@@ -8,4 +8,4 @@ bonus_subtype = &"accuracy"
 bonus_value = 1
 to = &"attack_roll"
 hide_from_player = true
-localization_key_override = "gear.cp_cupiditas_vitae"
+localization_key_override = "cp_cupiditas_vitae.action_plague_vent_dispersal"

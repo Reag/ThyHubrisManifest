@@ -6,6 +6,10 @@
 #              count stays. Mirrors burn in event_turn_end.gd:92-107 (which is an Engineering
 #              check; the rules make this one Systems). The victim owns none of the Draugr's gear,
 #              which is why this is a buff reaction and not an ActionReaction on a kit.
+#              A Draugr's plague fog covering both the holder and its owner makes this check an
+#              automatic failure - no roll (see PlagueFog.auto_fails_infection_check). That is the
+#              only place this file knows about the Draugr's frame; the mechanism lives in
+#              plague_fog.gd so this file never learns what a deployable is.
 #   clear_burn - 1.4.0 only (event_unit_clear_burn; the trigger never fires on 1.3.3): an ACTION
 #                that clears Burn clears Infection - Whitewash Sealant Spray and the Sealant Gun
 #                reach us only this way. The same event also fires from the end-of-turn Burn save
@@ -18,10 +22,6 @@
 #                event_unit_clear_burn, so on 1.4.0 the buff is already gone when clear_burn would
 #                arrive. It is also the only path for the no-Burn case; the variant is offered to
 #                infected units by action_stabilize.gd_ext.gd.
-#              A Draugr's plague fog covering both the holder and its owner makes this check an
-#              automatic failure - no roll (see PlagueFog.auto_fails_infection_check). That is the
-#              only place this file knows about the Draugr's frame; the mechanism lives in
-#              plague_fog.gd so this file never learns what a deployable is.
 # Keep the trigger names in the .tres, not here: ReactionBus.TRIGGER.CLEAR_BURN exists only on
 # 1.4.0 and naming it would not parse on 1.3.3.
 extends Buff
