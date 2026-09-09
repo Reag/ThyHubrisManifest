@@ -7,7 +7,9 @@
 # fails to parse takes every action that preloads it down with it, silently. They are reached via
 # load() on a script path, and the bus is kept UNTYPED so member access resolves at runtime.
 #
-# Things that did NOT change and need no shim: choice_bus.choose_unit(units, can_cancel, specific),
+# Things that did NOT change and need no shim: choice_bus.choose_unit(units, can_cancel, specific) -
+# WHEN NO INFO PANEL ACCOMPANIES THE PICK (see choose_unit_with_brochure below for the panel case,
+# where 1.3.3's panel and 1.4.0's request-scoped brochure do need bridging) -
 # choice_bus.quick_yesno(tile, title, desc), choice_bus.telegraph_trait(...), effect_bus.show_range(...),
 # effect_bus.show_target_line(...). Action scripts inherit `choice_bus` from Action/Buff/OnHitEffect,
 # whose static var already points at the right path on each engine.
@@ -27,8 +29,13 @@ const INFO_TYPE := &'reag_info'
 static var _bus = null       # untyped on purpose
 static var _effect_bus = null
 
+## -1 = not yet tested, 0 = 1.3.3, 1 = 1.4.0. Cached after the first call: ResourceLoader.exists
+## never changes mid-run, and this is called from hot paths (every prompt through this file).
+static var _is_140:int = -1
+
 static func is_140() -> bool:
-	return ResourceLoader.exists(BUS_140)
+	if _is_140 == -1: _is_140 = 1 if ResourceLoader.exists(BUS_140) else 0
+	return _is_140 == 1
 
 static func bus():
 	if _bus == null: _bus = load(BUS_140 if is_140() else BUS_133)
@@ -73,6 +80,18 @@ static func yesno(tile:Vector2i, title:String, desc:String = '', using:SpecificA
 	if whois != null: bus().hide_whois()
 	return answer
 
+# ------------------------------------------------------------------ unit pick with an explanatory panel
+
+## Pick one unit while an information panel explains why. `title`/`desc` may be translation keys.
+## 1.4.0: the panel is the request's own brochure, so it closes with the pick. 1.3.3: the info
+## brochure is opened un-awaited and the targeting request that follows ends it (request piles).
+static func choose_unit_with_brochure(specific:SpecificAction, units:Array, title:String, desc:String, can_cancel:bool = true) -> Unit:
+	if is_140():
+		var brochure = load(BROCHURE_CORE_140).create({title = title, description = desc, show_continue = false})
+		return await bus().choose_unit_for({units = units, brochure = brochure, using = specific, can_voluntarily_cancel = can_cancel})
+	bus().show_informational_brochure(title, desc, '', false)
+	return await bus().choose_unit(units, can_cancel, specific)
+
 # ------------------------------------------------------------------ whois marker (no question asked)
 
 ## Raise the whois panel on `unit` without asking anything, until hide_whois(handle). Returns a handle
@@ -102,6 +121,9 @@ static func hide_whois(handle) -> void:
 static func pick_tile_from(specific:SpecificAction, tiles:Array[Vector2i]) -> Vector2i:
 	if tiles.is_empty(): return Tile.INVALID
 	if is_140():
+		if not _has_tile_set_receiver():
+			ModLoaderLog.error('reag_compat: no receiver for %s is connected to the choice bus (the choice_controller scene extension did not stick?) - falling back to the first offered tile.' % TILE_SET_TYPE, 'Reag-ThyHubris')
+			return tiles[0]
 		var request = bus().create_request(TILE_SET_TYPE, {tiles = tiles, using = specific})
 		await bus().wait_for_response(request)
 		if request.aborted: return Tile.INVALID
@@ -110,6 +132,14 @@ static func pick_tile_from(specific:SpecificAction, tiles:Array[Vector2i]) -> Ve
 	var plan = await bus().choose_target_tiles(specific, tiles)
 	if plan == null or plan.target_tiles.is_empty(): return Tile.INVALID
 	return plan.target_tiles.front()
+
+## True when a ChoiceRequestReceiver whose required_type is our private type is connected to the
+## bus (1.4.0). Receivers are found through the signal's connections; the class is never named.
+static func _has_tile_set_receiver() -> bool:
+	for connection in bus().on_choice_request.get_connections():
+		var listener = connection.callable.get_object()
+		if listener != null and listener.get('required_type') == TILE_SET_TYPE: return true
+	return false
 
 # ------------------------------------------------------------------ observing movement picks
 
@@ -145,6 +175,8 @@ static func connect_move_pick(on_pick:Callable) -> void:
 			if is_140(): bus().on_choice_request.disconnect(wrapped)
 			else: bus().on_choose_move_tile.disconnect(wrapped)
 		, CONNECT_ONE_SHOT)
+	else:
+		ModLoaderLog.error('reag_compat.connect_move_pick: on_pick must be bound to a Node so the bus connection can be torn down with it.', 'Reag-ThyHubris')
 
 # ------------------------------------------------------------------ effects bus renames
 

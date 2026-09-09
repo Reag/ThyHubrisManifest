@@ -13,8 +13,11 @@ const EXTENDED_AUTOLOADS := {
 # 1.4.0 workaround #2 (see reapply_scene_extensions_140 below)
 const CHOICE_CONTROLLER_SCENE_PATH := 'res://ui/choice_controller/choice_controller.tscn'
 const ChoiceControllerExt := preload('res://unpacked/Reag-ThyHubris/res/ui/choice_controller/choice_controller.tscn_ext.gd')
-## Keeps the re-packed scene alive; see reapply_scene_extensions_140 for why that matters.
-static var _kept_choice_controller_scene:PackedScene
+## Keeps the re-packed scene alive; see reapply_scene_extensions_140 for why that matters. An
+## instance var, not static: the embassy node (this script) lives exactly as long as the mod is
+## active, and TH declares requires_restart: true in manifest.json, so there is no deactivate() to
+## release it from - the node going away when the mod is torn down is the only cleanup needed.
+var _kept_choice_controller_scene:PackedScene
 
 # Runs when this mod is activated (whenever active mods are changed)
 func _init() -> void:
@@ -69,9 +72,11 @@ func reload_extended_autoloads_140() -> void:
 ## PackedScene variable and take_over_path()s it onto the vanilla path -- but nothing else keeps that
 ## local variable alive once _save_scene() returns, so Godot's refcounting frees it immediately, and a
 ## RefCounted Resource's destructor un-registers itself from the resource cache on the way out. Every
-## later load() of choice_controller.tscn -- including the one Gamemaster.create_gamemaster_node does
-## for every real game AND every spec -- therefore returns the plain, UNEXTENDED scene straight off
-## disk: no AcidSpillHighlight, no ReagTileSetPicker.
+## later load() of choice_controller.tscn therefore returns the plain, UNEXTENDED scene straight off
+## disk: no AcidSpillHighlight, no ReagTileSetPicker. choice_controller.tscn is an ext_resource of
+## gamemaster.tscn, not something Gamemaster.create_gamemaster_node loads directly - the load that
+## matters is the game's first load() of gamemaster.tscn (engine/gamemaster/gamemaster.gd:48), for
+## every real game AND every spec, and the deferred call below beats it.
 ##
 ## Confirmed 2026-09-09 building Task 6 (the tile-set picker): a load() of choice_controller.tscn
 ## issued ONE FRAME after ModLoader's own take_over_path (deferred from inside modify_scene itself, so
@@ -88,7 +93,9 @@ func reload_extended_autoloads_140() -> void:
 ## engine fix makes ModLoader's own first pass stick after all, so calling it a second time here is
 ## always safe.
 func reapply_scene_extensions_140() -> void:
-	var fresh:Node = load(CHOICE_CONTROLLER_SCENE_PATH).instantiate()
+	var scene = load(CHOICE_CONTROLLER_SCENE_PATH)
+	if scene == null: return
+	var fresh:Node = scene.instantiate()
 	if fresh == null: return
 	var modified:Node = ChoiceControllerExt.new().modify_scene(fresh)
 	if modified == null: modified = fresh
