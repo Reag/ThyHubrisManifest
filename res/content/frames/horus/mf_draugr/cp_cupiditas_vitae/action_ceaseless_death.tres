@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_ceaseless_death.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+usage_group = &"ceaseless_death"
+triggers_on = Array[StringName]([&"death", &"structured"])
+consumes_rxn = false
