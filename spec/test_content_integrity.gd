@@ -33,9 +33,16 @@ func test_draugr_frame_and_traits_are_registered():
 	for kit_id:StringName in [&'mt_raging_plague', &'mt_seeping_rot', &'mt_spreading_stain']:
 		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
 
-# li_draugr is parked at D:\DEV\lancer-tactics-claude\parked\li_draugr.tres so the Draugr does not
-# ship in the prototype. Its registration test goes back in with the license. The frame and trait
-# tests below stay - those resources are still here, just unreachable without a license.
+func test_draugr_license_grants_the_frame_at_rank_2():
+	# Unparked 2026-09-09 with the frame alone (design doc 2026-09-09-draugr-design.md, decision D7).
+	# Ranks I and III are deliberately empty until License I and License III are built; a frame nobody
+	# can unlock is invisible in game, so the rank-2 link is the thing worth guarding.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
+	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
+	if not is_instance_valid(license): return
+	var primary:Frame = license.get_primary_frame()
+	assert_true(is_instance_valid(primary), 'Rank 2 grants a frame.')
+	if is_instance_valid(primary): assert_eq(primary.compcon_id, &'mf_draugr', 'That frame is the Draugr.')
 
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw
