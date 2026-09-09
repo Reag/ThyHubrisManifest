@@ -52,16 +52,20 @@ func _blow_up(unit:Unit) -> void:
 	await SpecFactory.damage(game, unit, 999, Lancer.DAMAGE_TYPE.KINETIC)
 
 func test_a_hostile_losing_a_structure_within_sensors_banks_a_point():
-	Dice.CHEAT_ROLL_QUEUE.append(6) # a 6 on the structure table is the no-effect result; unseeded, 4 of 6 outcomes kill a 2-structure fixture
+	Dice.CHEAT_ROLL_QUEUE.append(6) # a 6 on the structure table is IMPAIRED, which the fixture survives; unseeded, 4 of 6 outcomes kill a 2-structure unit with no destructible gear
 	await SpecFactory.damage(game, victim, 10, Lancer.DAMAGE_TYPE.KINETIC)
+	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'The structure check consumed its seed.')
 	Dice.CHEAT_ROLL_QUEUE.clear()
 	assert_eq(victim.core.current.structure, 1, 'Fixture: it lost exactly one structure and lived.')
 	assert_eq(Resilience.count(draugr), 1, 'And the Draugr banked a point.')
 
 func test_a_hostile_being_destroyed_within_sensors_banks_a_point():
 	# The death path specifically: the reaction's whole filter runs while the corpse is still on the
-	# map (plan B3). If it ran a moment later, distance_between would answer 1000 and this is the
-	# test that would go red.
+	# map (plan B3). If it ran a moment later, distance_between would answer 1000 - but this kill
+	# goes through event_unit_structure first, which queues `structured` before `death` and banks
+	# the point there; the 1/turn limit then swallows `death`. It is
+	# test_a_hostile_killed_outright_banks_a_point_through_the_death_trigger, below, that would go
+	# red if the death branch broke.
 	victim.core.current.structure = 1
 	await _blow_up(victim)
 	assert_false(Unit.is_valid(victim) and victim.is_on_map(), 'Fixture: it really died.')
@@ -88,10 +92,11 @@ func test_an_allys_death_pays_nothing():
 
 func test_only_one_point_per_turn():
 	var second := _enemy_at(Vector2i(2, 0))
-	Dice.CHEAT_ROLL_QUEUE.append(6) # a 6 on the structure table is the no-effect result; unseeded, 4 of 6 outcomes kill a 2-structure fixture
+	Dice.CHEAT_ROLL_QUEUE.append(6) # a 6 on the structure table is IMPAIRED, which the fixture survives; unseeded, 4 of 6 outcomes kill a 2-structure unit with no destructible gear
 	await SpecFactory.damage(game, victim, 10, Lancer.DAMAGE_TYPE.KINETIC)
 	Dice.CHEAT_ROLL_QUEUE.append(6) # same, for the second hit
 	await SpecFactory.damage(game, second, 10, Lancer.DAMAGE_TYPE.KINETIC)
+	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'The structure check consumed its seed.')
 	Dice.CHEAT_ROLL_QUEUE.clear()
 	assert_eq(second.core.current.structure, 1, 'Fixture: the second one structured too.')
 	assert_eq(Resilience.count(draugr), 1, '1/turn: the second structure in the same turn paid nothing.')
@@ -100,12 +105,14 @@ func test_a_new_turn_reopens_the_allowance():
 	# every_new_turn_refresh clears uses_this_turn for EVERY unit at every turn start
 	# (unit_action.gd:67-70 from event_turn_start.gd:42-43), so anyone's turn re-arms this.
 	var second := _enemy_at(Vector2i(2, 0))
-	Dice.CHEAT_ROLL_QUEUE.append(6) # a 6 on the structure table is the no-effect result; unseeded, 4 of 6 outcomes kill a 2-structure fixture
+	Dice.CHEAT_ROLL_QUEUE.append(6) # a 6 on the structure table is IMPAIRED, which the fixture survives; unseeded, 4 of 6 outcomes kill a 2-structure unit with no destructible gear
 	await SpecFactory.damage(game, victim, 10, Lancer.DAMAGE_TYPE.KINETIC)
+	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'The structure check consumed its seed.')
 	Dice.CHEAT_ROLL_QUEUE.clear()
 	await SpecFactory.start_turn(game, victim)
 	Dice.CHEAT_ROLL_QUEUE.append(6) # same, for the second hit
 	await SpecFactory.damage(game, second, 10, Lancer.DAMAGE_TYPE.KINETIC)
+	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'The structure check consumed its seed.')
 	Dice.CHEAT_ROLL_QUEUE.clear()
 	assert_eq(Resilience.count(draugr), 2, 'A fresh turn, a fresh point.')
 
@@ -114,8 +121,9 @@ func test_the_start_of_its_turn_pays_while_it_is_below_four_structure():
 	assert_eq(draugr.core.current.structure, 2, 'Fixture: below four.')
 	await SpecFactory.start_turn(game, draugr)
 	assert_eq(Resilience.count(draugr), 1, 'Start of turn, one point.')
-	Dice.CHEAT_ROLL_QUEUE.append(6) # a 6 on the structure table is the no-effect result; unseeded, 4 of 6 outcomes kill a 2-structure fixture
+	Dice.CHEAT_ROLL_QUEUE.append(6) # a 6 on the structure table is IMPAIRED, which the fixture survives; unseeded, 4 of 6 outcomes kill a 2-structure unit with no destructible gear
 	await SpecFactory.damage(game, victim, 10, Lancer.DAMAGE_TYPE.KINETIC)
+	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'The structure check consumed its seed.')
 	Dice.CHEAT_ROLL_QUEUE.clear()
 	assert_eq(Resilience.count(draugr), 2, 'And the kill gain still has its own 1/turn allowance.')
 
@@ -127,3 +135,11 @@ func test_the_start_of_turn_gain_stops_at_full_structure():
 func test_another_units_turn_start_pays_nothing():
 	await SpecFactory.start_turn(game, victim)
 	assert_eq(Resilience.count(draugr), 0, 'It is the START OF ITS TURN, not of anyone else.')
+
+func test_a_hostile_killed_outright_banks_a_point_through_the_death_trigger():
+	# Every hit that empties the last structure fires `structured` first (event_unit_structure.gd:72)
+	# and the 1/turn limit then swallows `death`, so the kill tests above never exercise the death
+	# trigger. A kill queued straight to event_unit_die (an execution, a scripted death) does.
+	await game.execute_event(&'event_unit_die', {unit = victim})
+	assert_false(Unit.is_valid(victim) and victim.is_on_map(), 'Fixture: it really died.')
+	assert_eq(Resilience.count(draugr), 1, 'Banked through the death trigger alone.')
