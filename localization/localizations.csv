@@ -32,6 +32,7 @@ While you are inside the fog:
 • Gain 1 Resilience when a hostile character begins their turn inside the fog.
 • Gain +1 |ACCURACY| on attacks against targets in the fog.
 • Hostile characters automatically fail |SYSTEMS| checks to remove |INFECTION| at the end of their turn."
+frame.dep_plague_fog.name,Plague Fog
 ,
 gear.ms_disease.name,Disease
 gear.ms_disease.effect,"Gain the |Symptom| and |Spreader| options for |Invade|. Each may be used 1/round."

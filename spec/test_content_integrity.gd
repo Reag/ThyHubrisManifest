@@ -226,6 +226,20 @@ func test_the_core_power_carries_the_resilience_counter():
 	assert_ne(tr('gear.cp_cupiditas_vitae.%s' % die.key), 'gear.cp_cupiditas_vitae.%s' % die.key,
 		'The counter label resolves to real text.')
 
+func test_the_plague_fog_is_registered_and_named():
+	# dep_ files land in the FRAMES index and mt_ files in the KITS index, by filename prefix alone
+	# (engine/resource_groups/). A fog filed under the wrong one loads fine and is never found by
+	# ContentLibrary.get_mech_frame, which is what ActionSystemDeploy needs.
+	var fog:Frame = ContentLibrary.get_mech_frame(&'dep_plague_fog')
+	assert_true(is_instance_valid(fog), 'dep_plague_fog is in the frames index.')
+	if not is_instance_valid(fog): return
+	assert_eq(fog.entity_type, Frame.ENTITY.MARKER, 'It is a marker, like every vanilla smoke cloud.')
+	var wired:Array[StringName] = []
+	for kit:Kit in fog.traits: wired.append(kit.compcon_id)
+	assert_eq(wired, [&'mt_plague_fog', &'mt_expiration'] as Array[StringName],
+		'Its own kit, then vanilla expiration - which is what makes it last until the end of the next turn.')
+	assert_ne(tr('frame.dep_plague_fog.name'), 'frame.dep_plague_fog.name', 'And it has a name.')
+
 # ==================== DHIYED Observation ====================
 # The core power is two sub-abilities on one kit, the way the Denali's Auto-Logistic CompCon carries
 # Force Multiplier and Optimizer. Still stubs: these assert the wiring and the action economy, which
