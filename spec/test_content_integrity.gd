@@ -44,6 +44,19 @@ func test_draugr_license_grants_the_frame_at_rank_2():
 	assert_true(is_instance_valid(primary), 'Rank 2 grants a frame.')
 	if is_instance_valid(primary): assert_eq(primary.compcon_id, &'mf_draugr', 'That frame is the Draugr.')
 
+const DRAUGR_LICENSE_II := [&'mw_injector_drill', &'ms_quarantine']
+
+func test_draugr_license_grants_the_drill_and_quarantine_at_rank_2():
+	# Design 2026-09-09-draugr-design.md section 5. Rank 2 grants the FRAME as well - the frame test
+	# above is the other half and both must stay green. Rank III stays empty until License III.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
+	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
+	if not is_instance_valid(license): return
+	var granted:Array[StringName] = []
+	for kit:Kit in license.rank_2.granted_gear: granted.append(kit.compcon_id)
+	assert_eq(granted, DRAUGR_LICENSE_II as Array[StringName], 'Rank II is the Injector Drill then Quarantine.')
+	assert_eq(license.rank_2.granted_frames.size(), 1, 'And it still grants the frame.')
+
 const DRAUGR_LICENSE_I := [&'ms_disease', &'ms_root']
 
 func test_draugr_license_grants_disease_and_root_at_rank_1():
