@@ -16,6 +16,7 @@
 # so no overkill fires and The Seeping Rot stays out of the way.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
 const StainEffect := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_spreading_stain/onhit_spreading_stain.gd')
@@ -54,12 +55,14 @@ func _draugr_at(tile:Vector2i, faction:Faction.SIDE) -> Unit:
 	unit.core.change_mech_frame(load(DRAUGR_FRAME))
 	unit.core.equip_system(MELEE)
 	SpecFactory.apply_passive_buffs(unit)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.heat = 20
 	unit.core.current.heat = 0
 	return unit
 
 func _enemy_at(tile:Vector2i, faction:Faction.SIDE = Faction.AI_ENEMY) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, faction)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.health = 40
 	unit.core.frame.stat.evasion = -10
 	unit.core.frame.stat.armor = 0
@@ -183,6 +186,7 @@ func test_a_declined_prompt_spreads_nothing_and_keeps_the_round_free():
 func _equip_carrion_beast() -> void:
 	draugr.core.equip_system(&'ms_carrion_beast')
 	SpecFactory.apply_passive_buffs(draugr)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 

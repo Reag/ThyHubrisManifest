@@ -31,6 +31,7 @@
 # of the target's next turn.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const InfectionLinks := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection_links.gd')
 
@@ -64,6 +65,7 @@ func after_each():
 
 func _victim_at(tile:Vector2i) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.edef = -10 # a cheated 20 always lands
 	unit.core.frame.stat.heat = 30
 	unit.core.frame.stat.health = 40
@@ -111,6 +113,7 @@ func test_isolation_locks_the_target():
 
 func test_a_miss_does_nothing():
 	Dice.CHEAT_ROLL_QUEUE.append(1)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.edef = 30
 	target.core.full_repair()
 	await SpecFactory.use(game, draugr, QUARANTINE, ISOLATION, target)

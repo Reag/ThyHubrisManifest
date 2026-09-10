@@ -20,6 +20,7 @@
 # all (memory draugr-infection-engine-gotchas item 6).
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Resilience := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/resilience.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const DRAUGR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres'
@@ -33,6 +34,7 @@ func before_each():
 	draugr = SpecFactory.create_unit(game.map, Vector2i(0, 0))
 	draugr.core.change_mech_frame(load(DRAUGR_FRAME))
 	SpecFactory.apply_passive_buffs(draugr)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 	draugr.core.current.structure = 2 # two missing, so the cap is 3 and nothing below hits it
@@ -41,6 +43,7 @@ func before_each():
 ## A stock hostile with enough health to be killed on demand and no armor in the way.
 func _enemy_at(tile:Vector2i, faction:Faction.SIDE = Faction.AI_ENEMY) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, faction)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.health = 10
 	unit.core.frame.stat.structure = 2
 	unit.core.frame.stat.armor = 0
@@ -153,6 +156,7 @@ func test_a_hostile_killed_outright_banks_a_point_through_the_death_trigger():
 func _equip_carrion_beast() -> void:
 	draugr.core.equip_system(&'ms_carrion_beast')
 	SpecFactory.apply_passive_buffs(draugr)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 	draugr.core.current.structure = 2

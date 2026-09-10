@@ -43,6 +43,7 @@
 # SpecificAction from the loaded .tres instead of going through refusal().
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 
 const QUARANTINE := &'ms_quarantine'
@@ -68,6 +69,7 @@ func before_each():
 	quarantine = draugr.core.equip_system(QUARANTINE)
 	draugr.core.full_repair()
 	target = SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.edef = -10 # a cheated 20 always lands
 	target.core.frame.stat.heat = 30
 	target.core.full_repair()
@@ -103,6 +105,7 @@ func test_lockdown_locks_the_target():
 	assert_eq(locks_on(target).front().from_gear, quarantine.persistent_id, 'Attributed to Quarantine.')
 
 func test_a_miss_does_nothing():
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.edef = 30
 	target.core.full_repair()
 	Dice.CHEAT_ROLL_QUEUE.append(1)

@@ -9,6 +9,7 @@
 # build against the actual cp_the_keening trait rather than a standalone probe kit.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
 
@@ -199,6 +200,7 @@ func test_it_deals_4_on_a_hit():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY) # on the 5x5 test map
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100 # headroom -- don't let the weapon hit + Mourning Call kill it
 	target.core.full_repair()
 
@@ -230,6 +232,7 @@ func test_it_deals_6_on_a_crit_and_not_10():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY) # on the 5x5 test map
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
@@ -316,6 +319,7 @@ func test_a_target_killed_by_mourning_call_leaves_no_wreck():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1 # one hit below zero structure kills outright -- see header
 	# 8 = the weapon's flat 4 (leaves exactly 4, alive) + Mourning Call's non-crit 4 (0, dead) -- see
 	# the Task 3 header for why this changed from the old fixture value of 4.
@@ -341,6 +345,7 @@ func test_a_target_killed_by_mourning_call_leaves_no_wreck():
 func test_a_target_killed_BY_ANYTHING_ELSE_STILL_leaves_a_wreck():
 	var banshee := _arm_banshee() # present (carries the wreckless trait), but not involved in this kill
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.full_repair()
 	var wrecks_before := _wreck_count()
@@ -354,6 +359,7 @@ func test_the_banshee_becomes_intangible_on_a_kill():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8 # weapon's 4 (survives) + Mourning Call's 4 (dies) -- see Task 3 header
 	target.core.full_repair()
@@ -368,6 +374,7 @@ func test_the_banshee_stays_tangible_when_the_target_survives():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100 # headroom -- survives the weapon hit AND Mourning Call's damage
 	target.core.full_repair()
 
@@ -398,6 +405,7 @@ func test_it_finishes_off_a_target_the_weapon_already_wounded():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	# 7, not the kill tests' 8: the weapon's flat 4 alone leaves 3 -- comfortably alive, not a
 	# hairline zero, so "the weapon's hit alone does not kill" is unambiguous. Only Mourning Call's
@@ -433,6 +441,7 @@ func test_a_kill_lets_the_banshee_relocate_a_tear_within_sensors():
 	# combine a tear action with something else in one turn.
 	banshee.state.overcharge_actions = 99
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8 # see the Task 4 header
 	target.core.full_repair()
@@ -473,6 +482,7 @@ func test_the_relocation_pick_is_not_an_unanswerable_unit_pick():
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	banshee.state.overcharge_actions = 99 # two tears plus the attack plus Mourning Call in one turn
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8
 	target.core.full_repair()
@@ -515,14 +525,15 @@ func test_a_tile_beyond_sensors_is_not_offerable():
 	var banshee := _arm_banshee(Vector2i(0, 0))
 	# A private copy: load(BANSHEE_FRAME) is shared (cached) across every test in this file via
 	# _arm_banshee, so mutating sensor_range on it directly would leak a shrunk Banshee sensor range
-	# into every OTHER test that arms one afterward. duplicate(true) deep-copies the Statblock
+	# into every OTHER test that arms one afterward. FrameIsolation deep-copies the Statblock
 	# sub-resource too, so this mutation is private to this test alone.
-	banshee.core.frame = banshee.core.frame.duplicate(true)
+	FrameIsolation.isolate_frame(banshee)
 	banshee.core.frame.stat.sensor_range = 1 # shrinks SENSORS so the 5x5 test map's far corner is out of range
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	banshee.state.overcharge_actions = 99 # see the sibling test above
 
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8
 	target.core.full_repair()
@@ -548,6 +559,7 @@ func test_the_core_point_comes_back_after_a_kill():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8
 	target.core.full_repair()
@@ -564,6 +576,7 @@ func test_the_core_point_does_not_come_back_a_second_time_in_the_same_scene():
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 
 	var target1 := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target1)
 	target1.core.frame.stat.structure = 1
 	target1.core.frame.stat.health = 8
 	target1.core.full_repair()
@@ -583,6 +596,7 @@ func test_the_core_point_does_not_come_back_a_second_time_in_the_same_scene():
 
 	await SpecFactory.start_turn(game, banshee) # refresh actions and the per-round usage counter
 	var target2 := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target2)
 	target2.core.frame.stat.structure = 1
 	target2.core.frame.stat.health = 8
 	target2.core.full_repair()
@@ -652,6 +666,7 @@ func test_activating_spends_the_core_point_exactly_once():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100 # survive, so the refund cannot muddy the count
 	target.core.full_repair()
 
@@ -668,6 +683,7 @@ func test_activating_records_exactly_one_use():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
@@ -682,6 +698,7 @@ func test_the_intangibility_from_a_kill_expires_at_the_start_of_the_next_turn():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8 # weapon's 4 (survives) + Mourning Call's 4 (dies)
 	target.core.full_repair()
@@ -708,6 +725,7 @@ func test_no_prompt_is_offered_without_a_core_point():
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	banshee.core.has_core_power = false # already spent it earlier in the mission
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
@@ -732,6 +750,7 @@ func test_an_ai_banshee_is_never_prompted():
 	assert_false(banshee.is_player_controlled(), 'sanity: this Banshee is AI-controlled.')
 
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.PLAYER)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
@@ -750,6 +769,7 @@ func test_a_grappled_banshee_cannot_mourning_call():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 	SpecFactory.apply(banshee, Lancer.STATUS.GRAPPLED)
@@ -770,6 +790,7 @@ func test_the_player_picks_the_landing_tile():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100 # survive, so the tear-relocation pick never runs and cannot
 	target.core.full_repair()           # overwrite what this capture saw
 

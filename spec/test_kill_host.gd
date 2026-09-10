@@ -32,6 +32,7 @@
 # fixture raises frame.stat.heat and zeroes current.heat after infecting.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const KillHost := preload('res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_pestilence_class_nhp/action_kill_host.gd')
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
@@ -48,6 +49,7 @@ var watcher:PromptWatcher
 func before_each():
 	game = SpecFactory.setup_gamemaster(self, false, SpecFactory.create_combat(Landscape.create_default(Vector2i(20, 20))))
 	draugr = SpecFactory.create_unit(game.map, Vector2i(0, 0), Faction.PLAYER)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.equip_system(NHP)
 	draugr.core.full_repair()
@@ -60,6 +62,7 @@ func after_each():
 
 func _unit_at(tile:Vector2i, faction:Faction.SIDE) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, faction)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.health = 60
 	unit.core.frame.stat.heat = 20
 	unit.core.frame.stat.armor = 0
@@ -109,6 +112,7 @@ func test_one_infection_is_four_damage():
 	assert_eq(before - victim.core.current.health, 4, '2 + 2 x 1.')
 
 func test_the_damage_ignores_armor():
+	FrameIsolation.isolate_frame(victim)
 	victim.core.frame.stat.armor = 3
 	victim.core.full_repair()
 	victim.core.current.heat = 0
@@ -218,6 +222,7 @@ func test_a_target_killed_by_the_damage_is_skipped():
 	# Structure damage rolls an unseeded structure-table d6 (memory item 9); a 6 is IMPAIRED, which
 	# does not matter here because this unit is dying either way at structure 1.
 	var doomed := _unit_at(Vector2i(1, 0), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(doomed)
 	doomed.core.frame.stat.health = 1
 	doomed.core.frame.stat.structure = 1
 	doomed.core.full_repair()
@@ -241,11 +246,13 @@ func test_every_infected_target_dying_means_no_prompt():
 	# item 9); structure = 1 kills outright on either outcome, so the queued 6s just keep the roll
 	# deterministic, one per doomed unit.
 	var doomed_a := _unit_at(Vector2i(1, 0), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(doomed_a)
 	doomed_a.core.frame.stat.health = 1
 	doomed_a.core.frame.stat.structure = 1
 	doomed_a.core.full_repair()
 	doomed_a.core.current.heat = 0
 	var doomed_b := _unit_at(Vector2i(1, 1), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(doomed_b)
 	doomed_b.core.frame.stat.health = 1
 	doomed_b.core.frame.stat.structure = 1
 	doomed_b.core.full_repair()

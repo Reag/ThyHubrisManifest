@@ -26,6 +26,7 @@
 # these tests stay about consumes_charges alone, exactly as they were written for Task 1.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const DRILL := &'mw_injector_drill'
 const DRILL_ACTION := &'action_injector_drill'
 
@@ -40,6 +41,7 @@ func before_each():
 	drill = draugr.core.equip_system(DRILL)
 	draugr.core.full_repair()
 	target = SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = -10 # any d20 lands; the roll is never the variable
 	target.core.frame.stat.armor = 0
 	target.core.frame.stat.health = 40

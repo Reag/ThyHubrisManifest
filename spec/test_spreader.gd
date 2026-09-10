@@ -20,6 +20,7 @@
 # Invade's normal heat", so the standard 2 heat still lands on top of the Infection's 1.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const InfectionLinks := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection_links.gd')
 
@@ -38,6 +39,7 @@ func before_each():
 	draugr.core.equip_system(DISEASE)
 	draugr.core.full_repair()
 	target = _fresh(Vector2i(2, 2), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.edef = -10
 
 func after_each():
@@ -45,6 +47,7 @@ func after_each():
 
 func _fresh(tile:Vector2i, faction:Faction.SIDE) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, faction)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.heat = 30
 	unit.core.full_repair()
 	unit.core.current.heat = 0
@@ -179,6 +182,7 @@ func test_a_mover_adjacent_to_two_victims_rolls_against_each():
 	# already-adjacent tile finds no path at all (verified empirically - event_unit_move aborts with
 	# an empty path). One direct step sidesteps that.
 	var second := _fresh(Vector2i(2, 4), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(second)
 	second.core.frame.stat.edef = -10 # a cheated 20 always lands, same as target
 	var mover := _fresh(Vector2i(4, 4), Faction.PLAYER)
 	await spread_onto(target)

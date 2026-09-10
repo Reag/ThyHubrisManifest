@@ -2,6 +2,7 @@
 # against the same tests. See D:\DEV\lancer-tactics-claude\specs\2026-09-06-banshee-to-bend-reality-design.md
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
 const TEAR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/dep_tear_banshee.tres'
 const PROXY_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mt_to_bend_reality/dep_bend_proxy_banshee.tres'
@@ -273,6 +274,7 @@ func test_activating_the_bend_resolves_damage_from_the_followups_own_weapon():
 	var gear := _arm_banshee_with(&'mw_assault_rifle')
 	_place_frame(TEAR_FRAME, Vector2i(5,1))
 
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = 0
 	target.core.frame.stat.armor = 0
 	target.core.full_repair()
@@ -419,6 +421,7 @@ func test_a_bend_hits_a_target_the_banshee_cannot_reach_directly():
 	var weapon_range:int = gear.get_solo_action().get_target_range(SpecificAction.create(banshee, gear, gear.get_solo_action()))
 	UnitTile.move_to(target, Vector2i(1 + weapon_range + 2, 1))
 	_place_frame(TEAR_FRAME, Vector2i(1 + weapon_range - 1, 1))
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = 0
 	target.core.frame.stat.armor = 0
 	target.core.full_repair()
@@ -487,6 +490,7 @@ func test_the_pilots_real_weapon_is_unchanged_after_a_bend():
 	var real_action:ActionAttackWeapon = gear.get_solo_action()
 	var range_before:int = real_action.range_pattern.value if real_action.range_pattern else real_action.aim_range
 	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = 0
 	target.core.frame.stat.armor = 0
 	target.core.full_repair()
@@ -523,6 +527,7 @@ func test_the_pilots_real_line_weapons_range_pattern_is_unchanged_after_a_bend()
 	assert_not_null(real_action.range_pattern, 'Sanity check: mw_rail_rifle really has a range_pattern.')
 	var range_before:int = real_action.range_pattern.value
 	_place_frame(TEAR_FRAME, Vector2i(5,1))
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = 0
 	target.core.frame.stat.armor = 0
 	target.core.full_repair()
@@ -706,6 +711,7 @@ func test_activation_narrows_the_followups_range_to_the_computed_budget():
 	var tear_tile := Vector2i(5,1) # first leg 4 from banshee (1,1)
 	var first_leg:int = Tile.distance(banshee.tile(), tear_tile)
 	_place_frame(TEAR_FRAME, tear_tile)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = 0
 	target.core.frame.stat.armor = 0
 	target.core.full_repair()
@@ -743,6 +749,7 @@ func test_a_bent_line_hits_both_segments_and_halves_the_second():
 	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
 	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)
 	for victim:Unit in [near, far]:
+		FrameIsolation.isolate_frame(victim)
 		victim.core.frame.stat.evasion = 0
 		victim.core.frame.stat.armor = 0
 		victim.core.full_repair()
@@ -807,6 +814,7 @@ func test_a_bend_costs_self_heat_once_not_once_per_segment():
 	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
 	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)
 	for victim:Unit in [near, far]:
+		FrameIsolation.isolate_frame(victim)
 		victim.core.frame.stat.evasion = 0
 		victim.core.frame.stat.armor = 0
 		victim.core.full_repair()
@@ -845,6 +853,7 @@ func test_a_bend_costs_self_heat_once_not_once_per_segment():
 func test_a_bend_aborts_cleanly_when_segment_one_declines_the_no_targets_confirmation():
 	var gear := _arm_banshee_with(&'mw_rail_rifle')
 	_place_frame(TEAR_FRAME, Vector2i(4,1)) # empty line (1,1)->(4,1): nothing to hit, nothing to confirm past
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = 0
 	target.core.frame.stat.armor = 0
 	target.core.full_repair()
@@ -943,6 +952,7 @@ func test_a_bent_line_runs_the_parent_activations_deferred_spend_once_not_twice(
 	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
 	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)
 	for victim:Unit in [near, far]:
+		FrameIsolation.isolate_frame(victim)
 		victim.core.frame.stat.evasion = 0
 		victim.core.frame.stat.armor = 0
 		victim.core.full_repair()
@@ -1268,6 +1278,7 @@ func test_a_character_standing_on_the_bend_is_hit_by_both_segments():
 	var on_the_bend := SpecFactory.create_unit(game.map, tear_tile, Faction.AI_ENEMY) # both
 	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)   # segment 2 only
 	for victim:Unit in [near, on_the_bend, far]:
+		FrameIsolation.isolate_frame(victim)
 		victim.core.frame.stat.evasion = 0
 		victim.core.frame.stat.armor = 0
 		victim.core.full_repair()
@@ -1304,6 +1315,7 @@ func test_the_bend_tile_occupant_is_not_hit_twice_by_the_second_segment():
 	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
 	var on_the_bend := SpecFactory.create_unit(game.map, tear_tile, Faction.AI_ENEMY)
 	for victim:Unit in [near, on_the_bend]:
+		FrameIsolation.isolate_frame(victim)
 		victim.core.frame.stat.evasion = 0
 		victim.core.frame.stat.armor = 0
 		victim.core.full_repair()

@@ -20,6 +20,7 @@
 # tech attack pulls its d20 after however many dice the weapon damage took, and after_each clears.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
 const DrillActionScript := preload('res://unpacked/Reag-ThyHubris/res/content/gear/horus/weapons/mw_injector_drill/action_injector_drill.gd')
 
@@ -46,6 +47,7 @@ func after_each():
 
 func _victim_at(tile:Vector2i, faction:Faction.SIDE) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, faction)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.evasion = -10 # the weapon attack lands on any roll
 	unit.core.frame.stat.edef = -10    # so does the free tech attack
 	unit.core.frame.stat.armor = 0
@@ -99,6 +101,7 @@ func test_an_empty_drill_offers_nothing():
 
 func test_a_miss_offers_nothing():
 	# on_hit is not reached at all on a miss (event_unit_attack.gd:82-95).
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = 30
 	target.core.full_repair()
 	await drill_with(target)

@@ -24,6 +24,7 @@
 # mover.current_damage().
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const EARTHSTEP_ID := &'mt_earthstep'
 const PoisonedSoil := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd')
 
@@ -44,6 +45,7 @@ func before_each():
 
 	nuckelavee = SpecFactory.create_unit(game.map, START, Faction.AI_ENEMY)
 	nuckelavee.core.equip_system(EARTHSTEP_ID)
+	FrameIsolation.isolate_frame(nuckelavee)
 	nuckelavee.core.frame.stat.health = 100 # survive the overwatch so damage is readable, not fatal
 	nuckelavee.core.full_repair()
 	SpecFactory.apply_passive_buffs(nuckelavee)
@@ -88,6 +90,7 @@ func test_a_watcher_in_difficult_terrain_still_overwatches_anybody_else():
 	# so it never contends for a tile with anyone.
 	_make_rough([WATCHER_TILE])
 	var stranger := SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(stranger)
 	stranger.core.frame.stat.health = 100
 	stranger.core.full_repair()
 	SpecFactory.apply_passive_buffs(stranger)
@@ -107,6 +110,7 @@ func test_the_nuckelavee_still_overwatches_from_difficult_terrain_itself():
 	SpecFactory.apply_passive_buffs(nuckelavee)
 
 	var prey := SpecFactory.create_unit(game.map, Vector2i(2, 1))
+	FrameIsolation.isolate_frame(prey)
 	prey.core.frame.stat.health = 100
 	prey.core.full_repair()
 	SpecFactory.apply_passive_buffs(prey)

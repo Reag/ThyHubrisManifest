@@ -24,6 +24,7 @@
 # loudly here instead of passing for the wrong reason.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 
 const DRILL := &'mw_injector_drill'
@@ -53,6 +54,7 @@ func after_each():
 
 func _victim_at(tile:Vector2i) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.evasion = -10 # the drill's own attack lands on any roll
 	unit.core.frame.stat.edef = -10    # so does the free tech's own attack roll
 	unit.core.frame.stat.armor = 0

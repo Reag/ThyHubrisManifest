@@ -27,6 +27,7 @@
 # genuinely born while the Banshee was phased.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
 const BANSHEE_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'
 const KEENING := &'cp_the_keening'
@@ -320,6 +321,7 @@ func test_a_bent_line_still_fires_both_segments_through_such_a_tear():
 	var near := SpecFactory.create_unit(game.map, Vector2i(3,1), Faction.AI_ENEMY)
 	var far := SpecFactory.create_unit(game.map, Vector2i(9,1), Faction.AI_ENEMY)
 	for victim:Unit in [near, far]:
+		FrameIsolation.isolate_frame(victim)
 		victim.core.frame.stat.evasion = 0
 		victim.core.frame.stat.armor = 0
 		victim.core.full_repair()

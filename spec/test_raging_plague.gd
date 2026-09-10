@@ -12,6 +12,7 @@
 # 1 stands, damage is 1+2=3 and there is no heat - and the unused 4 is why after_each clears.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const DRAUGR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres'
 
@@ -36,12 +37,14 @@ func _draugr_at(tile:Vector2i) -> Unit:
 	unit.core.equip_system(MELEE)
 	unit.core.equip_system(RANGED)
 	SpecFactory.apply_passive_buffs(unit) # runs mt_raging_plague's PassiveBuffApplicator
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.heat = 20
 	unit.core.current.heat = 0
 	return unit
 
 func _target_at(tile:Vector2i) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.health = 40
 	unit.core.frame.stat.evasion = -10 # any d20 lands; the roll is never the variable
 	unit.core.frame.stat.armor = 0
@@ -83,6 +86,7 @@ func test_a_unit_without_the_trait_does_not_overkill():
 	var stranger := SpecFactory.create_unit(game.map, Vector2i(0, 1))
 	stranger.core.equip_system(MELEE)
 	stranger.core.full_repair()
+	FrameIsolation.isolate_frame(stranger)
 	stranger.core.frame.stat.heat = 20
 	stranger.core.current.heat = 0
 	await _infect(target, 1)

@@ -17,6 +17,7 @@
 # answered by SpecFactory's own responder. Never connect to bus signals.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const InfectionLinks := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection_links.gd')
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
@@ -35,9 +36,11 @@ func before_each():
 	draugr = SpecFactory.create_unit(game.map, Vector2i(0, 0), Faction.PLAYER)
 	disease = draugr.core.equip_system(DISEASE)
 	draugr.core.full_repair()
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 30
 	draugr.core.current.heat = 0
 	target = SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.edef = -10 # a cheated 20 always lands
 	target.core.frame.stat.heat = 30
 	target.core.full_repair()
@@ -167,6 +170,7 @@ func test_an_ai_draugr_binds_the_first_effect_without_a_prompt():
 	var ai_disease := ai_draugr.core.equip_system(DISEASE)
 	ai_draugr.core.full_repair()
 	var victim := SpecFactory.create_unit(game.map, Vector2i(3, 0), Faction.PLAYER)
+	FrameIsolation.isolate_frame(victim)
 	victim.core.frame.stat.edef = -10
 	victim.core.frame.stat.heat = 30
 	victim.core.full_repair()

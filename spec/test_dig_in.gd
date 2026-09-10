@@ -20,6 +20,7 @@
 # landscape is 20x20 because the default is 5x5 and a knockback needs room (memory item 6).
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Resilience := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/resilience.gd')
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
 const DRAUGR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres'
@@ -38,6 +39,7 @@ func before_each():
 	shover.core.full_repair()
 	digger = SpecFactory.create_unit(game.map, Vector2i(6, 5), Faction.PLAYER)
 	digger.core.equip_system(ROOT)
+	FrameIsolation.isolate_frame(digger)
 	digger.core.frame.stat.health = 40
 	digger.core.frame.stat.armor = 0
 	digger.core.full_repair()
@@ -95,6 +97,7 @@ func test_a_shorter_shove_costs_less():
 func test_the_damage_ignores_armor():
 	# AP is EventService.DAMAGE_FLAG.AP; damage_modifications.gd:103 skips armor entirely when it is
 	# set. Without the flag, armor 2 would leave only 1 of a 3-damage hit.
+	FrameIsolation.isolate_frame(digger)
 	digger.core.frame.stat.armor = 2
 	digger.core.full_repair()
 	var before := health_of(digger)
@@ -240,6 +243,7 @@ func test_on_a_draugr_with_resilience_it_costs_one_hit_point_and_one_point():
 	draugr.core.change_mech_frame(load(DRAUGR_FRAME))
 	draugr.core.equip_system(ROOT)
 	SpecFactory.apply_passive_buffs(draugr)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.armor = 0
 	draugr.core.full_repair()
 	Resilience.gain(draugr, 1)
@@ -271,6 +275,7 @@ func test_dig_in_stands_down_when_another_reaction_already_cancelled_the_move():
 	protector.core.full_repair()
 	var ward := SpecFactory.create_unit(game.map, Vector2i(5, 6), Faction.PLAYER)
 	ward.core.equip_system(ROOT)
+	FrameIsolation.isolate_frame(ward)
 	ward.core.frame.stat.health = 40
 	ward.core.frame.stat.armor = 0
 	ward.core.full_repair()

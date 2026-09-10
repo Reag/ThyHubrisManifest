@@ -9,6 +9,7 @@
 # cannot hand back anything that was spent on something else.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const DRAUGR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres'
 
 const CORE_POWER := &'cp_cupiditas_vitae'
@@ -23,6 +24,7 @@ func before_each():
 	draugr = SpecFactory.create_unit(game.map, Vector2i(2, 0))
 	draugr.core.change_mech_frame(load(DRAUGR_FRAME))
 	SpecFactory.apply_passive_buffs(draugr)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 

@@ -18,6 +18,7 @@
 # so the reach against an infected target is exactly 10.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const DraugrReach := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/draugr_reach.gd')
 
@@ -34,6 +35,7 @@ var far:Unit     # 8 tiles away: outside Sensors 5, inside Sensors + 5
 func before_each():
 	game = SpecFactory.setup_gamemaster(self, false, SpecFactory.create_combat(Landscape.create_default(Vector2i(20, 20))))
 	draugr = SpecFactory.create_unit(game.map, Vector2i(0, 0), Faction.PLAYER)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.sensor_range = 5
 	draugr.core.frame.stat.heat = 20
 	draugr.core.equip_system(MELEE)
@@ -47,6 +49,7 @@ func after_each():
 
 func _enemy_at(tile:Vector2i) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.health = 40
 	unit.core.frame.stat.heat = 20
 	unit.core.full_repair()

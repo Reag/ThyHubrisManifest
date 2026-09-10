@@ -15,6 +15,7 @@
 # rerolls to 3 for one overkill tick. [10, 2, 3] => no 1s, no overkill, and no leftovers.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const DRAUGR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres'
 
@@ -32,10 +33,12 @@ func before_each():
 	draugr.core.equip_system(KNIFE)
 	draugr.core.equip_system(PLAIN_MELEE)
 	SpecFactory.apply_passive_buffs(draugr)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 
 	target = SpecFactory.create_unit(game.map, Vector2i(1, 0), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 40
 	target.core.frame.stat.evasion = -10
 	target.core.frame.stat.armor = 0
@@ -68,6 +71,7 @@ func test_a_miss_infects_nobody():
 	# A missed roll still HAS a damage summary (event_unit_attack_declared.gd:145 assigns one to
 	# every roll, hit or not), and that summary still carries the overkill heat from the dice. Reading
 	# it without checking roll.hit would infect on a miss.
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.evasion = 50
 	target.core.full_repair()
 	await _attack(draugr, KNIFE, target, [1, 1, 2, 3])

@@ -22,6 +22,7 @@
 # damage that lands rather than by reading the roll, so the assertion survives a refactor of PreAttack.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const Resilience := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/resilience.gd')
 const PlagueFog := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/plague_fog.gd')
@@ -57,6 +58,7 @@ func before_each():
 	draugr.core.change_mech_frame(load(DRAUGR_FRAME))
 	draugr.core.equip_system(MELEE)
 	SpecFactory.apply_passive_buffs(draugr)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 	draugr.core.current.structure = 1 # cap 4, so Resilience gains are never clipped
@@ -67,6 +69,7 @@ func after_each():
 
 func _enemy_at(tile:Vector2i, faction:Faction.SIDE = Faction.AI_ENEMY) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, faction)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.health = 60
 	unit.core.frame.stat.evasion = -10 # any d20 lands; the roll is never the variable
 	unit.core.frame.stat.armor = 0

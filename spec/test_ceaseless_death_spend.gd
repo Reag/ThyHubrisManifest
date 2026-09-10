@@ -25,6 +25,7 @@
 # Both spend a point regardless. The two "still spends" tests are the point of this file.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Resilience := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/resilience.gd')
 const DRAUGR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres'
 
@@ -43,6 +44,7 @@ func before_each():
 	# (unit_printer.gd:73), and damage_modifications.gd:97 reads current - not frame.stat, which is
 	# also a shared, cached Frame resource that must not be mutated by a spec (memory:
 	# lancer-tactics-engine-gotchas-tear).
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 	draugr.core.current.structure = 1 # three missing, so the cap is 4 and _bank never clips

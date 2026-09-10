@@ -9,6 +9,7 @@
 # every time.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const ClawingHands := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/buff_the_desperate_clawing_hands.gd')
 const PoisonedSoil := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_poisoned_soil/passive_poisoned_soil.gd')
 
@@ -297,6 +298,7 @@ func _further_than(tiles:Array[Vector2i], radius:int) -> int:
 ## makes, so nothing here leaks into another test. MUST be called BEFORE start_turn - new_turn_refresh
 ## fills current.speed from the statblock.
 func _shrink_speed(unit:Unit, speed:int = 2) -> void:
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.speed = speed
 
 func test_a_hostile_starting_on_clean_ground_is_unrestricted():

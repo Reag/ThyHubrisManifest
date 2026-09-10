@@ -11,6 +11,7 @@
 # always one step ahead of the reaper.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const InfectionLinks := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection_links.gd')
 
@@ -20,6 +21,7 @@ var unit:Unit
 func before_each():
 	game = SpecFactory.setup_gamemaster(self)
 	unit = SpecFactory.create_unit(game.map)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.heat = 30
 	unit.core.current.heat = 0
 

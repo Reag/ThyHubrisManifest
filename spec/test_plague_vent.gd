@@ -24,6 +24,7 @@
 # CHEAT_ROLL_QUEUE takes one value per hostile in the blast, in map order. 1 fails, 20 passes.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const PlagueFog := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/plague_fog.gd')
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
@@ -42,6 +43,7 @@ func before_each():
 	draugr = SpecFactory.create_unit(game.map, Vector2i(2, 0))
 	draugr.core.change_mech_frame(load(DRAUGR_FRAME))
 	SpecFactory.apply_passive_buffs(draugr)
+	FrameIsolation.isolate_frame(draugr)
 	draugr.core.frame.stat.heat = 20
 	draugr.core.current.heat = 0
 	watcher = add_child_autoqfree(PromptWatcher.new())
@@ -51,6 +53,7 @@ func after_each():
 
 func _enemy_at(tile:Vector2i, faction:Faction.SIDE = Faction.AI_ENEMY) -> Unit:
 	var unit := SpecFactory.create_unit(game.map, tile, faction)
+	FrameIsolation.isolate_frame(unit)
 	unit.core.frame.stat.health = 40
 	unit.core.full_repair()
 	unit.core.current.heat = 0
