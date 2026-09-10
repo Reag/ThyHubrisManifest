@@ -32,9 +32,9 @@
 #
 # 1/TURN IS THE ENGINE'S OWN PER-TURN COUNTER, under a private usage group. uses_this_turn is cleared
 # for EVERY unit on the map at EVERY turn start (UnitAction.every_new_turn_refresh ->
-# reset_per_turn_usage, unit_action.gd:66-70, from event_turn_start.gd:42-43), which is exactly what
-# "1/turn" means for a reaction here - the same shape action_ceaseless_death.gd uses. The group is
-# private so nothing else on the Carrion Beast ever shares the allowance (gear_core.gd:166-168).
+# reset_per_turn_usage, unit_action.gd:66-70, from content/events/event_turn_start.gd:43-44), which is
+# exactly what "1/turn" means for a reaction here - the same shape action_ceaseless_death.gd uses. The
+# group is private so nothing else on the Carrion Beast ever shares the allowance (gear_core.gd:166-168).
 extends BuffSkillSave
 
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')

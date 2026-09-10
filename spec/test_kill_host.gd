@@ -233,3 +233,39 @@ func test_no_infected_targets_means_no_prompt():
 	await _fire()
 	assert_true(watcher.kinds(PromptWatcher.KIND.multiple_choice).is_empty(), 'Nothing to choose for.')
 	assert_eq(draugr.core.current.heat, 2, 'The protocol still costs its 2 heat.')
+
+func test_every_infected_target_dying_means_no_prompt():
+	# Same shape as test_a_target_killed_by_the_damage_is_skipped, doubled: with TWO infected targets
+	# and BOTH dying to the AP ENERGY damage, survivors ends up empty and activate() returns at :81
+	# before choose_option ever runs. Structure damage rolls an unseeded structure-table d6 (memory
+	# item 9); structure = 1 kills outright on either outcome, so the queued 6s just keep the roll
+	# deterministic, one per doomed unit.
+	var doomed_a := _unit_at(Vector2i(1, 0), Faction.AI_ENEMY)
+	doomed_a.core.frame.stat.health = 1
+	doomed_a.core.frame.stat.structure = 1
+	doomed_a.core.full_repair()
+	doomed_a.core.current.heat = 0
+	var doomed_b := _unit_at(Vector2i(1, 1), Faction.AI_ENEMY)
+	doomed_b.core.frame.stat.health = 1
+	doomed_b.core.frame.stat.structure = 1
+	doomed_b.core.full_repair()
+	doomed_b.core.current.heat = 0
+	await _infect(doomed_a, 1)
+	await _infect(doomed_b, 1)
+
+	# Positive control: both start alive and infected, so the damage - not a fixture mistake - is what
+	# kills them.
+	assert_true(Unit.is_valid(doomed_a) and doomed_a.is_on_map(), 'Fixture: A starts alive.')
+	assert_true(Unit.is_valid(doomed_b) and doomed_b.is_on_map(), 'Fixture: B starts alive.')
+	assert_true(Infection.is_infected(doomed_a), 'Fixture: A starts infected.')
+	assert_true(Infection.is_infected(doomed_b), 'Fixture: B starts infected.')
+
+	Dice.CHEAT_ROLL_QUEUE.append_array([6, 6])
+	await _fire(IMPAIR)
+
+	assert_false(Unit.is_valid(doomed_a) and doomed_a.is_on_map(), 'The 4 damage killed A.')
+	assert_false(Unit.is_valid(doomed_b) and doomed_b.is_on_map(), 'The 4 damage killed B.')
+	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'Both structure rolls were drawn.')
+	assert_true(watcher.kinds(PromptWatcher.KIND.multiple_choice).is_empty(),
+		'No survivors, so activate() returns before the choice prompt.')
+	assert_eq(draugr.core.current.heat, 2, 'The protocol still costs its 2 heat, spent before the damage loop.')
