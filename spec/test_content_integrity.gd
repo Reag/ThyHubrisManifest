@@ -175,6 +175,8 @@ const DRAUGR_LICENSE_KEYS := [
 	'gear.ms_pestilence_class_nhp.name', 'gear.ms_pestilence_class_nhp.default_name',
 	'gear.ms_pestilence_class_nhp.effect',
 	'gear.ms_pestilence_class_nhp.action_kill_host.name', 'gear.ms_pestilence_class_nhp.action_kill_host.effect',
+	'gear.ms_pestilence_class_nhp.action_kill_host.option_impair',
+	'gear.ms_pestilence_class_nhp.action_kill_host.option_slow',
 ]
 
 func test_draugr_license_text_is_localized():

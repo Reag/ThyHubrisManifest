@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="ActionSystem" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_pestilence_class_nhp/action_kill_host.gd" id="1_kill_host"]
+
+[resource]
+script = ExtResource("1_kill_host")
+action_type = 4
+self_heat_dice = "2"
+usage_group = &"pestilence_kill_host"
