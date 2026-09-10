@@ -65,6 +65,25 @@ func _vent(rolls:Array = [], tile:Vector2i = CENTRE) -> void:
 func _fogs() -> Array[Unit]:
 	return PlagueFog.all_on(game.map)
 
+func test_the_fog_and_the_vent_wear_the_green_dust():
+	# The Tagetes (gavstarb-ha_alts_1st_party, reused with GavstarB's blanket permission) draws its
+	# sandstorm with vanilla fxe_smoke_cloud; fxe_plague_fog.tscn is that scene tinted green, and
+	# mt_plague_fog's passive fxe points at it (the fog's persistent look). The protocol
+	# plays fxg_plague_vent, a one-shot burst of the same dust, at the target tile on activation
+	# (ActionSystemDeploy.activate -> run_system_fxgs(unit, plan.target_tiles) -> fxg_target).
+	assert_false(ContentLibrary.get_fxendless_path(&'fxe_plague_fog').is_empty(), 'fxe_plague_fog is indexed.')
+	assert_false(ContentLibrary.get_fxgroup_path(&'fxg_plague_vent').is_empty(), 'fxg_plague_vent is indexed.')
+	var fog_kit:Kit = ContentLibrary.get_kit(&'mt_plague_fog')
+	assert_true(Kit.is_valid(fog_kit), 'mt_plague_fog is in the kits index.')
+	if Kit.is_valid(fog_kit):
+		var ids:Array[StringName] = []
+		for passive:Passive in fog_kit.passives: ids.append(passive.get_fxe_id())
+		assert_true(ids.has(&'fxe_plague_fog'), 'The fog draws the green dust cloud, not the grey smoke: %s' % [ids])
+	var action:Action = draugr.get_gear(CORE_POWER).get_action(PROTOCOL)
+	assert_true(action is ActionSystem and action.fxg_target != null, 'The protocol carries a target fxg.')
+	if action is ActionSystem and action.fxg_target != null:
+		assert_eq(action.fxg_target.resource_path.get_file().get_basename(), 'fxg_plague_vent', 'And it is the dust burst.')
+
 func test_the_protocol_places_one_fog_at_the_target_tile():
 	await _vent()
 	var fogs := _fogs()
