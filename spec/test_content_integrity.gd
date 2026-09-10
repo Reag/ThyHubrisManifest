@@ -35,8 +35,7 @@ func test_draugr_frame_and_traits_are_registered():
 
 func test_draugr_license_grants_the_frame_at_rank_2():
 	# Unparked 2026-09-09 with the frame alone (design doc 2026-09-09-draugr-design.md, decision D7).
-	# Ranks I and III are deliberately empty until License I and License III are built; a frame nobody
-	# can unlock is invisible in game, so the rank-2 link is the thing worth guarding.
+	# All three ranks are now filled; this test guards the rank-2 frame link specifically.
 	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
 	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
 	if not is_instance_valid(license): return
@@ -48,7 +47,7 @@ const DRAUGR_LICENSE_II := [&'mw_injector_drill', &'ms_quarantine']
 
 func test_draugr_license_grants_the_drill_and_quarantine_at_rank_2():
 	# Design 2026-09-09-draugr-design.md section 5. Rank 2 grants the FRAME as well - the frame test
-	# above is the other half and both must stay green. Rank III stays empty until License III.
+	# above is the other half and both must stay green.
 	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
 	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
 	if not is_instance_valid(license): return
@@ -60,13 +59,25 @@ func test_draugr_license_grants_the_drill_and_quarantine_at_rank_2():
 const DRAUGR_LICENSE_I := [&'ms_disease', &'ms_root']
 
 func test_draugr_license_grants_disease_and_root_at_rank_1():
-	# Design 2026-09-09-draugr-design.md section 4. Rank III stays empty until License III is built.
+	# Design 2026-09-09-draugr-design.md section 4.
 	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
 	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
 	if not is_instance_valid(license): return
 	var granted:Array[StringName] = []
 	for kit:Kit in license.rank_1.granted_gear: granted.append(kit.compcon_id)
 	assert_eq(granted, DRAUGR_LICENSE_I as Array[StringName], 'Rank I is Disease then Root.')
+
+const DRAUGR_LICENSE_III := [&'ms_carrion_beast', &'ms_pestilence_class_nhp']
+
+func test_draugr_license_grants_the_carrion_beast_and_pestilence_at_rank_3():
+	# Design 2026-09-09-draugr-design.md section 6. With this, all three ranks are filled and the
+	# frame is complete.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
+	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
+	if not is_instance_valid(license): return
+	var granted:Array[StringName] = []
+	for kit:Kit in license.rank_3.granted_gear: granted.append(kit.compcon_id)
+	assert_eq(granted, DRAUGR_LICENSE_III as Array[StringName], 'Rank III is the Carrion Beast then PESTILENCE.')
 
 func test_the_license_i_systems_are_registered_and_unique():
 	# A filename prefix decides the index, not the script class: ms_*.tres lands in resgrp_kits.

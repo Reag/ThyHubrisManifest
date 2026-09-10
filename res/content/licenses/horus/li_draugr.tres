@@ -10,6 +10,8 @@
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_root/ms_root.tres" id="7_root"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/weapons/mw_injector_drill/mw_injector_drill.tres" id="8_drill"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_quarantine/ms_quarantine.tres" id="9_quarantine"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/ms_carrion_beast.tres" id="10_carrion"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_pestilence_class_nhp/ms_pestilence_class_nhp.tres" id="11_pestilence"]
 
 [sub_resource type="Resource" id="Resource_bfyr2"]
 script = ExtResource("4_uvbk7")
@@ -24,6 +26,7 @@ metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
 
 [sub_resource type="Resource" id="Resource_0nko8"]
 script = ExtResource("4_uvbk7")
+granted_gear = Array[ExtResource("3_ifbo2")]([ExtResource("10_carrion"), ExtResource("11_pestilence")])
 metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
 
 [resource]
