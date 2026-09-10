@@ -81,7 +81,7 @@ gear.ms_pestilence_class_nhp.action_kill_host.effect,"Take 2 |heat|. All targets
 Targets then clear all |INFECTION|."
 gear.ms_pestilence_class_nhp.action_kill_host.option_impair,"Targets become |impaired| until the end of their next turn, or |jammed| if they have at least 3 |INFECTION|."
 gear.ms_pestilence_class_nhp.action_kill_host.option_slow,"Targets become |slowed| until the end of their next turn, or |prone| and |immobilized| if they have at least 3 |INFECTION|."
-bark.nhp_pestilence,PESTILENCE
+bark.nhp_pestilence,NHP PESTILENCE
 ,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)

@@ -67,20 +67,15 @@
 	"is_stock": true,
 	"offsets": {},
 	"slices": {
-		"accessories_glasses": "multiglasses",
+		"accessories_glasses": "blank",
 		"accessories_hair": "commander_cap",
 		"accessories_other": "tubes",
-		"accessories_scarves": "blank",
 		"background": "solid",
 		"body": "body",
 		"clothing_inner": "shirt_and_tie",
-		"clothing_outer": "blank",
-		"eyebrows": "downtilted",
-		"eyes": "blank",
+		"eyebrows": "blank",
 		"hair": "thickerbraids",
-		"head": "slim",
-		"mouth": "blank",
-		"nose": "blank"
+		"head": "slim"
 	},
 	"token": {
 		"colors": {
