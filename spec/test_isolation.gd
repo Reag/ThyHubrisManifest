@@ -147,6 +147,13 @@ func test_overwatch_is_refused_too():
 	await isolate(target)
 	assert_eq(refusal(target, &'ms_overwatch'), UnitAction.REASON.FORBIDDEN, 'No Overwatch either.')
 
+func test_brace_is_refused_too():
+	# Basic gear, on every mech; ActionReactionSelf never overrides consumes_rxn, so it defaults true
+	# and the Ambush filter catches Brace exactly as it catches Overwatch above.
+	await isolate(target)
+	assert_eq(refusal(target, &'ms_brace'), UnitAction.REASON.FORBIDDEN, 'No Brace either.')
+	assert_eq(refusal(shover, &'ms_brace'), UnitAction.REASON.NONE, 'Control: an un-isolated unit can still Brace.')
+
 func test_a_free_trait_reaction_still_fires():
 	# consumes_rxn = false means requires_reaction_available() is false (action_reaction.gd:58,
 	# action.gd:170), which is the whole of the Ambush filter's second clause. Asserted at the gate

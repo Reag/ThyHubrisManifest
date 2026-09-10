@@ -21,9 +21,11 @@
 extends GutTest
 
 const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
+const DrillActionScript := preload('res://unpacked/Reag-ThyHubris/res/content/gear/horus/weapons/mw_injector_drill/action_injector_drill.gd')
 
 const DRILL := &'mw_injector_drill'
 const DRILL_ACTION := &'action_injector_drill'
+const FULL_TECH := &'ms_aggressive_system_sync' # excommunicate + chains of prometheus: both FULL ActionAttackTech
 
 var game:Gamemaster
 var draugr:Unit
@@ -121,3 +123,29 @@ func test_an_ai_draugr_is_not_asked_and_uses_the_tech_anyway():
 	await drill_with(victim, ai_draugr)
 	assert_eq(offers().size(), 0, 'The AI is never asked.')
 	assert_eq(ai_drill.charges_current, 3, 'It spent a charge regardless.')
+
+func test_the_free_tech_only_lands_on_the_drills_target_not_a_bystander():
+	# WHY: choose_and_use_after_triggering_event passes attacked_unit as target_unit_or_tiles, so
+	# decompose_variant_targets forces Action.FLAG.TARGETS_ARE_MANDATORY on the queued
+	# event_gear_choose_and_use (common_action_util.gd:596-597) - the chosen tech cannot be redirected
+	# onto anyone else, even another enemy sitting in the same sensor range as the actual target.
+	SpecFactory.current_responder.chosen_yesnos = true
+	var bystander := _victim_at(Vector2i(2, 0), Faction.AI_ENEMY)
+	await drill_with(target)
+	assert_true(target.has_status(Lancer.STATUS.IMPAIRED), 'Fragment Signal landed on the actual target.')
+	assert_false(bystander.has_status(Lancer.STATUS.IMPAIRED), 'Not on the bystander sharing sensor range.')
+
+func test_free_tech_options_excludes_a_full_action_tech():
+	# WHY: the rules say "Invade or a QUICK Tech" - free_tech_options drops anything whose
+	# get_action_type() isn't QUICK (action_injector_drill.gd:112). ms_aggressive_system_sync's two
+	# actions (Chains of Prometheus, Excommunicate) are both FULL ActionAttackTech (action_type = 2),
+	# so equipping it must not add its kit to the offer, while the always-present basic
+	# ms_fragment_signal (a QUICK invade) still does.
+	draugr.core.equip_system(FULL_TECH)
+	draugr.core.full_repair()
+	var drill_action:DrillActionScript = drill.get_action(DRILL_ACTION) as DrillActionScript
+	var options:Array[SpecificAction] = drill_action.free_tech_options(draugr, target)
+	var offered_kits:Array[StringName] = []
+	for specific:SpecificAction in options: offered_kits.append(specific.gear.kit.compcon_id)
+	assert_false(offered_kits.has(FULL_TECH), 'The FULL-action tech kit is excluded.')
+	assert_true(offered_kits.has(&'ms_fragment_signal'), 'The QUICK invade is still offered.')

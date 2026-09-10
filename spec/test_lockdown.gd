@@ -39,6 +39,8 @@ const LOCKDOWN_BUFF := &'buff_lockdown'
 const DISEASE := &'ms_disease'
 const SYMPTOM := &'action_symptom'
 const MELEE := &'mw_tactical_melee_weapon'
+const FULL_TECH := &'ms_aggressive_system_sync' # excommunicate: a FULL ActionAttackTech
+const FULL_TECH_ACTION := &'action_excommunicate'
 
 var game:Gamemaster
 var draugr:Unit
@@ -66,11 +68,12 @@ func lock_down(victim:Unit) -> void:
 func locks_on(unit:Unit) -> Array[BuffCore]:
 	return UnitCondition.get_buffs(unit, LOCKDOWN_BUFF)
 
-## What the engine would give as its reason for refusing this gear's solo action right now.
-func refusal(unit:Unit, kit_id:StringName) -> UnitAction.REASON:
+## What the engine would give as its reason for refusing this gear's action right now. Defaults to the
+## gear's solo action; pass action_id for a kit with more than one action (e.g. FULL_TECH).
+func refusal(unit:Unit, kit_id:StringName, action_id:StringName = &'') -> UnitAction.REASON:
 	var gear:GearCore = unit.get_gear(kit_id)
 	if not GearCore.is_valid(gear): return UnitAction.REASON.DESTROYED # fixture failure; the test says so
-	var action:Action = gear.get_solo_action()
+	var action:Action = gear.get_action(action_id) if not action_id.is_empty() else gear.get_solo_action()
 	if not Action.is_valid(action): return UnitAction.REASON.DESTROYED
 	return UnitAction.get_gear_unavailable_reason(SpecificAction.create(unit, gear, action))
 
@@ -100,6 +103,18 @@ func test_an_invade_is_refused():
 func test_a_tech_system_is_refused():
 	await lock_down(target)
 	assert_eq(refusal(target, &'ms_scan'), UnitAction.REASON.FORBIDDEN, 'ms_scan sets is_tech = true.')
+
+func test_a_full_tech_attack_is_refused_too():
+	# WHY: buff_hack_slash's filter is "an ActionAttackTech", full stop - not just QUICK ones like
+	# ms_fragment_signal. Excommunicate is a vanilla FULL-action ActionAttackTech (action_type = 2) on
+	# a kit unrelated to Quarantine, so this proves Lockdown's reach beyond the QUICK case the other
+	# tests already cover.
+	target.core.equip_system(FULL_TECH)
+	target.core.full_repair()
+	assert_eq(refusal(target, FULL_TECH, FULL_TECH_ACTION), UnitAction.REASON.NONE, 'Available before.')
+	await lock_down(target)
+	assert_eq(refusal(target, FULL_TECH, FULL_TECH_ACTION), UnitAction.REASON.FORBIDDEN, 'And forbidden after - FULL, not just QUICK.')
+	assert_eq(refusal(target, &'ms_fragment_signal'), UnitAction.REASON.FORBIDDEN, 'Positive control: the QUICK invade is forbidden too, in the same test.')
 
 func test_a_non_tech_system_is_allowed():
 	await lock_down(target)
