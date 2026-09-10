@@ -42,7 +42,7 @@ func triggers_on_event(core:BuffCore, unit:Unit, triggering_event:EventCore) -> 
 	if not UnitRelation.is_adjacent(mover, unit): return false
 	if UnitCondition.is_immune_to_tech(mover): return false # Infection is a data virus
 	if not Infection.is_infected(unit): return false # "while they have INFECTION"
-	return not has_already_been_affected(core, unit, mover)
+	return not has_already_been_affected(unit, mover)
 
 ## The marker names the HOLDER as well as the kit (plan decision D6). Two Spreader victims are two
 ## separate effects, so a character standing between them owes two checks - which is what vanilla's
@@ -52,7 +52,7 @@ func triggers_on_event(core:BuffCore, unit:Unit, triggering_event:EventCore) -> 
 static func marker_for(holder:Unit) -> String:
 	return '%s:%s' % [KIT_ID, holder.core.persistent_id]
 
-static func has_already_been_affected(_core:BuffCore, holder:Unit, mover:Unit) -> bool:
+static func has_already_been_affected(holder:Unit, mover:Unit) -> bool:
 	var marker := marker_for(holder)
 	for buff:BuffCore in UnitCondition.get_buffs(mover, TRACKED_AFFECTIONS_BUFF):
 		if buff.get_state(TRACKED_AFFECTIONS_KEY, '') == marker: return true
@@ -71,7 +71,7 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 	if not Unit.is_valid(mover): return
 	# Re-check: triggers_on_event ran at queue time and a step can have moved them apart since.
 	if not UnitRelation.is_adjacent(mover, holder): return
-	if has_already_been_affected(core, holder, mover): return
+	if has_already_been_affected(holder, mover): return
 
 	# The marker lasts until the affected unit's next turn start (buff_track_affection.tres, until =
 	# START_OF_TURN), which is vanilla's reading of "first time in a round".

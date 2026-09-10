@@ -32,4 +32,8 @@ func on_hit(activation:EventCore, attacked_unit:Unit) -> void:
 
 	# No from_gear: see buff_spreader.gd's header. The slow must outlive the Draugr, as Infection does.
 	var spreader := UnitCondition.apply_buff_id(activation, attacked_unit, SPREADER_BUFF)
-	if BuffCore.is_valid(spreader): InfectionLinks.link(attacked_unit, spreader)
+	if not BuffCore.is_valid(spreader): return
+	# buff_spreader is MANUAL: only the Infection link ever ends it. A buff that could not be linked
+	# would be a permanent SLOWED with no counterplay, so it does not stay.
+	if not InfectionLinks.link(attacked_unit, spreader):
+		UnitCondition.clear_buffs(activation, attacked_unit, [spreader] as Array[BuffCore])

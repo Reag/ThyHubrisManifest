@@ -117,6 +117,44 @@ func test_clearing_the_infection_ends_the_bound_effect():
 	assert_false(Infection.is_infected(target), 'Infection cleared.')
 	assert_false(target.has_status(Lancer.STATUS.IMPAIRED), 'And the effect ended with it.')
 
+func test_symptom_can_bind_a_buff_not_just_a_status():
+	# bindable_effects (action_symptom.gd:56-73) also walks target.state.buffs; every test above only
+	# ever exercises the status branch. Build the buff the way test_infection_links.gd does, applied
+	# from the Draugr's own ms_disease gear so came_from_a_tech_action (UnitAction.is_tech) accepts
+	# it, and give it a localization_key_override that resolves to a real row so the offered label is
+	# not a raw key.
+	var effect := Buff.new()
+	effect.until = Lancer.UNTIL.END_OF_NEXT_TURN
+	effect.localization_key_override = 'ms_disease.action_symptom'
+	var buff := UnitCondition.apply_buff(SpecFactory.dummy_event({unit = target}), target, effect, disease)
+	await invade()
+	assert_eq(offers().size(), 1, 'One menu opened for the buff.')
+	assert_eq(offered_texts().size(), 1, 'With one effect on it.')
+	assert_false(offered_texts().front().begins_with('gear.'), 'A real label, not a raw key: %s' % [offered_texts().front()])
+	assert_true(InfectionLinks.is_linked(target, buff), 'Bound to the Infection.')
+
+	Dice.CHEAT_ROLL_QUEUE.append(1) # the end-of-turn Infection check fails, so the Infection stays
+	await SpecFactory.pass_turn(game, target)
+	assert_true(target.state.buffs.has(buff), 'The buff survives the targets own end of turn because it is linked.')
+	assert_true(Infection.is_infected(target), 'Because it is still infected.')
+
+func test_choosing_the_second_menu_entry_binds_the_second_effect_not_the_first():
+	# bindable_effects walks target.state.statuses in order (action_symptom.gd:59-64), so two
+	# distinct statuses land in the menu in the order they were applied. Forcing the responder to
+	# pick index 1 must bind the SECOND one, proving the chosen index actually maps back to the
+	# matching entry in `bindable` rather than, say, always taking the first.
+	var first := tech_status(Lancer.STATUS.IMPAIRED, Lancer.UNTIL.END_OF_NEXT_TURN)
+	var second := tech_status(Lancer.STATUS.SHREDDED, Lancer.UNTIL.END_OF_NEXT_TURN)
+	SpecFactory.current_responder.chosen_multiple_choice_index = 1
+	await invade()
+	assert_eq(offers().size(), 1, 'One menu.')
+	assert_eq(offered_texts().size(), 2, 'Two entries on it.')
+	assert_true(InfectionLinks.is_linked(target, second), 'The second entry, index 1, was bound.')
+	assert_eq(second.until, Lancer.UNTIL.MANUAL, 'And stopped expiring on its own.')
+	assert_false(InfectionLinks.is_linked(target, first), 'The first entry was left untouched.')
+	assert_eq(first.until, Lancer.UNTIL.END_OF_NEXT_TURN, 'Still on its normal clock.')
+	SpecFactory.current_responder.chosen_multiple_choice_index = 0
+
 func test_nothing_is_asked_when_the_target_carries_nothing_bindable():
 	await invade()
 	assert_eq(offers().size(), 0, 'No menu.')
