@@ -129,6 +129,16 @@ func test_the_carrion_beast_is_registered_as_a_two_sp_system():
 	for action:Action in kit.actions: action_ids.append(action.get_id())
 	assert_true(action_ids.has(&'action_atrophy'), 'The Atrophy reaction shell is registered on the Kit.')
 
+func test_pestilence_is_registered_as_an_nhp_system():
+	# A filename prefix decides the index, not the script class: ms_*.tres lands in resgrp_kits.
+	# system_tags 13 is UNIQUE 1 + AI 4 + NHP 8 (kit.gd:30) - what all ten vanilla NHP systems set.
+	var kit:Kit = ContentLibrary.get_kit(&'ms_pestilence_class_nhp')
+	assert_true(Kit.is_valid(kit), 'ms_pestilence_class_nhp is in the kits index.')
+	if not Kit.is_valid(kit): return
+	assert_eq(kit.sp_cost, 3, 'Three SP.')
+	assert_eq(kit.system_tags, 13, 'Unique, AI and NHP.')
+	assert_true(kit.has_passive_type(PassiveAiPrivilege), 'It carries an AI privilege passive.')
+
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw
 	# key and that is what renders in game.
