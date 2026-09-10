@@ -26,6 +26,7 @@ const InfectionLinks := preload('res://unpacked/Reag-ThyHubris/res/content/gear/
 const DISEASE := &'ms_disease'
 const SPREADER := &'action_spreader'
 const SPREADER_BUFF := &'buff_spreader'
+const SYMPTOM := &'action_symptom'
 
 var game:Gamemaster
 var draugr:Unit
@@ -124,3 +125,57 @@ func test_the_victim_itself_never_triggers_it():
 	await SpecFactory.pass_turn(game, target)
 	assert_eq(Infection.count(target), 1, 'Its own turn does not re-infect it.')
 	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'And only the Infection check was rolled.')
+
+func test_spreader_is_once_per_round():
+	# get_per_round_hard_limit -> 1 with its own usage_group; the engine refuses the second use in
+	# the same round and the target takes no second Infection.
+	#
+	# DEVIATION from the review brief's literal text: no SpecFactory.start_turn(game, draugr) between
+	# the two uses. Starting draugr's own turn calls UnitAction.new_turn_refresh -> reset_per_round_usage
+	# (unit_action.gd:75-88), which clears EVERY usage_group on draugr's gear back to 0 - including the
+	# one this test is trying to prove stays refused. A turn boundary here would make the second use
+	# succeed regardless of whether the 1/round limit exists, which is the opposite of a coverage
+	# test. test_symptom.gd's own once-per-round test (test_symptom_is_once_per_round, :142-151) uses
+	# the same same-round shape with no start_turn, which is what this mirrors.
+	await spread_onto(target)
+	assert_eq(Infection.count(target), 1, 'First Spreader landed.')
+	Dice.CHEAT_ROLL_QUEUE.clear()
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await SpecFactory.use(game, draugr, DISEASE, SPREADER, target)
+	assert_eq(Infection.count(target), 1, 'The second Spreader in the same round was refused.')
+
+func test_spreader_and_symptom_have_separate_allowances():
+	# Two usage groups on one kit: a Spreader does not spend the Symptom allowance.
+	#
+	# DEVIATION from the review brief's literal text: also no turn boundary, for the same reason as
+	# above - a SpecFactory.start_turn(game, draugr) here would reset BOTH usage_groups to 0, so
+	# Symptom would land whether or not it shares Spreader's allowance. Keeping both uses in the same
+	# round is what actually exercises the separation; that is also what makes the removal experiment
+	# below meaningful.
+	await spread_onto(target)
+	Dice.CHEAT_ROLL_QUEUE.clear()
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await SpecFactory.use(game, draugr, DISEASE, SYMPTOM, target)
+	assert_eq(Infection.count(target), 3, 'Symptom still landed for 2 after a Spreader.')
+
+func test_a_mover_adjacent_to_two_victims_rolls_against_each():
+	# The affection marker names the holder, not just the kit (plan decision D6), so a unit
+	# adjacent to two Spreader victims owes two checks.
+	#
+	# (3, 3) is adjacent to both (2, 2) and (2, 4) (Tile.distance is Chebyshev). The mover starts at
+	# (4, 4) - two tiles from either victim - and reaches (3, 3) in a SINGLE step, on purpose: a path
+	# that first steps adjacent to one victim engages it, and this engine's pathfinder treats an
+	# engaged unit as having no movement left to continue with, so a two-step approach through an
+	# already-adjacent tile finds no path at all (verified empirically - event_unit_move aborts with
+	# an empty path). One direct step sidesteps that.
+	var second := _fresh(Vector2i(2, 4), Faction.AI_ENEMY)
+	second.core.frame.stat.edef = -10 # a cheated 20 always lands, same as target
+	var mover := _fresh(Vector2i(4, 4), Faction.PLAYER)
+	await spread_onto(target)
+	Dice.CHEAT_ROLL_QUEUE.clear()
+	await SpecFactory.start_turn(game, draugr) # resets Spreader's 1/round limit, for the second victim
+	await spread_onto(second)
+	Dice.CHEAT_ROLL_QUEUE.append_array([1, 1])
+	await SpecFactory.move(game, mover, Vector2i(3, 3)) # adjacent to both (2,2) and (2,4)
+	assert_eq(Infection.count(mover), 2, 'One check per victim, both failed.')
+	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'Both checks were rolled.')

@@ -58,6 +58,9 @@ static func has_already_been_affected(_core:BuffCore, holder:Unit, mover:Unit) -
 		if buff.get_state(TRACKED_AFFECTIONS_KEY, '') == marker: return true
 	return false
 
+# No is_infected re-check here: when the Infection clears, InfectionLinks.clear_all removes this
+# buff, get_holder_unit finds nobody, and event_buff_activate refuses the queued activation
+# (event_buff_activate.gd:17-19).
 func activate(core:BuffCore, activation:EventCore) -> void:
 	# NOTE: deliberately does NOT call super. Buff.activate's default clears the buff from the unit
 	# (buff.gd:254-255); this one lives as long as the Infection does.
@@ -70,6 +73,8 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 	if not UnitRelation.is_adjacent(mover, holder): return
 	if has_already_been_affected(core, holder, mover): return
 
+	# The marker lasts until the affected unit's next turn start (buff_track_affection.tres, until =
+	# START_OF_TURN), which is vanilla's reading of "first time in a round".
 	var tracker := UnitCondition.apply_buff_id(activation, mover, TRACKED_AFFECTIONS_BUFF)
 	if BuffCore.is_valid(tracker): tracker.set_state(TRACKED_AFFECTIONS_KEY, marker_for(holder))
 
