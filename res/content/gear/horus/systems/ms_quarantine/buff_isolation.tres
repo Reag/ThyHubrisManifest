@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_quarantine/buff_isolation.gd" id="1_isolation"]
+
+[resource]
+script = ExtResource("1_isolation")
+until = 1
+to = &"action_forbidden"
+log_on_application = true
