@@ -3,9 +3,10 @@
 [ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_action"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_disease/action_symptom.tres" id="3_symptom"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_disease/action_spreader.tres" id="4_spreader"]
 
 [resource]
 script = ExtResource("2_kit")
-actions = Array[ExtResource("1_action")]([ExtResource("3_symptom")])
+actions = Array[ExtResource("1_action")]([ExtResource("3_symptom"), ExtResource("4_spreader")])
 sp_cost = 2
 system_tags = 1

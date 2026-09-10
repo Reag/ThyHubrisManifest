@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_disease/buff_spreader.gd" id="1_spreader"]
+
+[resource]
+script = ExtResource("1_spreader")
+applies_statuses = Array[StringName]([&"slowed"])
+triggers_on = Array[StringName]([&"step", &"new_turn"])
+localization_key_override = "ms_disease.action_spreader"
+log_on_application = true
