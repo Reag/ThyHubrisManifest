@@ -260,12 +260,14 @@ func test_every_infected_target_dying_means_no_prompt():
 	assert_true(Infection.is_infected(doomed_a), 'Fixture: A starts infected.')
 	assert_true(Infection.is_infected(doomed_b), 'Fixture: B starts infected.')
 
-	Dice.CHEAT_ROLL_QUEUE.append_array([6, 6])
+	# No structure dice are seeded: a unit whose structure hits zero dies WITHOUT rolling the table
+	# (event_unit_structure.gd:53-64, "don't bother doing anything else if we're gonna die anyway"),
+	# so there is no roll to fix. Health 1 / structure 1 makes the death deterministic.
 	await _fire(IMPAIR)
 
 	assert_false(Unit.is_valid(doomed_a) and doomed_a.is_on_map(), 'The 4 damage killed A.')
 	assert_false(Unit.is_valid(doomed_b) and doomed_b.is_on_map(), 'The 4 damage killed B.')
-	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'Both structure rolls were drawn.')
+	assert_true(Dice.CHEAT_ROLL_QUEUE.is_empty(), 'Nothing was seeded and nothing was left over.')
 	assert_true(watcher.kinds(PromptWatcher.KIND.multiple_choice).is_empty(),
 		'No survivors, so activate() returns before the choice prompt.')
 	assert_eq(draugr.core.current.heat, 2, 'The protocol still costs its 2 heat, spent before the damage loop.')
