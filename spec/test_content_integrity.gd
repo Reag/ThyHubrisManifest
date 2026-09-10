@@ -209,6 +209,37 @@ func test_infection_has_a_glossary_entry():
 		'The signature term links to its own glossary entry.')
 	assert_eq(GlossaryItem.find_key_from_label('Infection'), 'lancer.term.infection', 'Either case.')
 
+func test_resilience_has_a_glossary_entry():
+	assert_eq(GlossaryItem.find_key_from_label('Resilience'), 'lancer.term.resilience',
+		'The core power rows say |Resilience|; it links to its own entry.')
+
+func test_draugr_rows_link_their_own_actions():
+	# The wiki style guide's |Label=gear.<kit>.<action>| form gives the label the kit tooltip link
+	# (glossary_item.gd:230-250 takes the explicit key and links any gear.* key whose kit exists).
+	# A typo in the key silently degrades to plain coloured text, so every explicit link is checked.
+	var links := {
+		'gear.ms_disease.effect': ['gear.ms_disease.action_symptom', 'gear.ms_disease.action_spreader'],
+		'gear.ms_root.effect': ['gear.ms_root.action_dig_in'],
+		'gear.ms_quarantine.effect': ['gear.ms_quarantine.action_isolation', 'gear.ms_quarantine.action_lockdown'],
+		'gear.ms_carrion_beast.effect': ['gear.ms_carrion_beast.action_atrophy'],
+		'gear.ms_pestilence_class_nhp.effect': ['gear.ms_pestilence_class_nhp.action_kill_host'],
+		'gear.cp_cupiditas_vitae.effect': ['gear.cp_cupiditas_vitae.action_ceaseless_death', 'gear.cp_cupiditas_vitae.action_plague_vent_dispersal'],
+		'gear.buff_infection.effect': ['gear.ms_stabilize'],
+	}
+	for row:String in links:
+		var processed:Dictionary = GlossaryItem.process_glossed_text(tr(row))
+		for key:String in links[row]:
+			assert_true(tr(row).contains('=%s|' % key), '%s links %s.' % [row, key])
+			var kit_id:String = key.split('.')[1]
+			assert_true(processed.bbcoded.contains('{"kit":"%s"}' % kit_id), '%s renders a kit link for %s.' % [row, kit_id])
+			assert_true(tr('%s.name' % key) != '%s.name' % key, 'And the linked key has a name row.')
+
+func test_atrophy_rows_carry_the_automatic_warning():
+	# Author request 2026-09-10: the reaction fires automatically (engine limitation, design D4), and
+	# the player is told so in red on both the kit and the action.
+	for row:String in ['gear.ms_carrion_beast.effect', 'gear.ms_carrion_beast.action_atrophy.effect']:
+		assert_true(tr(row).contains('[color=#e07057]') and tr(row).contains('[/color]'), '%s has the red warning.' % row)
+
 func test_draugr_traits_are_localized():
 	# The three trait rows exist in localizations.csv but their values are still blank - the mod is
 	# v0.0.1 and this copy has not been written yet. Pending rather than failing: it is a real gap,

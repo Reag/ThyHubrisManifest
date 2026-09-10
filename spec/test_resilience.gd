@@ -25,6 +25,28 @@ func before_each():
 	draugr.core.change_mech_frame(load(DRAUGR_FRAME))
 	SpecFactory.apply_passive_buffs(draugr)
 
+func test_the_ring_of_pips_follows_the_count():
+	# passive_resilience_fx.gd: one scene per count (fxe_resilience_1 .. _8), the Aegis Shield
+	# Generator's recipe, so a change of count is a change of fxe_id and the token swaps the scene.
+	var gear := Resilience.gear(draugr)
+	var passive:Passive = null
+	for p:Passive in gear.kit.passives:
+		if p.has_method(&'fxe_id_for'): passive = p
+	assert_not_null(passive, 'cp_cupiditas_vitae carries the Resilience fx passive.')
+	if passive == null: return
+	assert_true(passive.get_attached_fx(gear, draugr).is_empty(), 'No ring at zero.')
+	for n in range(1, 9):
+		assert_false(ContentLibrary.get_fxendless_path(StringName('fxe_resilience_%d' % n)).is_empty(),
+			'fxe_resilience_%d is indexed.' % n)
+	draugr.core.current.structure = 1 # the cap is 1 + missing structure
+	Resilience.gain(draugr, 3)
+	var tickets:Array[FxEndless.Ticket] = passive.get_attached_fx(gear, draugr)
+	assert_eq(tickets.size(), 1, 'One ring.')
+	if tickets.is_empty(): return
+	assert_eq(tickets[0].fxe_id, &'fxe_resilience_3', 'Three pips for three Resilience.')
+	Resilience.spend(draugr)
+	assert_eq(passive.get_attached_fx(gear, draugr)[0].fxe_id, &'fxe_resilience_2', 'Two after a spend.')
+
 func test_a_fresh_draugr_has_no_resilience():
 	# starting_value = 0 and min_value = 0. The vanilla default for both is nonzero
 	# (passive_die_counter.gd:12-14), so this is a real assertion about our .tres, not a tautology.

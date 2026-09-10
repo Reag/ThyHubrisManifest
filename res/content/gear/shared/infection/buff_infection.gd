@@ -99,5 +99,14 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 ## bound to this Infection ends with it, however the Infection ended - the Systems check, a Stabilize,
 ## a burn clear, or anything else that reaches UnitCondition.clear_buff. on_clear is not awaited
 ## (buff.gd:176-178), which is why clear_all is synchronous.
+## The miasma scales with the count the way Burn's flames scale with burn: fxe_infected.tscn runs
+## vanilla fxe_burning.gd, which reads `ticket.context.number` as the intensity
+## (content/fx_endless/character/fxe_burning.gd). Infection.mark/reduce call unit.update_attached_fx()
+## after every count change so the ticket is rebuilt with the new number.
+func get_attached_fx(core:BuffCore, unit:Unit) -> Array[FxEndless.Ticket]:
+	var fxe_id := get_fxe_id()
+	if fxe_id == &'': return []
+	return [FxEndless.Ticket.create(fxe_id, Vector2i.ZERO, {unit = unit, number = Infection.count(unit)})]
+
 func on_clear(event:EventCore, core:BuffCore, unit:Unit) -> void:
 	InfectionLinks.clear_all(event, unit)

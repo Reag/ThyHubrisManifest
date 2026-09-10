@@ -6,79 +6,81 @@ frame.mf_draugr.flavor,"While it is widely accepted that the Draugr appeared som
 One curious fact, however, is that deep within the Draugr pattern's metadata, buried in liturgicode and empty files, is a number: 4600."
 frame.mf_draugr.flavor.short,Infectious Invader
 gear.buff_infection.name,Infection
-gear.buff_infection.effect,"Infection works similarly to Burn, but applies Heat instead of damage.
-When characters take Infection, they immediately take an equal amount of Heat, and mark down how much Infection they received. If a character already has Infection, additional Infection is added on top of what they already had. At the end of their turn, Infected characters must roll a Systems check. On a success, they clear all Infection; otherwise, they take Heat equal to the amount of Infection currently marked.
-If an action would clear BURN, such as stabilize, it also clears INFECTION"
+gear.buff_infection.effect,"|INFECTION| works like |burn|, but deals |heat| instead of damage.
+A character that takes |INFECTION| immediately takes that much |heat| and marks it down; more |INFECTION| stacks on top of what they already have. At the end of their turn, an infected character rolls a |Systems| check: on a success they clear all |INFECTION|, otherwise they take |heat| equal to the amount marked.
+Anything that clears |burn|, such as |Stabilize=gear.ms_stabilize|, also clears |INFECTION|."
 gear.buff_infection.name.count,"Infection ({count})"
 gear.mt_spreading_stain.name,The Spreading Stain
-gear.mt_spreading_stain.effect,"1/round, on a critical hit against a target with |INFECTION|, the Draugr may apply 1 |INFECTION| to another character within |SENSORS|."
+gear.mt_spreading_stain.effect,"1/round, on a |critical hit| against a target with |INFECTION|, the Draugr may apply 1 |INFECTION| to another character within |sensors|."
 gear.mt_spreading_stain.trigger,"You critically hit a target with |INFECTION|"
 gear.mt_raging_plague.name,The Raging Plague
-gear.mt_raging_plague.effect,"The Draugr's melee attacks gain |OVERKILL| against targets with |INFECTION|."
+gear.mt_raging_plague.effect,"The Draugr's melee attacks gain |Overkill| against targets with |INFECTION|."
 gear.mt_raging_plague.trigger,
 gear.mt_seeping_rot.name,The Seeping Rot
-gear.mt_seeping_rot.effect,"When the Draugr triggers |OVERKILL|, the target gains 1 |INFECTION|."
-gear.mt_seeping_rot.trigger,"You trigger |OVERKILL|"
+gear.mt_seeping_rot.effect,"When the Draugr triggers |Overkill|, the target gains 1 |INFECTION|."
+gear.mt_seeping_rot.trigger,"You trigger |Overkill|"
 gear.cp_cupiditas_vitae.name,CUPIDITAS VITAE
-gear.cp_cupiditas_vitae.effect,"|The Ceaseless Death| is a passive that banks Resilience from nearby deaths and your own missing structure, and spends it to shrug off damage. |Plague-Vent Dispersal| is a |protocol| that spends your core power to flood an area with infectious fog. |Plague-Vent Dispersal| is |Efficient|: your core point returns at the start of the next scene."
+gear.cp_cupiditas_vitae.effect,"|The Ceaseless Death=gear.cp_cupiditas_vitae.action_ceaseless_death| is a passive that banks |Resilience| from nearby deaths and your own missing |structure|, and spends it to shrug off damage. |Plague-Vent Dispersal=gear.cp_cupiditas_vitae.action_plague_vent_dispersal| is a |protocol| that spends your |core power| to flood an area with infectious fog. |Plague-Vent Dispersal=gear.cp_cupiditas_vitae.action_plague_vent_dispersal| is |Efficient|: your core point returns at the start of the next scene."
 gear.cp_cupiditas_vitae.flavor,"TO YOU ABOVE: if you will not grant us life, then we have no choice but to take it."
 gear.cp_cupiditas_vitae.resilience,Resilience
 gear.cp_cupiditas_vitae.action_ceaseless_death.name,The Ceaseless Death
-gear.cp_cupiditas_vitae.action_ceaseless_death.effect,"The Draugr has charges called Resilience, up to a maximum of 1 + its missing structure. 1/turn, it gains 1 Resilience when a hostile character within |SENSORS| is destroyed or loses a structure. At the start of its turn, it gains 1 Resilience if it has less than 4 structure.
-After |OVERSHIELD| is reduced, if the Draugr would take damage while it has Resilience, it reduces all remaining damage to 1 and loses 1 Resilience. If the Draugr is |SHREDDED| or the damage would ignore |RESISTANCE|, it takes the damage as normal and still loses 1 Resilience."
+gear.cp_cupiditas_vitae.action_ceaseless_death.effect,"The Draugr has charges called |Resilience|, up to a maximum of 1 + its missing |structure|. 1/turn, it gains 1 |Resilience| when a hostile character within |sensors| is destroyed or loses a |structure|. At the start of its turn, it gains 1 |Resilience| if it has less than 4 |structure|.
+After |overshield| is reduced, if the Draugr would take damage while it has |Resilience|, it reduces all remaining damage to 1 and loses 1 |Resilience|. If the Draugr is |shredded| or the damage would ignore |resistance|, it takes the damage as normal and still loses 1 |Resilience|."
 gear.cp_cupiditas_vitae.action_plague_vent_dispersal.name,Plague-Vent Dispersal
-gear.cp_cupiditas_vitae.action_plague_vent_dispersal.effect,"Flood a |BLAST 2| centered within |RANGE 2| with sickly fog until the end of your next turn. Hostile characters in the area must make a |SYSTEMS save|, taking 2 |INFECTION| on a failure or 1 on a success.
+gear.cp_cupiditas_vitae.action_plague_vent_dispersal.effect,"Flood a |blast 2| centered within |range 2| with sickly fog until the end of your next turn. Hostile characters in the area must make a |Systems save|, taking 2 |INFECTION| on a failure or 1 on a success.
 While you are inside the fog:
-• Gain 1 Resilience when a hostile character begins their turn inside the fog.
-• Gain +1 |ACCURACY| on attacks against targets in the fog.
-• Hostile characters automatically fail |SYSTEMS| checks to remove |INFECTION| at the end of their turn."
+• Gain 1 |Resilience| when a hostile character begins their turn inside the fog.
+• Gain +1 |accuracy| on attacks against targets in the fog.
+• Hostile characters automatically fail |Systems| checks to remove |INFECTION| at the end of their turn."
 frame.dep_plague_fog.name,Plague Fog
 ,
 gear.ms_disease.name,Disease
-gear.ms_disease.effect,"Gain the |Symptom| and |Spreader| options for |Invade|. Each may be used 1/round."
+gear.ms_disease.effect,"Gain the |Symptom=gear.ms_disease.action_symptom| and |Spreader=gear.ms_disease.action_spreader| options for |Invade|. Each may be used 1/round."
 gear.ms_disease.flavor,
 gear.ms_disease.action_symptom.name,Symptom
-gear.ms_disease.action_symptom.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat|. Choose one tech effect currently affecting the target that lasts until the end of their next turn (other than |STUNNED|). That effect instead lasts until the target clears |INFECTION|."
+gear.ms_disease.action_symptom.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat|. Choose one tech effect currently affecting the target that lasts until the end of their next turn (other than |stunned|). That effect instead lasts until the target clears |INFECTION|."
 gear.ms_disease.action_spreader.name,Spreader
-gear.ms_disease.action_spreader.effect,"Your target takes 1 |INFECTION| in addition to |Invade|'s normal |heat|, and is |SLOWED| for as long as they have |INFECTION|. While they have |INFECTION|, any character that starts their turn |adjacent| to the target, or moves adjacent to them for the first time in a round, must make a |SYSTEMS| check or take 1 |INFECTION|."
+gear.ms_disease.action_spreader.effect,"Your target takes 1 |INFECTION| in addition to |Invade|'s normal |heat|, and is |slowed| for as long as they have |INFECTION|. While they have |INFECTION|, any character that starts their turn |adjacent| to the target, or moves adjacent to them for the first time in a round, must make a |Systems| check or take 1 |INFECTION|."
 gear.ms_root.name,Root
-gear.ms_root.effect,"Gain the |Dig In| reaction."
+gear.ms_root.effect,"Gain the |Dig In=gear.ms_root.action_dig_in| |reaction|."
 gear.ms_root.flavor,
 gear.ms_root.action_dig_in.name,Dig In
-gear.ms_root.action_dig_in.effect,"1/turn, ignore the forced movement and take |AP KINETIC| equal to the number of spaces ignored."
+gear.ms_root.action_dig_in.effect,"1/turn, ignore the forced movement and take |AP| |kinetic| damage equal to the number of spaces ignored."
 gear.ms_root.action_dig_in.trigger,"You would be moved involuntarily"
 gear.mw_injector_drill.name,Injector Drill
 gear.mw_injector_drill.effect,"You may attack with this weapon without expending or requiring charges, and it can be destroyed even with no charges remaining."
-gear.mw_injector_drill.on_hit,"You may expend a charge to use |Invade| or a |Quick Tech| as a |free action| against the target."
+gear.mw_injector_drill.on_hit,"You may expend a |charge| to use |Invade| or a |quick tech| action as a |free action| against the target."
 gear.mw_injector_drill.flavor,
 gear.ms_quarantine.name,Quarantine
-gear.ms_quarantine.effect,"Gain the |Isolation| and |Lockdown| options for |Invade|. Each may be used 1/round."
+gear.ms_quarantine.effect,"Gain the |Isolation=gear.ms_quarantine.action_isolation| and |Lockdown=gear.ms_quarantine.action_lockdown| options for |Invade|. Each may be used 1/round."
 gear.ms_quarantine.flavor,
 gear.ms_quarantine.action_isolation.name,Isolation
 gear.ms_quarantine.action_isolation.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat| and cannot take |reactions| until the end of their next turn."
 gear.ms_quarantine.action_lockdown.name,Lockdown
-gear.ms_quarantine.action_lockdown.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat| and cannot take |Quick Tech| or |Full Tech| actions until the end of their next turn."
+gear.ms_quarantine.action_lockdown.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat| and cannot take |quick tech| or |full tech| actions until the end of their next turn."
 gear.buff_isolation.name,Isolated
 gear.buff_isolation.effect,"Cannot take |reactions| until the end of your next turn."
 gear.buff_lockdown.name,Locked Down
-gear.buff_lockdown.effect,"Cannot take |Quick Tech| or |Full Tech| actions until the end of your next turn."
+gear.buff_lockdown.effect,"Cannot take |quick tech| or |full tech| actions until the end of your next turn."
 gear.ms_carrion_beast.name,Carrion Beast
-gear.ms_carrion_beast.effect,"When targeting characters with |INFECTION|, your |SENSORS| increase by 5. Gain the |Atrophy| reaction."
+gear.ms_carrion_beast.effect,"When targeting characters with |INFECTION|, your |sensors| increase by 5. Gain the |Atrophy=gear.ms_carrion_beast.action_atrophy| |reaction|.
+[color=#e07057]Atrophy fires on its own whenever it can: the engine rolls a save or check in one step, so there is no moment to ask first.[/color]"
 gear.ms_carrion_beast.flavor,
 gear.ms_carrion_beast.action_atrophy.name,Atrophy
-gear.ms_carrion_beast.action_atrophy.effect,"1/turn, reduce the target's |INFECTION| by 1. The target takes +1 |DIFFICULTY| on the triggering roll."
-gear.ms_carrion_beast.action_atrophy.trigger,"A character with |INFECTION| within |SENSORS| is about to roll a save or check"
+gear.ms_carrion_beast.action_atrophy.effect,"1/turn, reduce the target's |INFECTION| by 1. The target takes +1 |difficulty| on the triggering roll.
+[color=#e07057]Atrophy fires on its own whenever it can: the engine rolls a save or check in one step, so there is no moment to ask first.[/color]"
+gear.ms_carrion_beast.action_atrophy.trigger,"A character with |INFECTION| within |sensors| is about to roll a save or check"
 gear.ms_pestilence_class_nhp.name,PESTILENCE-class NHP
 gear.ms_pestilence_class_nhp.default_name,Pestilence
-gear.ms_pestilence_class_nhp.effect,"Your mech gains the |AI| tag and the |Kill Host| protocol."
+gear.ms_pestilence_class_nhp.effect,"Your mech gains the |AI| tag and the |Kill Host=gear.ms_pestilence_class_nhp.action_kill_host| |protocol|."
 gear.ms_pestilence_class_nhp.flavor,
 gear.ms_pestilence_class_nhp.action_kill_host.name,Kill Host
-gear.ms_pestilence_class_nhp.action_kill_host.effect,"Take 2 |heat|. All targets with |INFECTION| within |RANGE 5| of you take |AP ENERGY| equal to 2 + twice their current |INFECTION|. Then choose one of the following:
-• Targets become |IMPAIRED| until the end of their next turn, or |JAMMED| if they have at least 3 |INFECTION|.
-• Targets become |SLOWED| until the end of their next turn, or |PRONE| and |IMMOBILIZED| if they have at least 3 |INFECTION|.
+gear.ms_pestilence_class_nhp.action_kill_host.effect,"Take 2 |heat|. All targets with |INFECTION| within |range 5| of you take |AP| |energy| damage equal to 2 + twice their current |INFECTION|. Then choose one of the following:
+• Targets become |impaired| until the end of their next turn, or |jammed| if they have at least 3 |INFECTION|.
+• Targets become |slowed| until the end of their next turn, or |prone| and |immobilized| if they have at least 3 |INFECTION|.
 Targets then clear all |INFECTION|."
-gear.ms_pestilence_class_nhp.action_kill_host.option_impair,"Targets become |IMPAIRED| until the end of their next turn, or |JAMMED| if they have at least 3 |INFECTION|."
-gear.ms_pestilence_class_nhp.action_kill_host.option_slow,"Targets become |SLOWED| until the end of their next turn, or |PRONE| and |IMMOBILIZED| if they have at least 3 |INFECTION|."
+gear.ms_pestilence_class_nhp.action_kill_host.option_impair,"Targets become |impaired| until the end of their next turn, or |jammed| if they have at least 3 |INFECTION|."
+gear.ms_pestilence_class_nhp.action_kill_host.option_slow,"Targets become |slowed| until the end of their next turn, or |prone| and |immobilized| if they have at least 3 |INFECTION|."
 bark.nhp_pestilence,PESTILENCE
 ,
 frame.mf_erinyes.name,Erinyes
@@ -269,4 +271,6 @@ gear.mt_to_bend_reality.variant.effect,"Draw range and line of sight through a t
 lancer.term.efficient,Efficient
 lancer.term.efficient.desc,"An |efficient| ability refunds its |CORE POWER| at the end of any scene, so it is available again in the next one."
 lancer.term.infection,Infection
-lancer.term.infection.desc,"|INFECTION| works like |BURN|, but deals |heat| instead of damage. A character that takes INFECTION immediately takes that much heat and marks it down, stacking with any they already have. At the end of their turn they roll a |SYSTEMS| check: on a success they clear all INFECTION, otherwise they take heat equal to the amount marked. Anything that clears BURN, such as |Stabilize|, also clears INFECTION."
+lancer.term.infection.desc,"|INFECTION| works like |burn|, but deals |heat| instead of damage. A character that takes |INFECTION| immediately takes that much |heat| and marks it down, stacking with any they already have. At the end of their turn they roll a |Systems| check: on a success they clear all |INFECTION|, otherwise they take |heat| equal to the amount marked. Anything that clears |burn|, such as |Stabilize=gear.ms_stabilize|, also clears |INFECTION|."
+lancer.term.resilience,Resilience
+lancer.term.resilience.desc,"|Resilience| is the Draugr's pool of charges from |The Ceaseless Death=gear.cp_cupiditas_vitae.action_ceaseless_death|, capped at 1 + its missing |structure|. It is banked from nearby deaths, from its own missing |structure| and from the plague fog, and one point is spent to reduce any incoming damage to 1. The ring of green lights over the Draugr shows the current count."

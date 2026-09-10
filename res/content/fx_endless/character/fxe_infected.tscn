@@ -1,0 +1,117 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://b13li3du0hgs7" path="res://content/fx_endless/character/fxe_burning.gd" id="1_burning_script"]
+[ext_resource type="ArrayMesh" uid="uid://dxwuedict3sb5" path="res://assets/fx/resources/icosphere_flame.tres" id="2_flame"]
+[ext_resource type="ArrayMesh" uid="uid://cd2brerfupmv8" path="res://assets/fx/resources/particle_amber.tres" id="3_spark"]
+
+[sub_resource type="Gradient" id="Gradient_infected"]
+colors = PackedColorArray(0.12, 0.62, 0.18, 1, 0.62, 1, 0.3, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_infected"]
+gradient = SubResource("Gradient_infected")
+
+[sub_resource type="Curve" id="Curve_scale"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.231164, 1), 0.0, 0.0, 0, 0, Vector2(0.640411, 0.407905), -1.4431, -1.4431, 0, 0, Vector2(1, 0), -0.159099, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="CurveTexture" id="CurveTexture_scale"]
+curve = SubResource("Curve_scale")
+
+[sub_resource type="Curve" id="Curve_turbulence"]
+_data = [Vector2(0.243682, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_turbulence"]
+curve = SubResource("Curve_turbulence")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_miasma"]
+lifetime_randomness = 0.15
+emission_shape = 6
+emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_height = 0.0
+emission_ring_radius = 0.4
+emission_ring_inner_radius = 0.0
+emission_ring_cone_angle = 90.0
+angle_max = 90.0
+direction = Vector3(0, 4, 0)
+spread = 0.0
+initial_velocity_min = 0.2
+initial_velocity_max = 0.6
+gravity = Vector3(0, 0, 0)
+scale_min = 0.25
+scale_max = 0.6
+scale_curve = SubResource("CurveTexture_scale")
+color = Color(0.5, 0.95, 0.45, 1)
+color_ramp = SubResource("GradientTexture1D_infected")
+turbulence_noise_strength = 0.5
+turbulence_noise_scale = 1.0
+turbulence_influence_over_life = SubResource("CurveTexture_turbulence")
+
+[sub_resource type="Curve" id="Curve_emission"]
+_limits = [0.0, 10.0, 0.0, 1.0]
+_data = [Vector2(0, 10), 0.0, 0.0, 0, 0, Vector2(0.367273, 8.16401), 0.0, 0.0, 0, 0, Vector2(0.549091, 10), 0.0, 0.0, 0, 0, Vector2(0.785455, 7.4533), 0.0, 0.0, 0, 0, Vector2(1, 10), 0.0, 0.0, 0, 0]
+point_count = 5
+
+[sub_resource type="CurveTexture" id="CurveTexture_emission"]
+curve = SubResource("Curve_emission")
+
+[sub_resource type="Curve" id="Curve_spark_scale"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.183219, 1), 0.0, 0.0, 0, 0, Vector2(0.732877, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="CurveTexture" id="CurveTexture_spark_scale"]
+curve = SubResource("Curve_spark_scale")
+
+[sub_resource type="Curve" id="Curve_spark_turbulence"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.350498, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_spark_turbulence"]
+curve = SubResource("Curve_spark_turbulence")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_spores"]
+lifetime_randomness = 0.5
+emission_shape_scale = Vector3(1.7, 1, 1.7)
+emission_shape = 6
+emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_height = 0.0
+emission_ring_radius = 0.2
+emission_ring_inner_radius = 0.0
+emission_ring_cone_angle = 90.0
+angle_max = 90.0
+direction = Vector3(0, 2, 0)
+spread = 16.472
+initial_velocity_min = 1.0
+initial_velocity_max = 2.0
+gravity = Vector3(0, 1, 0)
+linear_accel_max = 1.0
+tangential_accel_max = 1.0
+damping_min = 2.0
+damping_max = 2.0
+scale_min = 0.01
+scale_max = 0.01
+scale_curve = SubResource("CurveTexture_spark_scale")
+color = Color(0.5, 2.4, 0.4, 1)
+emission_curve = SubResource("CurveTexture_emission")
+turbulence_noise_strength = 0.5
+turbulence_noise_scale = 5.0
+turbulence_influence_over_life = SubResource("CurveTexture_spark_turbulence")
+
+[node name="FxeInfected" type="Node3D"]
+script = ExtResource("1_burning_script")
+
+[node name="Miasma" type="GPUParticles3D" parent="."]
+cast_shadow = 0
+amount = 10
+lifetime = 2.45
+process_material = SubResource("ParticleProcessMaterial_miasma")
+draw_pass_1 = ExtResource("2_flame")
+
+[node name="Spores" type="GPUParticles3D" parent="."]
+cast_shadow = 0
+amount = 2
+randomness = 0.7
+local_coords = true
+draw_order = 3
+process_material = SubResource("ParticleProcessMaterial_spores")
+draw_pass_1 = ExtResource("3_spark")

@@ -28,6 +28,20 @@ func before_each():
 func infect(target:Unit, n:int) -> void:
 	await Infection.apply(SpecFactory.dummy_event({unit = target}), target, n)
 
+func test_an_infected_unit_shows_the_miasma_scaled_to_its_count():
+	# buff_infection.tres carries fxe_infected.tscn (a green recolour of vanilla fxe_burning, same
+	# script), and the buff's ticket passes the count as `number`, which fxe_burning.gd reads as
+	# particle intensity. The scene must be in the fx-endless index or the controller logs an error.
+	assert_false(ContentLibrary.get_fxendless_path(&'fxe_infected').is_empty(), 'fxe_infected is indexed.')
+	await infect(unit, 3)
+	var core := Infection.get_core(unit)
+	var tickets:Array[FxEndless.Ticket] = core.base.get_attached_fx(core, unit)
+	assert_eq(tickets.size(), 1, 'One miasma per infected unit.')
+	if tickets.is_empty(): return
+	assert_eq(tickets[0].fxe_id, &'fxe_infected', 'The green one, not the burn.')
+	assert_eq(tickets[0].context.number, 3, 'Intensity follows the count.')
+	assert_eq(tickets[0].context.unit, unit, 'Anchored to the infected unit.')
+
 func test_a_fresh_unit_is_not_infected():
 	assert_eq(Infection.count(unit), 0, 'No count.')
 	assert_false(Infection.is_infected(unit), 'Not infected.')

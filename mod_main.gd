@@ -56,7 +56,7 @@ func _init() -> void:
 ## rows have to exist for this to have any effect at all.
 func register_glossary_terms() -> void:
 	GlossaryItem.find_key_from_label('') # force the lazy cache fill before we append to it
-	for term:StringName in [&'lancer.term.efficient', &'lancer.term.infection']:
+	for term:StringName in [&'lancer.term.efficient', &'lancer.term.infection', &'lancer.term.resilience']:
 		if not GlossaryItem.cached_term_keys.has(term): GlossaryItem.cached_term_keys.append(term)
 
 # Runs when this mod's node is added to the tree (whenever active mods are changed)
