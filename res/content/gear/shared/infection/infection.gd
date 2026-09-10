@@ -64,3 +64,23 @@ static func apply(event:EventCore, target:Unit, n:int) -> void:
 static func clear(event:EventCore, unit:Unit) -> void:
 	var core := get_core(unit)
 	if BuffCore.is_valid(core): UnitCondition.clear_buff(event, unit, core)
+
+## Take n INFECTION off, clearing the buff outright when nothing is left. SYNCHRONOUS and dealing NO
+## heat: the rules that reduce INFECTION (the Carrion Beast's Atrophy) take the plague away rather
+## than burn it off, and the one caller is Buff.on_consumption, which the engine does not await
+## (unit_condition.gd:936-949).
+##
+## Here rather than in the caller because this file is the only reader and writer of COUNT_KEY (see
+## the header); a second writer elsewhere is exactly what that rule exists to prevent. This is an
+## ADDITION to the frozen interface, not a change to it - no existing signature moved, and there is
+## still no from_gear.
+static func reduce(event:EventCore, unit:Unit, n:int) -> void:
+	if n <= 0: return
+	var core := get_core(unit)
+	if not BuffCore.is_valid(core): return
+	var left:int = core.get_state(COUNT_KEY, 0) - n
+	if left <= 0:
+		clear(event, unit)
+		return
+	core.set_state(COUNT_KEY, left)
+	unit.update_token()
