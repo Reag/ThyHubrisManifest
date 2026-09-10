@@ -28,6 +28,7 @@ extends Buff
 
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const PlagueFog := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/plague_fog.gd')
+const InfectionLinks := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection_links.gd')
 
 func name_text(core:BuffCore) -> String:
 	return Translate.buff(core, 'name.count').format({count = core.get_state(Infection.COUNT_KEY, 0)})
@@ -62,6 +63,10 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 	if not triggering.base.owns_trigger_types().has(ReactionBus.TRIGGER.END_TURN):
 		Infection.clear(activation, unit) # a burn clear, or a burn-clearing Stabilize
 		return
+	# Buy every effect bound to this Infection one more turn, BEFORE anything expires: END_TURN/PRE
+	# runs at event_turn_end.gd:17 and end_turn_for_statuses at :40. If the check below passes,
+	# Infection.clear -> on_clear -> clear_all ends them anyway, so doing this first is free.
+	InfectionLinks.extend_tracked(unit)
 	# "Hostile characters automatically fail SYSTEMS checks to remove INFECTION at the end of their
 	# turn" while a Draugr's plague fog covers both them and its owner (the core power's third fog
 	# clause; design 2026-09-09-draugr-design.md section 3). No roll is made at all, which is what
@@ -89,3 +94,10 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 		number = Infection.count(unit),
 		category = Lancer.DAMAGE_TYPE.HEAT,
 	})
+
+## "That effect instead lasts until the target clears INFECTION." Everything Symptom or Spreader
+## bound to this Infection ends with it, however the Infection ended - the Systems check, a Stabilize,
+## a burn clear, or anything else that reaches UnitCondition.clear_buff. on_clear is not awaited
+## (buff.gd:176-178), which is why clear_all is synchronous.
+func on_clear(event:EventCore, core:BuffCore, unit:Unit) -> void:
+	InfectionLinks.clear_all(event, unit)
