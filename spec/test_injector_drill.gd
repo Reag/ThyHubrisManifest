@@ -17,6 +17,13 @@
 # DICE (plan section B7): a weapon attack crits on a natural 20 and doubles its damage roll, so this
 # file seeds a uniform 4 - a hit against evasion -10, never a crit, and every damage die a 4, making
 # 1d6+3 exactly 7 however many dice the roll pulls. after_each clears the leftovers.
+#
+# TASK 2 ADDED an on-hit confirm ("expend a charge for a free tech?") to this same action, and
+# SpecFactory's default responder auto-answers every yesno with `true`. Left alone, that would make
+# this file's basic-loadout target (which always has ms_fragment_signal, a valid quick tech) silently
+# accept the offer and spend a charge on ANY successful swing - which is not what this file is about;
+# the on-hit rider gets its own coverage in test_injector_drill_tech.gd. before_each declines it so
+# these tests stay about consumes_charges alone, exactly as they were written for Task 1.
 extends GutTest
 
 const DRILL := &'mw_injector_drill'
@@ -37,6 +44,7 @@ func before_each():
 	target.core.frame.stat.armor = 0
 	target.core.frame.stat.health = 40
 	target.core.full_repair()
+	SpecFactory.current_responder.chosen_yesnos = false # decline Task 2's on-hit offer; see header
 
 func after_each():
 	Dice.CHEAT_ROLL_QUEUE.clear()

@@ -49,7 +49,7 @@ gear.ms_root.action_dig_in.effect,"1/turn, ignore the forced movement and take |
 gear.ms_root.action_dig_in.trigger,"You would be moved involuntarily"
 gear.mw_injector_drill.name,Injector Drill
 gear.mw_injector_drill.effect,"You may attack with this weapon without expending or requiring charges, and it can be destroyed even with no charges remaining."
-gear.mw_injector_drill.on_hit,"You may expend a charge to use |Invade| or a |Quick Tech| as a |free action| against the target. The tech attack may target |EVASION| instead, or replace a |SYSTEMS save| with an |ENGINEERING save|."
+gear.mw_injector_drill.on_hit,"You may expend a charge to use |Invade| or a |Quick Tech| as a |free action| against the target."
 gear.mw_injector_drill.flavor,
 gear.ms_quarantine.name,Quarantine
 gear.ms_quarantine.effect,"Gain the |Isolation| and |Lockdown| options for |Invade|. Each may be used 1/round."
