@@ -5,7 +5,6 @@
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/action_bind_thy_flesh.tres" id="3_action_bind_thy_flesh"]
 [ext_resource type="Texture2D" uid="uid://0gn5m5wn4fpm" path="res://assets/icons/actions/systems/ms_cable_winch_system/action_cable_winch_system.svg" id="4_fauju"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_bind_thy_flesh/action_bind_thy_flesh_watch.tres" id="4_watch"]
-[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="5_kkgnx"]
 
 [resource]
 script = ExtResource("2_kit")

@@ -9,7 +9,6 @@
 [ext_resource type="Resource" uid="uid://c6ai6j65hwhic" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_tide_undertow.tres" id="7_tide_undertow"]
 [ext_resource type="Texture2D" uid="uid://bdbx1c414cktm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/cp_the_endless_black_sea.svg" id="8_or2d0"]
 [ext_resource type="Resource" uid="uid://cwsegc7w7qxsu" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_kraken/cp_the_endless_black_sea/action_tide_seize.tres" id="8_tide_seize"]
-[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="9_l7726"]
 
 [resource]
 script = ExtResource("2_kit")

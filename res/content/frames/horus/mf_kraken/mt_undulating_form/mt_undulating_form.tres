@@ -1,6 +1,5 @@
 [gd_resource type="Resource" script_class="Kit" format=3 uid="uid://dml6wkr2y0e5y"]
 
-[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_22x0y"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="1_kit"]
 [ext_resource type="Texture2D" uid="uid://cqvqfx6pidtxm" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/mt_undulating_form.svg" id="2_4etf4"]
 [ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="2_passive"]
