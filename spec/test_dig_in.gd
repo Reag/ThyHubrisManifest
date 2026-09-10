@@ -198,3 +198,63 @@ func test_on_a_draugr_with_resilience_it_costs_one_hit_point_and_one_point():
 	assert_eq(draugr.tile(), Vector2i(10, 10), 'Planted.')
 	assert_eq(before - health_of(draugr), 1, 'The Ceaseless Death caps its own self-harm at 1.')
 	assert_eq(Resilience.count(draugr), 0, 'And it costs the point anyway.')
+
+func test_dig_in_stands_down_when_another_reaction_already_cancelled_the_move():
+	# event_unit_move.gd:295-333 collects EVERY unit's entire_movement/PRE reaction first and only
+	# executes them afterward, with recheck_trigger_before_execution false - so if an earlier reaction
+	# in that same batch already set_aborted() the move, Dig In (queued in the same batch) must stand
+	# down rather than prompt, spend the reaction and deal damage for a move that no longer happens.
+	#
+	# Route: a real second reaction, vanilla Flash Anchor (ms_flash_anchor/action_flash_lock.gd),
+	# which protects an ALLY from a hostile involuntary move and has no range check. Ordering is not
+	# governed by ActionReaction.get_priority() here - execute_reaction_events_for_entire_katamari
+	# flattens reaction_bus.trigger_occurred's blocks straight from its `for unit in
+	# map.get_all_units()` loop with no priority sort - so the Flash-Anchor-holding unit must be
+	# registered on the map BEFORE the digger for its reaction to run first. Both are created fresh
+	# here, in that order, rather than reusing the shared `digger` (already registered before this
+	# test body runs).
+	var protector := SpecFactory.create_unit(game.map, Vector2i(5, 8), Faction.PLAYER)
+	protector.core.equip_system(&'ms_flash_anchor')
+	protector.core.full_repair()
+	var ward := SpecFactory.create_unit(game.map, Vector2i(5, 6), Faction.PLAYER)
+	ward.core.equip_system(ROOT)
+	ward.core.frame.stat.health = 40
+	ward.core.frame.stat.armor = 0
+	ward.core.full_repair()
+
+	var before_health := health_of(ward)
+	var before_reactions:int = ward.core.current.reactions
+	var events := CommonActionUtil.generate_knockback_events(
+		ward, 3, SpecificAction.create(shover, null, null), shover.occupied_tiles(),
+		[EventUnitPickMove.FLAG.AUTO_FURTHEST]
+	)
+	if events.is_empty(): return fail_test('Fixture: the knockback produced an event.')
+	await game.execute_event_block(EventBlock.create_multiple(events))
+
+	assert_eq(ward.tile(), Vector2i(5, 6), 'Flash Anchor already cancelled the move.')
+	assert_eq(health_of(ward), before_health, 'Dig In dealt no damage for a move that never happened.')
+	assert_eq(ward.core.current.reactions, before_reactions, 'Dig In never spent its reaction.')
+	assert_eq(watcher.kinds(PromptWatcher.KIND.yesno).size(), 1, 'Only Flash Anchor prompted; Dig In was never offered.')
+
+func test_the_per_turn_limit_is_distinct_from_the_reaction_point():
+	# test_it_is_once_per_turn_and_available_again_next_turn (above) cannot tell the per-turn limit
+	# from a merely-spent reaction point on a 1-reaction unit: either would refuse the second shove.
+	# Giving the digger a second reaction point isolates the per-turn limit as the thing refusing it.
+	digger.core.current.reactions = 2
+
+	var before := health_of(digger)
+	await shove(digger, 2)
+	assert_eq(before - health_of(digger), 2, 'First shove: dug in.')
+	assert_eq(digger.core.current.reactions, 1, 'Only one reaction spent.')
+
+	before = health_of(digger)
+	await shove(digger, 2)
+	assert_ne(digger.tile(), Vector2i(6, 5), 'Second shove, same turn: the per-turn limit refuses it even with a reaction to spare.')
+	assert_eq(digger.core.current.reactions, 1, 'And spends nothing trying.')
+
+	UnitTile.move_to(digger, Vector2i(6, 5))
+	await SpecFactory.start_turn(game, shover)
+	before = health_of(digger)
+	await shove(digger, 2)
+	assert_eq(digger.tile(), Vector2i(6, 5), 'A new turn, and it plants itself again.')
+	assert_eq(before - health_of(digger), 2, 'Paying again.')

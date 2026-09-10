@@ -34,7 +34,8 @@
 # digging in during a second enemy's turn in the same round.
 extends ActionReactionSelf
 
-const Compat := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/reag_compat.gd')
+## No Compat shim here: the prompt goes through CommonActionUtil.confirm_use directly (see activate
+## below), which is identical on both engines.
 
 ## Gear state: the id of the triggering event whose prompt we already declined.
 const DENIED_KEY := 'dig_in_denied'
@@ -68,6 +69,11 @@ func activate(context:Context, activation:EventCore) -> void:
 	if activation.abort_when(not Unit.is_valid(unit) or triggering == null): return
 	var spaces := spaces_ignored(triggering.context)
 	if activation.abort_when(spaces <= 0): return
+
+	# Reactions to one move are collected first and run after (event_unit_move.gd:295-333); if an
+	# earlier one already cancelled it (Flash Anchor, action_flash_lock.gd:66), there is nothing to
+	# dig in against - no prompt, no reaction spent, no damage.
+	if activation.abort_when(triggering.aborted): return
 
 	# CommonActionUtil.confirm_use rather than a raw prompt (plan decision D4): it is Flash Anchor's
 	# own line (action_flash_lock.gd:56), it reaches choice_bus.quick_yesno_for on 1.4.0
