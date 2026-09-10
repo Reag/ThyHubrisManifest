@@ -134,6 +134,19 @@ func test_the_lock_ends_with_the_targets_next_turn():
 	await SpecFactory.pass_turn(game, target)
 	assert_true(locks_on(target).is_empty(), 'Until the end of their next turn, and no longer.')
 
+func test_the_lock_does_not_survive_the_draugrs_death():
+	# D6, mirrored from test_isolation.gd: from_gear is a LIFETIME. event_unit_die.gd's execute()
+	# calls UnitCondition.clear_outgoing_buffs_from_unit(core, unit, ..., true), which strips every
+	# buff attributed to the dying unit's own gear off every other unit, gated on
+	# is_cleared_on_owner_death() (unit_condition.gd:1015-1029) - buff_lockdown never overrides that,
+	# so it defaults true. Infection carries no from_gear and must outlive the Draugr that caused it.
+	# No core power on this fixture Draugr, so no death reaction complicates it.
+	await lock_down(target)
+	assert_eq(locks_on(target).size(), 1, 'Locked before the Draugr dies (positive control).')
+	await game.execute_event(&'event_unit_die', {unit = draugr})
+	assert_true(locks_on(target).is_empty(), 'The lock died with the unit that owned the gear that applied it.')
+	assert_eq(Infection.count(target), 2, 'Infection has no from_gear, and survives its source.')
+
 func test_isolation_and_lockdown_do_not_share_an_allowance():
 	# "Each may be used 1/round" - each, not one of them. Separate usage_groups
 	# (gear_core.gd:166-168). Both uses stay inside one turn: a start_turn between them would reset

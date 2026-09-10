@@ -185,6 +185,33 @@ func test_isolation_is_once_per_round():
 	await isolate(target)
 	assert_eq(Infection.count(target), 2, 'The second use in the same round was refused.')
 
+func test_the_lock_does_not_survive_the_draugrs_death():
+	# D6: from_gear is a LIFETIME, not just a label. The engine clears attributed buffs when the
+	# gear's OWNER dies - event_unit_die.gd's execute() calls
+	# UnitCondition.clear_outgoing_buffs_from_unit(core, unit, ..., true), which for each of the
+	# dying unit's non-basic gear clears every buff on every other unit with that gear's
+	# persistent_id, but only when due_to_owner_dying and is_cleared_on_owner_death() (unit_condition.gd:1015-1029) -
+	# buff_isolation never overrides that, so it defaults true. Infection carries no from_gear
+	# (memory draugr-infection-engine-gotchas item 2) and must outlive the Draugr that inflicted it.
+	# No core power on this fixture Draugr, so no death reaction (e.g. Ceaseless Death) complicates it.
+	await isolate(target)
+	assert_eq(locks_on(target).size(), 1, 'Locked before the Draugr dies (positive control).')
+	await game.execute_event(&'event_unit_die', {unit = draugr})
+	assert_true(locks_on(target).is_empty(), 'The lock died with the unit that owned the gear that applied it.')
+	assert_eq(Infection.count(target), 2, 'Infection has no from_gear, and survives its source.')
+
+func test_the_lock_does_not_survive_the_quarantine_being_destroyed():
+	# D6, the other half: event_gear_destroy.gd:42 clears every buff attributed to the destroyed
+	# gear's persistent_id on every unit, UNCONDITIONALLY (no is_cleared_on_owner_death gate at all -
+	# that check only applies to the owner-death path above) - so the lock falls even with the Draugr
+	# very much alive.
+	await isolate(target)
+	assert_eq(locks_on(target).size(), 1, 'Locked before Quarantine is destroyed (positive control).')
+	await game.execute_event(&'event_gear_destroy', {unit = draugr, gear = quarantine})
+	assert_true(quarantine.is_destroyed, 'Fixture sanity: Quarantine actually got destroyed.')
+	assert_true(locks_on(target).is_empty(), 'The lock died with the gear that attributed it.')
+	assert_eq(Infection.count(target), 2, 'Infection has no from_gear, and survives the gear that caused it.')
+
 func test_symptom_can_bind_the_lock_to_the_infection():
 	# Design section 5's stated synergy: both locks are buffs from tech gear expiring at the end of the
 	# target next turn, so Symptom's bindable_effects lists them and a second Invade makes the lock last
