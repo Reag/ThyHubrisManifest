@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="5_action"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_pestilence_class_nhp/action_kill_host.tres" id="6_kill_host"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/barks/bark_nhp_pestilence.tres" id="7_barkset"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/ms_pestilence_class_nhp.svg" id="icon_ssnhp"]
 
 [sub_resource type="Resource" id="Resource_pestilence_ai"]
 script = ExtResource("3_ai_privilege")
@@ -19,3 +20,4 @@ actions = Array[ExtResource("5_action")]([ExtResource("6_kill_host")])
 passives = Array[ExtResource("1_passive")]([SubResource("Resource_pestilence_ai")])
 sp_cost = 3
 system_tags = 13
+icon_override = ExtResource("icon_ssnhp")

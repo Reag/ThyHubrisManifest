@@ -1,9 +1,11 @@
 [gd_resource type="Resource" format=3]
 
 [ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_quarantine/action_quarantine.gd" id="1_action_script"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/action_lockdown.svg" id="icon_ckdown"]
 
 [resource]
 script = ExtResource("1_action_script")
 usage_group = &"quarantine_lockdown"
 is_invade = true
 lock_buff = &"buff_lockdown"
+icon_override = ExtResource("icon_ckdown")

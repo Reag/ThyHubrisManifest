@@ -236,6 +236,27 @@ func test_draugr_rows_link_their_own_actions():
 			assert_true(processed.bbcoded.contains('{"kit":"%s"}' % kit_id), '%s renders a kit link for %s.' % [row, kit_id])
 			assert_true(tr('%s.name' % key) != '%s.name' % key, 'And the linked key has a name row.')
 
+func test_every_draugr_kit_action_and_visible_buff_has_an_icon():
+	# Icons drawn 2026-09-10 in the vanilla language (specs/2026-09-10-icon-language.md). A kit or
+	# action without icon_override falls back to the generic glyph; a visible buff without `icon`
+	# does the same. Hidden buffs (hide_from_player) need none.
+	var kits:Array[StringName] = [&'mt_raging_plague', &'mt_seeping_rot', &'mt_spreading_stain', &'cp_cupiditas_vitae',
+		&'mt_plague_fog', &'ms_disease', &'ms_root', &'ms_quarantine', &'ms_carrion_beast', &'ms_pestilence_class_nhp',
+		&'mw_injector_drill']
+	for kit_id:StringName in kits:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): fail_test('%s resolves.' % kit_id); continue
+		assert_not_null(kit.icon_override, '%s has an icon.' % kit_id)
+		for action:Action in kit.actions:
+			if not action.show_in_tooltip(kit): continue
+			if kit.actions.size() == 1: continue # a lone action wears the kit icon
+			assert_not_null(action.icon_override, '%s: %s has its own icon.' % [kit_id, action.resource_path.get_file()])
+	for buff_id:StringName in [&'buff_infection', &'buff_spreader', &'buff_isolation', &'buff_lockdown']:
+		var buff:Buff = ContentLibrary.get_buff(buff_id)
+		if not (is_instance_valid(buff) and buff is Buff): fail_test('%s resolves.' % buff_id); continue
+		assert_false(buff.hide_from_player, '%s is player-facing.' % buff_id)
+		assert_not_null(buff.icon, '%s has an icon.' % buff_id)
+
 func test_atrophy_rows_carry_the_automatic_warning():
 	# Author request 2026-09-10: the reaction fires automatically (engine limitation, design D4), and
 	# the player is told so in red on both the kit and the action.

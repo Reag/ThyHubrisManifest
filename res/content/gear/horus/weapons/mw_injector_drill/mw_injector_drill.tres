@@ -3,8 +3,10 @@
 [ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_action"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/weapons/mw_injector_drill/action_injector_drill.tres" id="3_drill"]
+[ext_resource type="Texture2D" path="res://assets/icons/actions/weapons/mw_combat_drill.svg" id="icon_drill"]
 
 [resource]
 script = ExtResource("2_kit")
 actions = Array[ExtResource("1_action")]([ExtResource("3_drill")])
 charges_max = 4
+icon_override = ExtResource("icon_drill")

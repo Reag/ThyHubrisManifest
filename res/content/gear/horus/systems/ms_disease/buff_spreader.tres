@@ -1,9 +1,11 @@
 [gd_resource type="Resource" format=3]
 
 [ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_disease/buff_spreader.gd" id="1_spreader"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/buff_spreader.svg" id="icon_reader"]
 
 [resource]
 script = ExtResource("1_spreader")
 applies_statuses = Array[StringName]([&"slowed"])
 triggers_on = Array[StringName]([&"step", &"new_turn"])
 log_on_application = true
+icon = ExtResource("icon_reader")

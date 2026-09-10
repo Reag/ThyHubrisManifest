@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://df1yicp7kbf3x" path="res://engine/character/gear_action/resources/target_requirements.gd" id="3_target_requirements"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/dep_plague_fog.tres" id="4_dep_plague_fog"]
 [ext_resource type="PackedScene" path="res://unpacked/Reag-ThyHubris/res/content/fx_groups/actions/fxg_plague_vent.tscn" id="5_fxg_vent"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/action_plague_vent_dispersal.svg" id="icon_persal"]
 
 [sub_resource type="Resource" id="Resource_plague_vent_preview"]
 script = ExtResource("2_range_pattern")
@@ -26,3 +27,4 @@ consumes_cp = true
 usage_group = &"plague_vent_dispersal"
 target_requirements_override = SubResource("Resource_plague_vent_targeting")
 fxg_target = ExtResource("5_fxg_vent")
+icon_override = ExtResource("icon_persal")
