@@ -52,12 +52,16 @@ gear.mw_injector_drill.effect,"You may attack with this weapon without expending
 gear.mw_injector_drill.on_hit,"You may expend a charge to use |Invade| or a |Quick Tech| as a |free action| against the target. The tech attack may target |EVASION| instead, or replace a |SYSTEMS save| with an |ENGINEERING save|."
 gear.mw_injector_drill.flavor,
 gear.ms_quarantine.name,Quarantine
-gear.ms_quarantine.effect,"Gain the |Alone| and |Together| |Quick Tech| options."
+gear.ms_quarantine.effect,"Gain the |Isolation| and |Lockdown| options for |Invade|. Each may be used 1/round."
 gear.ms_quarantine.flavor,
-gear.ms_quarantine.action_alone.name,Alone
-gear.ms_quarantine.action_alone.effect,"Choose a character within |SENSORS| and |line of sight|. They must make a |SYSTEMS save|; on a failure, they cannot benefit from allied tech actions, cannot trigger any of their allies' |reactions|, and are not considered |adjacent| to any character. This lasts until the target makes a |SYSTEMS| check as a |quick action|."
-gear.ms_quarantine.action_together.name,Together
-gear.ms_quarantine.action_together.effect,"Choose a character within |SENSORS| and |line of sight|. They must make a |SYSTEMS save|; on a failure, they are considered |adjacent| to any other character within |RANGE 2| for the purpose of passive effects. Actions that require adjacency (such as |Grapple|) are unaffected. This lasts until the target makes a |SYSTEMS| check as a |quick action|."
+gear.ms_quarantine.action_isolation.name,Isolation
+gear.ms_quarantine.action_isolation.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat| and cannot take |reactions| until the end of their next turn."
+gear.ms_quarantine.action_lockdown.name,Lockdown
+gear.ms_quarantine.action_lockdown.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat| and cannot take |Quick Tech| or |Full Tech| actions until the end of their next turn."
+gear.buff_isolation.name,Isolated
+gear.buff_isolation.effect,"Cannot take |reactions| until the end of your next turn."
+gear.buff_lockdown.name,Locked Down
+gear.buff_lockdown.effect,"Cannot take |Quick Tech| or |Full Tech| actions until the end of your next turn."
 gear.ms_carrion_beast.name,Carrion Beast
 gear.ms_carrion_beast.effect,"When targeting characters with |INFECTION|, your |SENSORS| increase by 5. Gain the |Atrophy| reaction."
 gear.ms_carrion_beast.flavor,
