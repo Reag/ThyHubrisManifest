@@ -36,9 +36,11 @@ func give_buff(target:Unit, until:Lancer.UNTIL) -> BuffCore:
 	effect.until = until
 	return UnitCondition.apply_buff(SpecFactory.dummy_event({unit = target}), target, effect)
 
+## Applies via UnitCondition directly and returns what it hands back, rather than SpecFactory.apply
+## (which discards it) + UnitCondition.get_status (which only ever returns the FIRST match of a
+## type - useless once a test needs to hold a SECOND instance of the same status and source).
 func give_status(target:Unit, until:Lancer.UNTIL) -> StatusCondition:
-	SpecFactory.apply(target, Lancer.STATUS.IMPAIRED, until, 'spec_source')
-	return UnitCondition.get_status(target, Lancer.STATUS.IMPAIRED)
+	return UnitCondition.apply_status(SpecFactory.dummy_event({unit = target}), target, Lancer.STATUS.IMPAIRED, until, 'spec_source')
 
 ## End a turn with the Infection check FAILING, so the Infection (and therefore the links) survives.
 func survive_a_turn() -> void:
@@ -125,3 +127,33 @@ func test_a_manual_buff_is_linked_without_being_walked_backwards():
 	await survive_a_turn()
 	assert_true(unit.state.buffs.has(effect), 'Still there, as MANUAL always would be.')
 	assert_eq(effect.turn_count, 1, 'And its turn_count only ever went up, the normal way.')
+
+func test_a_second_status_of_the_same_type_and_source_is_linked_too():
+	# apply_status appends a fresh StatusCondition every call; both must be MANUAL and both must
+	# go when the Infection does, or the second one outlives it (Spreader re-slows across rounds).
+	await infect(unit, 1)
+	var first := give_status(unit, Lancer.UNTIL.END_OF_NEXT_TURN)
+	assert_true(InfectionLinks.link(unit, first), 'First link.')
+	var second := give_status(unit, Lancer.UNTIL.END_OF_NEXT_TURN)
+	assert_true(InfectionLinks.link(unit, second), 'Second link.')
+	assert_eq(second.until, Lancer.UNTIL.MANUAL, 'The second instance was switched to MANUAL too.')
+	Infection.clear(SpecFactory.dummy_event({unit = unit}), unit)
+	assert_false(unit.has_status(Lancer.STATUS.IMPAIRED), 'Both IMPAIRED instances went with the Infection.')
+
+func test_an_effect_on_another_unit_cannot_be_linked():
+	var other := SpecFactory.create_unit(game.map, Vector2i(2, 2))
+	await infect(unit, 1)
+	var foreign := give_status(other, Lancer.UNTIL.END_OF_NEXT_TURN)
+	assert_false(InfectionLinks.link(unit, foreign), 'Refused.')
+	assert_ne(foreign.until, Lancer.UNTIL.MANUAL, 'And not mutated.')
+
+func test_a_passed_check_clears_the_links_from_inside_the_buff():
+	# The in-play path: the end-of-turn Systems check passes, the buff clears itself inside
+	# activate, on_clear runs clear_all while the event block is live.
+	await infect(unit, 1)
+	var status := give_status(unit, Lancer.UNTIL.END_OF_NEXT_TURN)
+	assert_true(InfectionLinks.link(unit, status), 'Linked.')
+	Dice.CHEAT_ROLL_QUEUE.append(20)
+	await SpecFactory.pass_turn(game, unit)
+	assert_false(Infection.is_infected(unit), 'The check passed and cleared the Infection.')
+	assert_false(unit.has_status(Lancer.STATUS.IMPAIRED), 'And the linked status with it.')

@@ -40,20 +40,32 @@ static func is_linked(unit:Unit, effect) -> bool:
 # ---------------------------------------------------------------- linking
 
 ## Tie one effect's lifetime to this unit's Infection. Returns false when there is no Infection to
-## tie it to - the caller applies the Infection FIRST and then links.
+## tie it to - the caller applies the Infection FIRST and then links - or when `effect` is not even
+## on `unit` (a foreign effect is refused before anything mutates).
 ##
 ## A status is switched to MANUAL here and now: StatusCondition.until is per-instance
 ## (status_condition.gd:6, and unit_condition.gd:15-17 modifies these resources in place precisely
 ## because "they're all unique"), so nothing in clear_status_until (unit_condition.gd:350-362) can
 ## match it again. A buff cannot be touched the same way - Buff.until is on the SHARED resource
 ## (buff.gd:119) - so it is held open one turn at a time by extend_tracked, below.
+##
+## THE PER-INSTANCE CHANGE RUNS BEFORE THE DEDUPE RETURN. apply_status (unit_condition.gd:104-105)
+## appends a brand-new StatusCondition on every call, so a second SLOWED from the same gear shares
+## its record with the first: record_for cannot tell them apart. Returning early on the "already
+## bound" record - as the first cut of this function did - left that second instance on its original
+## `until`, so it outlived the Infection while the first one didn't. Setting `until` unconditionally,
+## every time this runs, fixes that without changing what gets recorded.
 static func link(unit:Unit, effect) -> bool:
+	# Array.has() on a TYPED array raises an engine validation error (not just false) when the value
+	# isn't even the right type - so check `is` before asking a typed array to `has()` the other kind.
+	var on_unit := (effect is StatusCondition and unit.state.statuses.has(effect)) or (effect is BuffCore and unit.state.buffs.has(effect))
+	if not on_unit: return false # not this unit's to link
 	var core := Infection.get_core(unit)
 	if not BuffCore.is_valid(core): return false
 	var record := record_for(effect)
 	if record.is_empty(): return false
+	if effect is StatusCondition: effect.until = Lancer.UNTIL.MANUAL # every call, even a repeat - see above
 	if core.get_state_string_array(LINKS_KEY).has(record): return true # already bound; one record only
-	if effect is StatusCondition: effect.until = Lancer.UNTIL.MANUAL
 	core.append_to_array_state(LINKS_KEY, record)
 	return true
 
@@ -96,6 +108,10 @@ static func extend_tracked(unit:Unit) -> void:
 ## Everything bound to the Infection ends with it. Called from buff_infection.gd's on_clear, which
 ## the engine runs while the Infection buff is still on the unit (unit_condition.gd:980) - clearing
 ## OTHER buffs from inside on_clear is vanilla's own move (buff_transfix_assassin_stunned.gd:23).
+##
+## Walks EVERY status matching a record, not just the first: a record is type+source, and a second
+## application of the same status from the same gear (apply_status, unit_condition.gd:104-105) shares
+## it, so `find_status`'s single match would leave a second SLOWED behind when the Infection clears.
 static func clear_all(event:EventCore, unit:Unit) -> void:
 	var core := Infection.get_core(unit)
 	if not BuffCore.is_valid(core): return
@@ -105,8 +121,8 @@ static func clear_all(event:EventCore, unit:Unit) -> void:
 			var buff := find_buff(unit, record.substr(5))
 			if BuffCore.is_valid(buff): linked_buffs.append(buff)
 			continue
-		var status := find_status(unit, record)
-		if status != null: UnitCondition.clear_specific_status(event, unit, status)
+		for status:StatusCondition in find_statuses(unit, record):
+			UnitCondition.clear_specific_status(event, unit, status)
 	core.state[LINKS_KEY] = [] as Array[String]
 	if not linked_buffs.is_empty(): UnitCondition.clear_buffs(event, unit, linked_buffs)
 
@@ -117,9 +133,16 @@ static func find_buff(unit:Unit, persistent_id:String) -> BuffCore:
 		if String(buff.persistent_id) == persistent_id: return buff
 	return null
 
+## First status matching a `status|type|source` record - an existence check, used where only "is
+## there still one of these" matters (extend_tracked). clear_all needs every match; use find_statuses.
 static func find_status(unit:Unit, record:String) -> StatusCondition:
+	var matches := find_statuses(unit, record)
+	return matches[0] if not matches.is_empty() else null
+
+static func find_statuses(unit:Unit, record:String) -> Array[StatusCondition]:
 	var parts := record.split('|')
-	if parts.size() != 3: return null
+	if parts.size() != 3: return []
+	var matches:Array[StatusCondition] = []
 	for status:StatusCondition in unit.state.statuses:
-		if String(status.type) == parts[1] and String(status.source) == parts[2]: return status
-	return null
+		if String(status.type) == parts[1] and String(status.source) == parts[2]: matches.append(status)
+	return matches
