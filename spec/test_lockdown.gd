@@ -28,6 +28,19 @@
 # an inert buff; the brief's other tests already carry one (test_an_invade_is_refused compares
 # before/after, test_a_locked_down_draugr_cannot_use_its_own_invades is end-to-end), so only these two
 # needed the addition. Test names and stated purposes are unchanged.
+#
+# THE FREE-ACTION PROBE (bug fix: buff_lockdown was catching FREE tech too - see buff_lockdown.gd's
+# header). Of the three vanilla FREE tech actions (all on ms_h0r_os_system_upgrade_iii), only
+# action_dimensional_emblems_deploy reads NONE with no extra setup: action_celestial_shackles_return and
+# action_dimensional_emblems_delete both gate on UnitAction.REASON.SPECIFIC (their own
+# is_available_to_activate) until something is actually deployed, which would mask FORBIDDEN behind
+# SPECIFIC either way and prove nothing about the buff. action_dimensional_emblems_deploy's own gate
+# (ActionSystemDeploy.is_available_to_activate) only checks INTANGIBLE and disable_while_deployed, both
+# clear on a fresh unit, so it is NONE unlocked and (before the fix) FORBIDDEN locked - a clean RED/GREEN.
+# It is also not reachable through GearCore.get_action() / the refusal() helper: it is invoked internally
+# by onhit_dimensional_emblems.gd rather than listed in the kit's own `actions` array
+# (ms_h0r_os_system_upgrade_iii.tres), so test_the_free_tech_deploy_is_allowed builds its own
+# SpecificAction from the loaded .tres instead of going through refusal().
 extends GutTest
 
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
@@ -41,6 +54,8 @@ const SYMPTOM := &'action_symptom'
 const MELEE := &'mw_tactical_melee_weapon'
 const FULL_TECH := &'ms_aggressive_system_sync' # excommunicate: a FULL ActionAttackTech
 const FULL_TECH_ACTION := &'action_excommunicate'
+const FREE_TECH := &'ms_h0r_os_system_upgrade_iii' # dimensional emblems / celestial shackles
+const FREE_TECH_DEPLOY_ACTION_PATH := 'res://content/gear/horus/systems/ms_h0r_os_system_upgrade_iii/dimensional_emblems/action_dimensional_emblems_deploy.tres'
 
 var game:Gamemaster
 var draugr:Unit
@@ -161,6 +176,18 @@ func test_the_lock_does_not_survive_the_draugrs_death():
 	await game.execute_event(&'event_unit_die', {unit = draugr})
 	assert_true(locks_on(target).is_empty(), 'The lock died with the unit that owned the gear that applied it.')
 	assert_eq(Infection.count(target), 2, 'Infection has no from_gear, and survives its source.')
+
+func test_the_free_tech_deploy_is_allowed():
+	# See "THE FREE-ACTION PROBE" above for why this is the action of the three that can prove the
+	# fix, and why it has to build its own SpecificAction rather than go through refusal().
+	var free_tech:GearCore = target.core.equip_system(FREE_TECH)
+	target.core.full_repair()
+	var deploy_action:Action = load(FREE_TECH_DEPLOY_ACTION_PATH)
+	var specific := SpecificAction.create(target, free_tech, deploy_action)
+	assert_eq(UnitAction.get_gear_unavailable_reason(specific), UnitAction.REASON.NONE, 'Available before (positive control: proves this probe is not blocked for some other reason).')
+	await lock_down(target)
+	assert_eq(UnitAction.get_gear_unavailable_reason(specific), UnitAction.REASON.NONE, 'Still available: it is FREE tech, not Quick or Full.')
+	assert_eq(refusal(target, &'ms_fragment_signal'), UnitAction.REASON.FORBIDDEN, 'Positive control: a Quick tech invade IS forbidden in this same test.')
 
 func test_isolation_and_lockdown_do_not_share_an_allowance():
 	# "Each may be used 1/round" - each, not one of them. Separate usage_groups
