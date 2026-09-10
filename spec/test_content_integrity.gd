@@ -123,6 +123,11 @@ func test_the_carrion_beast_is_registered_as_a_two_sp_system():
 	assert_eq(kit.sp_cost, 2, 'Two SP.')
 	assert_false(kit.is_trait, 'It is a real, destructible system.')
 	assert_true(kit.has_passive_type(PassiveBuffApplicator), 'It hands out the reach buff.')
+	# Task 3b: action_atrophy carries no behaviour of its own - it exists so Isolation's reaction gate
+	# has something to test (buff_atrophy.gd) - but it still has to be wired onto the Kit to be found.
+	var action_ids:Array[StringName] = []
+	for action:Action in kit.actions: action_ids.append(action.get_id())
+	assert_true(action_ids.has(&'action_atrophy'), 'The Atrophy reaction shell is registered on the Kit.')
 
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw

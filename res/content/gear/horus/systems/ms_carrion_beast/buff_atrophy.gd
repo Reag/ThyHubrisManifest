@@ -63,6 +63,20 @@ func check_if_passive_applies(core:BuffCore, context:Context) -> bool:
 
 	var gear:GearCore = draugr.get_gear(DraugrReach.KIT_ID)
 	if not GearCore.is_valid(gear) or not gear.is_intact(): return false
+
+	# TASK 3B: can_take_reactions above does not know Isolation exists. Isolation's "cannot take
+	# reactions" is UnitAction.get_gear_unavailable_reason's REASON.FORBIDDEN clause
+	# (unit_action.gd:157), which needs a context.action that IS an ActionReaction requiring a
+	# reaction point (buff_isolation.gd:22-23) - can_take_reactions is never handed one. action_atrophy
+	# exists purely so this question can be asked; it never activates on its own (see its own header).
+	# get_gear_unavailable_reason also re-checks intactness/PER_ROUND/etc for this action, all of which
+	# are harmlessly redundant with the checks already on this line, because action_atrophy never
+	# actually activates and so never advances its own counters.
+	var atrophy_action:Action = gear.get_action(&'action_atrophy')
+	if not Action.is_valid(atrophy_action): return false # fixture/content gap; fail closed
+	var atrophy_specific := SpecificAction.create(draugr, gear, atrophy_action)
+	if UnitAction.get_gear_unavailable_reason(atrophy_specific) != UnitAction.REASON.NONE: return false
+
 	return gear.get_uses_this_turn_alt(USAGE_GROUP) < 1
 
 ## The whole effect, minus the difficulty die that get_values already handed over. Runs from

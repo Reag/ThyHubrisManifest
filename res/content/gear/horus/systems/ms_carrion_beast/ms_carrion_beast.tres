@@ -6,6 +6,8 @@
 [ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="4_buff"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/buff_carrion_beast_reach.tres" id="5_reach"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/passive_atrophy.tres" id="6_atrophy"]
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="7_action"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/action_atrophy.tres" id="8_atrophy_action"]
 
 [sub_resource type="Resource" id="Resource_carrion_reach"]
 script = ExtResource("3_applicator")
@@ -14,4 +16,5 @@ applied_buffs = Array[ExtResource("4_buff")]([ExtResource("5_reach")])
 [resource]
 script = ExtResource("2_kit")
 passives = Array[ExtResource("1_passive")]([SubResource("Resource_carrion_reach"), ExtResource("6_atrophy")])
+actions = Array[ExtResource("7_action")]([ExtResource("8_atrophy_action")])
 sp_cost = 2

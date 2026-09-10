@@ -89,7 +89,6 @@ func test_the_aura_does_not_reach_beyond_sensors_plus_five():
 	var distant := _enemy_at(Vector2i(11, 0))
 	_settle()
 	assert_false(_has_atrophy(distant), 'Eleven tiles is outside Sensors 5 + 5.')
-	assert_true(_has_atrophy(_enemy_at(Vector2i(9, 0))) or true, 'Sanity: the far marker is a footprint test, not a reach test.')
 
 func test_the_draugr_never_carries_its_own_atrophy():
 	# applies_to_self = false (plan decision D6): the rules row says "the TARGET's INFECTION".
@@ -209,3 +208,77 @@ func test_the_marker_survives_its_own_consumption():
 	Dice.CHEAT_ROLL_QUEUE.append_array([10, 4])
 	await _check(victim)
 	assert_true(_has_atrophy(victim), 'Still marked.')
+
+# ---------------------------------------------------------------- the Draugr's own state (review)
+
+func test_atrophy_does_nothing_once_the_carrion_beast_is_destroyed():
+	# No test previously covered the "Draugr alive with the Kit intact" half of the gate
+	# (check_if_passive_applies's gear.is_intact() check). Positive control first, on a fresh
+	# infection count, so the second roll's outcome can only be explained by the destruction.
+	await _infect(victim, 3)
+	_settle()
+	Dice.CHEAT_ROLL_QUEUE.append_array([10, 4])
+	var passed_before:bool = await _check(victim)
+	assert_false(passed_before, 'Positive control: Atrophy still fires with the Carrion Beast intact.')
+	assert_eq(Infection.count(victim), 2, 'And reduced Infection, same as every other firing test.')
+
+	# A fresh turn restores the 1/turn allowance and the reaction, so intactness is the only thing
+	# that changed for the second roll.
+	await SpecFactory.start_turn(game, draugr)
+	draugr.get_gear(BEAST).is_destroyed = true
+
+	Dice.CHEAT_ROLL_QUEUE.append_array([10, 4])
+	var passed_after:bool = await _check(victim)
+	assert_true(passed_after, 'A destroyed Carrion Beast grants nothing: the check goes through untouched.')
+	assert_eq(Infection.count(victim), 2, 'No further reduction.')
+	assert_eq(Dice.CHEAT_ROLL_QUEUE.size(), 1, 'The difficulty die was never rolled.')
+
+func test_atrophy_does_nothing_once_the_draugr_is_dead():
+	# The other half of the same gate: draugr.is_on_map() (buff_atrophy.gd:55) is what "alive" means
+	# here. Same shape as the destruction test above, including the positive control.
+	await _infect(victim, 3)
+	_settle()
+	Dice.CHEAT_ROLL_QUEUE.append_array([10, 4])
+	var passed_before:bool = await _check(victim)
+	assert_false(passed_before, 'Positive control: Atrophy still fires while the Draugr is alive.')
+	assert_eq(Infection.count(victim), 2, 'And reduced Infection.')
+
+	await SpecFactory.start_turn(game, draugr)
+	await game.execute_event(&'event_unit_die', {unit = draugr})
+
+	Dice.CHEAT_ROLL_QUEUE.append_array([10, 4])
+	var passed_after:bool = await _check(victim)
+	assert_true(passed_after, 'A dead Draugr grants nothing: the check goes through untouched.')
+	assert_eq(Infection.count(victim), 2, 'No further reduction.')
+	assert_eq(Dice.CHEAT_ROLL_QUEUE.size(), 1, 'The difficulty die was never rolled.')
+
+# ---------------------------------------------------------------- isolation (Task 3b)
+
+func test_an_isolated_draugr_cannot_atrophy():
+	# The rules call Atrophy a reaction, and Isolation forbids reactions - but Atrophy had no Action
+	# of its own for Isolation's gate to test against. action_atrophy exists purely to close that gap
+	# (see its own header, and buff_atrophy.gd's Task 3b comment). A second, un-isolated Draugr/victim
+	# pair well out of the first Draugr's reach is the positive control, so this needs no
+	# turn-boundary bookkeeping to avoid Isolation itself expiring between rolls.
+	var control_draugr := SpecFactory.create_unit(game.map, Vector2i(0, 19), Faction.PLAYER)
+	control_draugr.core.frame.stat.sensor_range = 5
+	control_draugr.core.frame.stat.heat = 20
+	control_draugr.core.equip_system(BEAST)
+	SpecFactory.apply_passive_buffs(control_draugr)
+	control_draugr.core.current.heat = 0
+	var control_victim := _enemy_at(Vector2i(3, 19))
+
+	await _infect(victim, 2)
+	await _infect(control_victim, 2)
+	UnitCondition.apply_buff_id(SpecFactory.dummy_event(), draugr, &'buff_isolation')
+	_settle()
+
+	Dice.CHEAT_ROLL_QUEUE.append_array([10, 4])
+	var isolated_passed:bool = await _check(victim)
+	assert_true(isolated_passed, 'An Isolated Draugr cannot Atrophy.')
+	assert_eq(Infection.count(victim), 2, 'No reduction.')
+
+	Dice.CHEAT_ROLL_QUEUE.append_array([10, 4])
+	var control_passed:bool = await _check(control_victim)
+	assert_false(control_passed, 'Positive control: an un-isolated Draugr still Atrophies on the same seeded roll.')
+	assert_eq(Infection.count(control_victim), 1, 'And reduces Infection.')
