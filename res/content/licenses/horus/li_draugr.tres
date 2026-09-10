@@ -6,9 +6,12 @@
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="3_ifbo2"]
 [ext_resource type="Script" uid="uid://ctb1pfqlfgmni" path="res://engine/character/unit_core/unlock_rank.gd" id="4_uvbk7"]
 [ext_resource type="Resource" uid="uid://dgepxejy5pger" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres" id="5_t4sc1"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_disease/ms_disease.tres" id="6_disease"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_root/ms_root.tres" id="7_root"]
 
 [sub_resource type="Resource" id="Resource_bfyr2"]
 script = ExtResource("4_uvbk7")
+granted_gear = Array[ExtResource("3_ifbo2")]([ExtResource("6_disease"), ExtResource("7_root")])
 metadata/_custom_type_script = "uid://ctb1pfqlfgmni"
 
 [sub_resource type="Resource" id="Resource_pefjg"]

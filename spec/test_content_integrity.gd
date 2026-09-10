@@ -44,6 +44,38 @@ func test_draugr_license_grants_the_frame_at_rank_2():
 	assert_true(is_instance_valid(primary), 'Rank 2 grants a frame.')
 	if is_instance_valid(primary): assert_eq(primary.compcon_id, &'mf_draugr', 'That frame is the Draugr.')
 
+const DRAUGR_LICENSE_I := [&'ms_disease', &'ms_root']
+
+func test_draugr_license_grants_disease_and_root_at_rank_1():
+	# Design 2026-09-09-draugr-design.md section 4. Rank III stays empty until License III is built.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
+	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
+	if not is_instance_valid(license): return
+	var granted:Array[StringName] = []
+	for kit:Kit in license.rank_1.granted_gear: granted.append(kit.compcon_id)
+	assert_eq(granted, DRAUGR_LICENSE_I as Array[StringName], 'Rank I is Disease then Root.')
+
+func test_the_license_i_systems_are_registered_and_unique():
+	# A filename prefix decides the index, not the script class: ms_*.tres lands in resgrp_kits.
+	for kit_id:StringName in DRAUGR_LICENSE_I:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		assert_true(Kit.is_valid(kit), '%s is in the kits index.' % kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_eq(kit.sp_cost, 2, '%s costs 2 SP.' % kit_id)
+		assert_true(kit.is_unique(), '%s is Unique.' % kit_id)
+		assert_false(kit.is_trait, '%s is a real, destructible system.' % kit_id)
+
+func test_the_disease_invades_do_not_share_an_allowance():
+	# Same trap as the Kraken's and the Nuckelavee's: actions on one Kit default to a usage_group
+	# keyed on the gear id (gear_core.gd:166-168), so "each may be used 1/round" would come out as
+	# "one of them, once per round". Both options are 1/round in their own right.
+	var kit:Kit = ContentLibrary.get_kit(&'ms_disease')
+	if not Kit.is_valid(kit): return fail_test('ms_disease loaded.')
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Every invade option has its own usage_group.')
+	assert_eq(kit.actions.size(), 2, 'Symptom and Spreader.')
+
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw
 	# key and that is what renders in game.
