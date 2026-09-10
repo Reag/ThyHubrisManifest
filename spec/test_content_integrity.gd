@@ -161,6 +161,15 @@ func test_the_core_power_names_its_efficient_tag():
 	# The glossary term is only reachable through a |Efficient| label in some rule text.
 	assert_true(tr('gear.cp_cupiditas_vitae.effect').contains('|Efficient|'), 'CUPIDITAS VITAE says it is Efficient.')
 
+func test_infection_has_a_glossary_entry():
+	# Every Draugr row says |INFECTION|; without a registered term plus a .desc row the label is
+	# coloured but has no hover text (glossary_item.gd:199-208 refuses a key with no description).
+	# mod_main.register_glossary_terms appends the key; the CSV carries both rows. Matching is
+	# case-insensitive there, so |Infection| in the buff rows resolves to the same entry.
+	assert_eq(GlossaryItem.find_key_from_label('INFECTION'), 'lancer.term.infection',
+		'The signature term links to its own glossary entry.')
+	assert_eq(GlossaryItem.find_key_from_label('Infection'), 'lancer.term.infection', 'Either case.')
+
 func test_draugr_traits_are_localized():
 	# The three trait rows exist in localizations.csv but their values are still blank - the mod is
 	# v0.0.1 and this copy has not been written yet. Pending rather than failing: it is a real gap,

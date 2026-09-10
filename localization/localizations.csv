@@ -265,3 +265,5 @@ gear.mt_to_bend_reality.variant.name,Bend Reality
 gear.mt_to_bend_reality.variant.effect,"Draw range and line of sight through a tear. A bent line is fired as two attacks: the segment past the tear rolls separately and deals half damage, and a character standing on the bend is hit by both."
 lancer.term.efficient,Efficient
 lancer.term.efficient.desc,"An |efficient| ability refunds its |CORE POWER| at the end of any scene, so it is available again in the next one."
+lancer.term.infection,Infection
+lancer.term.infection.desc,"|INFECTION| works like |BURN|, but deals |heat| instead of damage. A character that takes INFECTION immediately takes that much heat and marks it down, stacking with any they already have. At the end of their turn they roll a |SYSTEMS| check: on a success they clear all INFECTION, otherwise they take heat equal to the amount marked. Anything that clears BURN, such as |Stabilize|, also clears INFECTION."

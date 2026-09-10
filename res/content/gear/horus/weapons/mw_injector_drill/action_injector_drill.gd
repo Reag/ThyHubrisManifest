@@ -10,11 +10,10 @@
 # ("without expending"). Vanilla's precedents are one line each - action_turret_attack.gd:11,
 # action_recall.gd:43, action_redeploy.gd:42.
 #
-# THE SECOND SENTENCE IS A KNOWN, RECORDED GAP. UnitPrinter.get_destructable_gear
-# (unit_printer.gd:311-320) requires gear.has_charges_left(), so an empty drill is not offered as a
-# destruction target, and no mod-side seam on unit_printer.gd has been proven live
-# (memory lancer-tactics-dead-extension-seams). Design 2026-09-09-draugr-design.md section 5 accepts
-# it for now; spec/test_injector_drill.gd asserts the current behaviour so the gap cannot be forgotten.
+# THE SECOND SENTENCE LIVES ELSEWHERE. UnitPrinter.get_destructable_gear (unit_printer.gd:311-320)
+# requires gear.has_charges_left(), so vanilla would never offer an empty drill as a destruction
+# target; res/engine/character/unit/service/unit_printer.gd_ext.gd whitelists this kit past that check
+# (seam proven live on 1.4.0, 2026-09-10; spec/test_injector_drill.gd's zero-charges test is the proof).
 #
 # The charges are spent by hand in on_hit (task 2).
 extends ActionAttackWeapon
