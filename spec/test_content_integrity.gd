@@ -86,6 +86,20 @@ func test_the_injector_drill_is_registered_as_a_limited_weapon():
 	assert_true(kit.actions[0] is ActionAttackWeapon, 'And it is a weapon attack.')
 	assert_true(kit.is_destructable(), 'It is a real, destructible weapon.')
 
+func test_quarantine_is_registered_and_its_invades_do_not_share_an_allowance():
+	# Same trap as Disease's: actions on one Kit default to a usage_group keyed on the gear id
+	# (gear_core.gd:166-168), so "each may be used 1/round" would come out as "one of them, once per
+	# round". Both options are 1/round in their own right.
+	var kit:Kit = ContentLibrary.get_kit(&'ms_quarantine')
+	assert_true(Kit.is_valid(kit), 'ms_quarantine is in the kits index.')
+	if not Kit.is_valid(kit): return
+	assert_eq(kit.sp_cost, 2, 'Two SP.')
+	assert_true(kit.is_unique(), 'Unique.')
+	assert_eq(kit.actions.size(), 2, 'Isolation and Lockdown.')
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Every invade option has its own usage_group.')
+
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw
 	# key and that is what renders in game.
