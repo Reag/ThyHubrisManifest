@@ -76,6 +76,16 @@ func test_the_disease_invades_do_not_share_an_allowance():
 	assert_eq(groups.size(), kit.actions.size(), 'Every invade option has its own usage_group.')
 	assert_eq(kit.actions.size(), 2, 'Symptom and Spreader.')
 
+func test_the_injector_drill_is_registered_as_a_limited_weapon():
+	# A filename prefix decides the index, not the script class: mw_*.tres lands in resgrp_kits.
+	var kit:Kit = ContentLibrary.get_kit(&'mw_injector_drill')
+	assert_true(Kit.is_valid(kit), 'mw_injector_drill is in the kits index.')
+	if not Kit.is_valid(kit): return
+	assert_eq(kit.charges_max, 4, 'Limited 4.')
+	assert_eq(kit.actions.size(), 1, 'One attack profile.')
+	assert_true(kit.actions[0] is ActionAttackWeapon, 'And it is a weapon attack.')
+	assert_true(kit.is_destructable(), 'It is a real, destructible weapon.')
+
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw
 	# key and that is what renders in game.
