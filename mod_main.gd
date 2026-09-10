@@ -8,6 +8,7 @@ const MOD_LIBRARY_140 := 'res://engine/mod/mod_library.gd' # exists only on 1.4.
 const EXTENDED_AUTOLOADS := {
 	&'UnitRelation': 'res://engine/character/unit/service/unit_relation.gd',
 	&'UnitTile': 'res://engine/character/unit/service/unit_tile.gd',
+	&'UnitPrinter': 'res://engine/character/unit/service/unit_printer.gd',
 }
 
 # 1.4.0 workaround #2 (see reapply_scene_extensions_140 below)

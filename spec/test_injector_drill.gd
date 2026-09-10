@@ -7,12 +7,12 @@
 # is read at unit_action.gd:153 (refuse with REASON.NO_CHARGES when empty - "without requiring") and at
 # unit_action.gd:274 (spend one on every use - "without expending"). Task 2 spends them by hand instead.
 #
-# THE SECOND SENTENCE IS NOT IMPLEMENTED AND CANNOT BE FROM A MOD. UnitPrinter.get_destructable_gear
-# (unit_printer.gd:311-320) requires gear.has_charges_left(), so a drill at 0 charges is not offered as
-# a destruction target. test_a_drill_at_zero_charges_is_not_destructible_yet ASSERTS THE WRONG
-# BEHAVIOUR on purpose, so that the day a unit_printer.gd_ext.gd probe closes the gap, this test fails
-# loudly instead of the gap being forgotten (design section 5; memory lancer-tactics-dead-extension-seams
-# lists unit_printer.gd as an unproven seam).
+# THE SECOND SENTENCE lives in res/engine/character/unit/service/unit_printer.gd_ext.gd: vanilla's
+# UnitPrinter.get_destructable_gear (unit_printer.gd:311-320) requires gear.has_charges_left(), and
+# the extension whitelists the drill past that check. test_a_drill_at_zero_charges_is_still_destructible
+# is the liveness probe for that seam (proven 2026-09-10 on 1.4.0; it needs mod_main.gd's
+# EXTENDED_AUTOLOADS reload), and the Stub Cannon test beside it proves the whitelist changes nothing
+# else.
 #
 # DICE (plan section B7): a weapon attack crits on a natural 20 and doubles its damage roll, so this
 # file seeds a uniform 4 - a hit against evasion -10, never a crit, and every damage die a 4, making
@@ -99,10 +99,19 @@ func test_the_drill_attacks_with_no_charges_left():
 func test_a_drill_with_charges_is_destructible():
 	assert_eq(UnitPrinter.get_destructable_gear([drill]).size(), 1, 'A licensed weapon can be shot off.')
 
-func test_a_drill_at_zero_charges_is_not_destructible_yet():
-	# DELIBERATELY ASSERTING THE GAP (see this file's header). The rules text promises the opposite;
-	# unit_printer.gd:311-320 gates destructability on has_charges_left() and no mod-side seam has been
-	# proven to reach it. If this test ever fails, the gap is CLOSED - delete the test, do not "fix" it.
+func test_a_drill_at_zero_charges_is_still_destructible():
+	# "it can be destroyed even with no charges remaining." Vanilla's UnitPrinter.get_destructable_gear
+	# (unit_printer.gd:311-320) gates on has_charges_left(), so this assertion can ONLY pass if the
+	# mod's unit_printer.gd_ext.gd override is live - it is the liveness probe for that seam as well as
+	# the rules test (memory lancer-tactics-dead-extension-seams: the install log proves nothing).
 	drill.charges_current = 0
-	assert_eq(UnitPrinter.get_destructable_gear([drill]).size(), 0,
-		'Known gap: the engine will not offer an empty Limited weapon as a destruction target.')
+	assert_eq(UnitPrinter.get_destructable_gear([drill]).size(), 1,
+		'An empty drill is still a destruction target.')
+
+func test_other_limited_gear_at_zero_charges_stays_non_destructible():
+	# The override is a whitelist, not a rule change: vanilla Limited gear keeps vanilla behaviour.
+	var stub:GearCore = draugr.core.equip_system(&'mw_stub_cannon')
+	stub.charges_current = 0
+	assert_eq(UnitPrinter.get_destructable_gear([stub]).size(), 0,
+		'A vanilla Limited weapon with no charges is not offered, exactly as before.')
+	assert_eq(UnitPrinter.get_destructable_gear([drill, stub]).size(), 1, 'Only the drill.')
