@@ -40,7 +40,7 @@ gear.ms_disease.flavor,
 gear.ms_disease.action_symptom.name,Symptom
 gear.ms_disease.action_symptom.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat|. Choose one tech effect currently affecting the target that lasts until the end of their next turn (other than |STUNNED|). That effect instead lasts until the target clears |INFECTION|."
 gear.ms_disease.action_spreader.name,Spreader
-gear.ms_disease.action_spreader.effect,"Your target takes 1 |INFECTION| and is |SLOWED| for as long as they have |INFECTION|. While they have |INFECTION|, any character that starts their turn |adjacent| to the target, or moves adjacent to them for the first time in a round, must make a |SYSTEMS| check or take 1 |INFECTION|."
+gear.ms_disease.action_spreader.effect,"Your target takes 1 |INFECTION| in addition to |Invade|'s normal |heat|, and is |SLOWED| for as long as they have |INFECTION|. While they have |INFECTION|, any character that starts their turn |adjacent| to the target, or moves adjacent to them for the first time in a round, must make a |SYSTEMS| check or take 1 |INFECTION|."
 gear.ms_root.name,Root
 gear.ms_root.effect,"Gain the |Dig In| reaction."
 gear.ms_root.flavor,
@@ -79,6 +79,7 @@ gear.ms_pestilence_class_nhp.action_kill_host.effect,"Take 2 |heat|. All targets
 Targets then clear all |INFECTION|."
 gear.ms_pestilence_class_nhp.action_kill_host.option_impair,"Targets become |IMPAIRED| until the end of their next turn, or |JAMMED| if they have at least 3 |INFECTION|."
 gear.ms_pestilence_class_nhp.action_kill_host.option_slow,"Targets become |SLOWED| until the end of their next turn, or |PRONE| and |IMMOBILIZED| if they have at least 3 |INFECTION|."
+bark.nhp_pestilence,PESTILENCE
 ,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)

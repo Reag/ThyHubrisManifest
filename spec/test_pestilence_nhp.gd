@@ -56,6 +56,24 @@ func test_the_nhp_takes_its_default_portrait():
 	assert_true(unit.core.pilot.nhp_portrait_json.get('is_stock', false),
 		'Shipped as stock, so a later NHP can replace it (plan decision D11).')
 
+func test_the_nhp_has_its_own_barkset():
+	# bark_nhp_pestilence.tres is an empty BarkSet (is_nhp, no custom lines): its lines are the
+	# bark.nhp_pestilence.<incident>.<n> CSV rows the author fills in later, and an incident with no
+	# rows falls back to bark_unknown (bark_set.gd get_bark_for, DEFAULT BARKS), so shipping it
+	# empty is safe. The Kit points at it the way ms_scylla_class_nhp.tres points at Scylla's.
+	var barkset:BarkSet = ContentLibrary.get_barkset(&'bark_nhp_pestilence')
+	assert_true(BarkSet.is_valid(barkset), 'bark_nhp_pestilence is in the barks index (**/bark_*.tres).')
+	if not BarkSet.is_valid(barkset): return
+	assert_true(barkset.is_nhp, 'Flagged as an NHP barkset.')
+	var kit:Kit = ContentLibrary.get_kit(NHP)
+	var privilege:PassiveAiPrivilege = kit.passives[0]
+	assert_eq(privilege.default_barkset, barkset, 'The PESTILENCE Kit hands this barkset to its pilot.')
+	unit.core.pilot.nhp_barks = null
+	unit.core.full_repair()
+	assert_true(BarkSet.is_valid(unit.core.pilot.nhp_barks), 'The pilot adopted a barkset on equip.')
+	if BarkSet.is_valid(unit.core.pilot.nhp_barks):
+		assert_eq(unit.core.pilot.nhp_barks.compcon_id, &'bark_nhp_pestilence', 'And it is this one.')
+
 func test_the_portrait_actually_deserializes():
 	# A malformed or too-old json would be refused at portrait_sandwich_core.gd:131-132 and the mech
 	# would render with a blank face and no error the player could act on.
