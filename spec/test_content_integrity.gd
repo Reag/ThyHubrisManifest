@@ -113,6 +113,17 @@ func test_quarantine_is_registered_and_its_invades_do_not_share_an_allowance():
 	for action:Action in kit.actions: groups[action.usage_group] = true
 	assert_eq(groups.size(), kit.actions.size(), 'Every invade option has its own usage_group.')
 
+func test_the_carrion_beast_is_registered_as_a_two_sp_system():
+	# A filename prefix decides the index, not the script class: ms_*.tres lands in resgrp_kits.
+	# Design 2026-09-09-draugr-design.md section 6 gives it 2 SP and does NOT make it Unique, unlike
+	# Disease, Root and Quarantine - the tags on this one are deliberately empty.
+	var kit:Kit = ContentLibrary.get_kit(&'ms_carrion_beast')
+	assert_true(Kit.is_valid(kit), 'ms_carrion_beast is in the kits index.')
+	if not Kit.is_valid(kit): return
+	assert_eq(kit.sp_cost, 2, 'Two SP.')
+	assert_false(kit.is_trait, 'It is a real, destructible system.')
+	assert_true(kit.has_passive_type(PassiveBuffApplicator), 'It hands out the reach buff.')
+
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw
 	# key and that is what renders in game.
