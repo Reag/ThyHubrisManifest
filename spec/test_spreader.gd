@@ -60,6 +60,16 @@ func test_spreader_applies_one_infection_and_the_slow():
 	assert_true(target.has_status(Lancer.STATUS.SLOWED), 'And it is slowed.')
 	assert_false(UnitCondition.get_buffs(target, SPREADER_BUFF).is_empty(), 'By buff_spreader.')
 
+func test_the_victims_tooltip_speaks_to_the_victim():
+	# Author polish item 2026-09-10: the buff used to borrow the Spreader ACTION text, so the victim
+	# read "Your target takes 1 Infection..." on its own status bar. It now has its own rows.
+	await spread_onto(target)
+	var buffs := UnitCondition.get_buffs(target, SPREADER_BUFF)
+	if buffs.is_empty(): return fail_test('buff_spreader landed.')
+	assert_eq(buffs[0].name_text(), tr('gear.buff_spreader.name'), 'Named from its own row.')
+	assert_true(tr('gear.buff_spreader.effect').begins_with('You are'), 'Effect text in the second person.')
+	assert_false(tr('gear.buff_spreader.effect').contains('Your target'), 'Not the attacker voice.')
+
 func test_spreader_keeps_the_invades_own_two_heat():
 	await spread_onto(target)
 	assert_eq(target.core.current.heat, 3, "2 from the invade plus 1 from the Infection; Spreader's text does not replace the heat.")

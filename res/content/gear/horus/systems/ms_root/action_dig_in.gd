@@ -49,6 +49,17 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	# only involuntary movement
 	if not MovementType.is_valid(triggering_context.resource): return false
 	if triggering_context.resource.voluntary: return false
+	# ...and only FORCED movement in the core rulebook's sense (knockback, pull, drag, harpoon, ram).
+	# The engine tags more than that as "not voluntary" - the Goblin's Puppet System
+	# (action_puppet_system.gd:8 "counts as involuntary!!"), teleports (event_unit_teleport.gd:26),
+	# mounting up (action_mount_up.gd:56) - but the rulebook does not call those forced movement, and
+	# the author ruled (2026-09-10) that they never prompt. The discriminator is the raw ignore_rxns
+	# flag: MovementType.create_for_involuntary (movement_type.gd:63-71) sets it, and every content
+	# caller that pushes, pulls or drags a unit goes through that constructor; the three above do not.
+	# Friendly forced movement DOES prompt (same ruling; Flash Anchor's hostile-only filter is not
+	# copied). The raw flag, not ignores_reactions(): that method is true for ALL involuntary movement
+	# (movement_type.gd:101-102), which is exactly what the engine and the rulebook disagree on.
+	if not triggering_context.resource.ignore_rxns: return false
 	# mandatory movement cannot be dug in against. NOTE: deliberately NOT
 	# MovementType.is_contextual_move_reactable (movement_type.gd:124-126) - ignores_reactions() is
 	# true for ALL involuntary movement (:101-102), which is precisely what this reacts to. That

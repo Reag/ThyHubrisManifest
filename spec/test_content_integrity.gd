@@ -172,6 +172,8 @@ const DRAUGR_LICENSE_KEYS := [
 	'gear.ms_disease.name', 'gear.ms_disease.effect',
 	'gear.ms_disease.action_symptom.name', 'gear.ms_disease.action_symptom.effect',
 	'gear.ms_disease.action_spreader.name', 'gear.ms_disease.action_spreader.effect',
+	'gear.buff_spreader.name', 'gear.buff_spreader.effect',
+	'gear.buff_infection.eot.log', 'gear.ms_stabilize.burn.infection.effect',
 	'gear.ms_root.name', 'gear.ms_root.effect',
 	'gear.ms_root.action_dig_in.name', 'gear.ms_root.action_dig_in.effect', 'gear.ms_root.action_dig_in.trigger',
 	'gear.mw_injector_drill.name', 'gear.mw_injector_drill.effect', 'gear.mw_injector_drill.on_hit',

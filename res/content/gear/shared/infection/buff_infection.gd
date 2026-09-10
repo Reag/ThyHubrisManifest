@@ -30,6 +30,13 @@ const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/share
 const PlagueFog := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/plague_fog.gd')
 const InfectionLinks := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection_links.gd')
 
+## The end-of-turn heat lands through a bare event_unit_damage, which logs as unlabelled heat - a
+## player could not tell it from the Draugr's Seeping Rot. One labelled line ahead of it, the way
+## vanilla's Burn resolution is legible in the log (author polish item, 2026-09-10). battle_log is
+## Buff's own static (buff.gd); redeclaring it here is a parse error that takes the buff down.
+func log_failed_check(unit:Unit) -> void:
+	battle_log.log_unit(&'gear.buff_infection.eot.log', unit, {count = Infection.count(unit)})
+
 func name_text(core:BuffCore) -> String:
 	return Translate.buff(core, 'name.count').format({count = core.get_state(Infection.COUNT_KEY, 0)})
 
@@ -73,6 +80,7 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 	# "automatically fail" means - and it keeps the CHECK_FLAG marker out of a roll that never
 	# happens. Falls through to the normal failure handling below.
 	if PlagueFog.auto_fails_infection_check(unit):
+		log_failed_check(unit)
 		await activation.execute_event(&'event_unit_damage', {
 			unit = unit,
 			number = Infection.count(unit),
@@ -89,6 +97,7 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 	if passed:
 		Infection.clear(activation, unit)
 		return
+	log_failed_check(unit)
 	await activation.execute_event(&'event_unit_damage', {
 		unit = unit,
 		number = Infection.count(unit),
@@ -101,8 +110,8 @@ func activate(core:BuffCore, activation:EventCore) -> void:
 ## (buff.gd:176-178), which is why clear_all is synchronous.
 ## The miasma scales with the count the way Burn's flames scale with burn: fxe_infected.tscn runs
 ## vanilla fxe_burning.gd, which reads `ticket.context.number` as the intensity
-## (content/fx_endless/character/fxe_burning.gd). Infection.mark/reduce call unit.update_attached_fx()
-## after every count change so the ticket is rebuilt with the new number.
+## (content/fx_endless/character/fxe_burning.gd). Infection.mark/reduce end with unit.update_token(),
+## which refreshes the attached fx (unit.gd:165-169), so the ticket is rebuilt with the new number.
 func get_attached_fx(core:BuffCore, unit:Unit) -> Array[FxEndless.Ticket]:
 	var fxe_id := get_fxe_id()
 	if fxe_id == &'': return []

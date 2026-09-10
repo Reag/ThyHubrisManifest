@@ -19,7 +19,9 @@ func get_alternate_actions(specific:SpecificAction, action_flags:Array = []) -> 
 		for variant:VariantAction in group.list:
 			if variant.key != &'burn': continue
 			variant.is_disabled = false
-			variant.desc = tr('gear.ms_stabilize.burn.effect')
+			# The mod's own row: vanilla's says "clear any burn", which reads as a no-op to a unit
+			# with Infection and no Burn (author polish item, 2026-09-10).
+			variant.desc = tr('gear.ms_stabilize.burn.infection.effect')
 		# vanilla adds "skip" only when every secondary is disabled; burn is live now, so drop it
 		for i:int in range(group.list.size() - 1, -1, -1):
 			if group.list[i].key == &'skip_secondary': group.list.remove_at(i)

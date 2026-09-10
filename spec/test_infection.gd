@@ -147,6 +147,9 @@ func test_stabilize_offers_burn_clearing_to_an_infected_unit_without_burn():
 			if variant.key == &'burn': burn_variant = variant
 	assert_not_null(burn_variant, 'The burn variant is listed.')
 	if burn_variant != null: assert_false(burn_variant.is_disabled, 'And offered, because the unit is infected.')
+	if burn_variant != null:
+		assert_eq(burn_variant.desc, tr('gear.ms_stabilize.burn.infection.effect'),
+			'Its description says it clears Infection too, not vanilla "clear any burn".')
 
 func test_stabilizing_away_infection_without_burn_works_end_to_end():
 	await infect(unit, 2)

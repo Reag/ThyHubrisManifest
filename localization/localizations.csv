@@ -10,6 +10,8 @@ gear.buff_infection.effect,"|INFECTION| works like |burn|, but deals |heat| inst
 A character that takes |INFECTION| immediately takes that much |heat| and marks it down; more |INFECTION| stacks on top of what they already have. At the end of their turn, an infected character rolls a |Systems| check: on a success they clear all |INFECTION|, otherwise they take |heat| equal to the amount marked.
 Anything that clears |burn|, such as |Stabilize=gear.ms_stabilize|, also clears |INFECTION|."
 gear.buff_infection.name.count,"Infection ({count})"
+gear.buff_infection.eot.log,"{unit} failed to shake off |INFECTION| and takes {count} heat."
+gear.ms_stabilize.burn.infection.effect,"Clear any |burn| and all |INFECTION| currently affecting your mech."
 gear.mt_spreading_stain.name,The Spreading Stain
 gear.mt_spreading_stain.effect,"1/round, on a |critical hit| against a target with |INFECTION|, the Draugr may apply 1 |INFECTION| to another character within |sensors|."
 gear.mt_spreading_stain.trigger,"You critically hit a target with |INFECTION|"
@@ -41,6 +43,8 @@ gear.ms_disease.action_symptom.name,Symptom
 gear.ms_disease.action_symptom.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat|. Choose one tech effect currently affecting the target that lasts until the end of their next turn (other than |stunned|). That effect instead lasts until the target clears |INFECTION|."
 gear.ms_disease.action_spreader.name,Spreader
 gear.ms_disease.action_spreader.effect,"Your target takes 1 |INFECTION| in addition to |Invade|'s normal |heat|, and is |slowed| for as long as they have |INFECTION|. While they have |INFECTION|, any character that starts their turn |adjacent| to the target, or moves adjacent to them for the first time in a round, must make a |Systems| check or take 1 |INFECTION|."
+gear.buff_spreader.name,Spreading
+gear.buff_spreader.effect,"You are |slowed| for as long as you have |INFECTION|. While you have |INFECTION|, any character that starts their turn |adjacent| to you, or moves adjacent to you for the first time in a round, must make a |Systems| check or take 1 |INFECTION|."
 gear.ms_root.name,Root
 gear.ms_root.effect,"Gain the |Dig In=gear.ms_root.action_dig_in| |reaction|."
 gear.ms_root.flavor,

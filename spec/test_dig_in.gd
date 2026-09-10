@@ -119,6 +119,59 @@ func test_the_damage_is_flagged_self_inflicted():
 	await SpecFactory.damage(game, digger, 3, Lancer.DAMAGE_TYPE.KINETIC)
 	assert_eq(before - health_of(digger), 1, 'The very same cap flattens an ordinary hit.')
 
+## The Goblin's Puppet System moves its target with a MovementType that is not voluntary but is NOT
+## forced either: vanilla builds it from movementtype_puppet_system.tres merged with
+## MovementType.create(target, false) (action_puppet_system.gd:6-8), and that resource overrides
+## ignores_reactions() so the move is not treated as a knockback. Dig In keys on the raw ignore_rxns
+## flag that only MovementType.create_for_involuntary sets, so a puppeted Draugr walks.
+func puppet(victim:Unit, spaces:int) -> void:
+	var puppet_type:MovementType = load('res://content/gear/horus/systems/ms_h0r_os_system_upgrade_i/movementtype_puppet_system.tres').duplicate()
+	puppet_type.merge_in(MovementType.create(victim, false))
+	assert_false(puppet_type.voluntary, 'Fixture: the puppet move is involuntary.')
+	assert_false(puppet_type.ignore_rxns, 'Fixture: and carries no forced-movement flag.')
+	var from:Vector2i = victim.tile()
+	var path:Array[Pathfinder.Step] = []
+	for step in range(1, spaces + 1): path.append(Pathfinder.Step.create(from + Vector2i(step, 0), step))
+	await game.execute_event(&'event_unit_move', {
+		unit = victim,
+		array = path,
+		resource = puppet_type,
+		object = SpecificAction.create(shover, null, null),
+		flags = [EventUnitMove.FLAG.IGNORE_BEING_KNOCKED_OFF_COURSE],
+	})
+
+func test_the_puppet_system_never_offers_it():
+	# Author ruling 2026-09-10: systems that are not forced movement (Puppet System) must not prompt.
+	var start := digger.tile()
+	await puppet(digger, 2)
+	assert_eq(digger.tile(), start + Vector2i(2, 0), 'The puppeted Draugr moved; nothing to dig in against.')
+	assert_eq(health_of(digger), 40, 'And paid nothing.')
+	assert_true(watcher.kinds(PromptWatcher.KIND.yesno).is_empty(), 'No prompt was raised.')
+	# Positive control: the same path as a real shove is offered and (auto-accepted) refused.
+	await march(digger, 2)
+	assert_eq(digger.tile(), start + Vector2i(2, 0), 'The forced move was dug in against.')
+	assert_eq(health_of(digger), 38, 'Two spaces ignored, two damage.')
+
+func test_a_friendly_forced_move_offers_it_too():
+	# Author ruling 2026-09-10: forced movement from an ALLY prompts as well. (Flash Anchor filters
+	# to hostile sources; Dig In does not.) An ally shoves via the same forced movement type.
+	var ally := SpecFactory.create_unit(game.map, Vector2i(6, 7), Faction.PLAYER)
+	ally.core.full_repair()
+	var start := digger.tile()
+	var from:Vector2i = digger.tile()
+	var path:Array[Pathfinder.Step] = []
+	for step in range(1, 3): path.append(Pathfinder.Step.create(from + Vector2i(step, 0), step))
+	await game.execute_event(&'event_unit_move', {
+		unit = digger,
+		array = path,
+		resource = MovementType.create_for_involuntary(digger),
+		object = SpecificAction.create(ally, null, null),
+		flags = [],
+	})
+	assert_eq(digger.tile(), start, 'Dug in against the friendly shove.')
+	assert_eq(health_of(digger), 38, 'And paid for the two spaces.')
+	assert_false(watcher.kinds(PromptWatcher.KIND.yesno).is_empty(), 'The prompt was raised.')
+
 func test_a_voluntary_move_never_offers_it():
 	var before := health_of(digger)
 	await SpecFactory.move(game, digger, Vector2i(8, 5))
