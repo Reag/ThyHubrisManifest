@@ -29,6 +29,7 @@ extends OnHitEffect
 
 const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const Compat := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/reag_compat.gd')
+const DraugrReach := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/draugr_reach.gd')
 
 const TRAIT_ID := &'mt_spreading_stain'
 ## Gear state: the round this trait last spread.
@@ -71,11 +72,18 @@ func on_crit(activation:EventCore, attacked_unit:Unit) -> void:
 ## the game with no cancel (spec/test_tear_pick.gd). Tech-immune characters are filtered here rather
 ## than left to Infection.apply, which would refuse them silently after the player had already picked.
 static func spread_candidates(draugr:Unit, exclude:Unit) -> Array[Unit]:
-	# TODO(sub-project 6): route through the Carrion Beast reach helper (+5 vs infected targets).
+	# SWEEP WIDE, THEN FILTER. draugr_reach.max_reach is the widest SENSORS could be for anyone
+	# (the Carrion Beast's +5 applies only against a character already carrying INFECTION), so it is
+	# a search radius and never an answer; within_sensors decides per candidate. Collecting at the
+	# raw stat instead would drop every infected character the Carrion Beast can actually see.
 	return UnitRelation.get_characters_within(
-		draugr, draugr.get_sensor_range(), false,
+		draugr, DraugrReach.max_reach(draugr), false,
 		func(other:Unit) -> bool:
-			return other != exclude and not UnitCondition.is_immune_to_tech(other)
+			return (
+				other != exclude and
+				not UnitCondition.is_immune_to_tech(other) and
+				DraugrReach.within_sensors(draugr, other)
+			)
 	)
 
 ## The player picks; the AI takes the nearest hostile and is never prompted. Vanilla guards its

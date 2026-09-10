@@ -175,3 +175,26 @@ func test_a_declined_prompt_spreads_nothing_and_keeps_the_round_free():
 	assert_eq(Infection.count(bystander), 0, 'Nobody was infected.')
 	var gear:GearCore = draugr.get_gear(TRAIT_ID)
 	assert_eq(gear.get_state(StainEffect.SPREAD_ROUND_KEY, -1), -1, 'The round was not spent.')
+
+# ---------- the Carrion Beast's reach (sub-project 6) ----------
+# spread_candidates now sweeps draugr_reach.max_reach and filters with within_sensors, so an infected
+# character 8 tiles away is a legal victim while a clean one at the same distance is not.
+
+func _equip_carrion_beast() -> void:
+	draugr.core.equip_system(&'ms_carrion_beast')
+	SpecFactory.apply_passive_buffs(draugr)
+	draugr.core.frame.stat.heat = 20
+	draugr.core.current.heat = 0
+
+func test_an_infected_character_beyond_sensors_becomes_a_candidate():
+	_equip_carrion_beast()
+	var distant := _enemy_at(Vector2i(8, 0))
+	await _infect(distant, 1)
+	assert_true(StainEffect.spread_candidates(draugr, target).has(distant),
+		'Eight tiles away, infected, with the Carrion Beast equipped.')
+
+func test_a_clean_character_beyond_sensors_is_still_out_of_reach():
+	_equip_carrion_beast()
+	var distant := _enemy_at(Vector2i(8, 0))
+	assert_false(StainEffect.spread_candidates(draugr, target).has(distant),
+		'The +5 is only against INFECTION.')

@@ -21,6 +21,7 @@
 extends GutTest
 
 const Resilience := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/resilience.gd')
+const Infection := preload('res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/infection.gd')
 const DRAUGR_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mf_draugr.tres'
 
 var game:Gamemaster
@@ -143,3 +144,30 @@ func test_a_hostile_killed_outright_banks_a_point_through_the_death_trigger():
 	await game.execute_event(&'event_unit_die', {unit = victim})
 	assert_false(Unit.is_valid(victim) and victim.is_on_map(), 'Fixture: it really died.')
 	assert_eq(Resilience.count(draugr), 1, 'Banked through the death trigger alone.')
+
+# ---------- the Carrion Beast's reach (sub-project 6) ----------
+# "within SENSORS" is now draugr_reach.within_sensors, which adds 5 against a target carrying
+# INFECTION while the Carrion Beast is equipped. Everything else about this reaction is unchanged:
+# the whole filter still runs inside triggers_on_event, while the corpse is still on the map.
+
+func _equip_carrion_beast() -> void:
+	draugr.core.equip_system(&'ms_carrion_beast')
+	SpecFactory.apply_passive_buffs(draugr)
+	draugr.core.frame.stat.heat = 20
+	draugr.core.current.heat = 0
+	draugr.core.current.structure = 2
+
+func test_an_infected_kill_beyond_sensors_pays_with_the_carrion_beast():
+	_equip_carrion_beast()
+	var distant := _enemy_at(Vector2i(8, 0)) # outside Sensors 5, inside Sensors + 5
+	await Infection.apply(SpecFactory.dummy_event({unit = distant}), distant, 1)
+	distant.core.current.structure = 1
+	await _blow_up(distant)
+	assert_eq(Resilience.count(draugr), 1, 'Eight tiles is inside SENSORS 5 + 5 against an infected target.')
+
+func test_an_infected_kill_beyond_sensors_pays_nothing_without_the_carrion_beast():
+	var distant := _enemy_at(Vector2i(8, 0))
+	await Infection.apply(SpecFactory.dummy_event({unit = distant}), distant, 1)
+	distant.core.current.structure = 1
+	await _blow_up(distant)
+	assert_eq(Resilience.count(draugr), 0, 'INFECTION alone does not widen SENSORS; the system does.')

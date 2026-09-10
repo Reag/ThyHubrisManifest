@@ -44,6 +44,7 @@
 extends ActionReaction
 
 const Resilience := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/resilience.gd')
+const DraugrReach := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/draugr_reach.gd')
 
 func get_per_turn_soft_limit(specific:SpecificAction) -> int: return 1
 
@@ -52,7 +53,10 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	if not Unit.is_valid(subject) or subject == unit: return false
 	if not subject.is_character(): return false # deployables, markers and wrecks are not characters
 	if not UnitRelation.are_enemies(unit, subject): return false
-	return UnitRelation.distance_between(unit, subject) <= unit.get_sensor_range()
+	# "within SENSORS" is the frame's own definition, not the raw stat: the Carrion Beast widens it
+	# by 5 against a character carrying INFECTION (draugr_reach.gd). Asked here, like every other
+	# question in this method, while the corpse is still on the map - see the file header.
+	return DraugrReach.within_sensors(unit, subject)
 
 func activate(context:Context, activation:EventCore) -> void:
 	spend_actions(activation) # records the usage; this is what makes it 1/turn
