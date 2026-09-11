@@ -10,7 +10,7 @@
 	],
 	"config_schema": {},
 	"dependencies": [],
-	"description": "[i]As humanity spreads across the vast worlds of the Orion arm, so too does its shadow. In the dark corners of a million worlds fester twisted reflections of forgotten cruelties. From the resplendent Baronies to the dutiful Armory, from the just Union to the sacred Ascendancy, the ghosts of their pasts reach out in retribution with sins made manifest.[/i]\n\nA partial implementation of HORUS: Thy Hubris Manifest, a 3pp suplement for Lancer. Please support the official release at itch.io",
+	"description": "[i]As humanity spreads across the vast worlds of the Orion arm, so too does its shadow. In the dark corners of a million worlds fester twisted reflections of forgotten cruelties. From the resplendent Baronies to the dutiful Armory, from the just Union to the sacred Ascendancy, the ghosts of their pasts reach out in retribution with sins made manifest.[/i]\n\nA partial implementation of HORUS: Thy Hubris Manifest, a 3pp supplement for Lancer. Please support the official release at itch.io",
 	"image": "thumbnail.png",
 	"incompatibilities": [],
 	"load_before": [],
@@ -29,12 +29,12 @@
 	"namespace": "Reag",
 	"optional_dependencies": [],
 	"requires_restart": true,
-	"summary": "A partial implementation of HORUS: Thy Hubris Manifest, a 3pp suplement for Lancer. Please support the official release at itch.io",
+	"summary": "A partial implementation of HORUS: Thy Hubris Manifest, a 3pp supplement for Lancer. Please support the official release at itch.io",
 	"tags": [
 		"PC frames",
 		"Systems and weapons"
 	],
 	"title": "HORUS: Thy Hubris Manifest",
-	"version_number": "0.5.0",
-	"website_url": ""
+	"version_number": "1.0.0",
+	"website_url": "https://github.com/Reag/ThyHubrisManifest"
 }
