@@ -112,9 +112,9 @@ bark.nhp_pestilence.destroy_ally.1,It weeps. It cheers. It does not stop.
 bark.nhp_pestilence.destroy_ally.2,Its name is you.
 bark.nhp_pestilence.destroy_ally.3,It becomes the foreself.
 bark.nhp_pestilence.friendly_fire_self.1,It knows sacrifice.
-bark.nhp_pestilence.friendly_fire_self.2,It apologizes.
+bark.nhp_pestilence.friendly_fire_self.2,It finds infighting unproductive.
 bark.nhp_pestilence.friendly_fire_target.1,It knows sacrifice.
-bark.nhp_pestilence.friendly_fire_target.2,It finds infighting unproductive.
+bark.nhp_pestilence.friendly_fire_target.2,It apologizes.
 bark.nhp_pestilence.core_power.1,It takes drastic measures.
 bark.nhp_pestilence.core_power.2,It is the nameless.
 bark.nhp_pestilence.overcharge.1,It is not easy. It must be done.
