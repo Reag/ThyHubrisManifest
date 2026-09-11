@@ -1,0 +1,100 @@
+{
+	"body_height": 0,
+	"body_size": "small",
+	"colors": {
+		"accessory_head_primary": {
+			"tone": "palette_peacoat"
+		},
+		"accessory_head_secondary": {
+			"tone": "palette_hologram_01"
+		},
+		"accessory_jewelry_primary": {
+			"tone": "palette_light_grey"
+		},
+		"accessory_other_primary": {
+			"tone": "palette_peacoat"
+		},
+		"accessory_other_secondary": {
+			"tone": "palette_medium_grey"
+		},
+		"bg_primary": {
+			"base": "a9bdd9ff",
+			"tone": "tone_standard"
+		},
+		"body_texture": {
+			"tone": "palette_peacoat"
+		},
+		"clothing_inner_primary": {
+			"tone": "palette_peacoat"
+		},
+		"clothing_inner_secondary": {
+			"tone": "palette_hologram_01"
+		},
+		"clothing_outer_primary": {
+			"tone": "palette_dark_grey"
+		},
+		"eyebrows": {
+			"tone": "palette_peacoat"
+		},
+		"glasses_primary": {
+			"tone": "palette_peacoat"
+		},
+		"glasses_secondary": {
+			"tone": "palette_peacoat"
+		},
+		"hair": {
+			"tone": "palette_dark_grey"
+		},
+		"head_texture": {
+			"tone": "palette_dark_grey"
+		},
+		"iris": {
+			"tone": "palette_medium_grey"
+		},
+		"nhp_color": {
+			"base": "4c9761ff",
+			"tone": "palette_medium_grey"
+		},
+		"scarves_primary": {
+			"tone": "palette_dark_grey"
+		},
+		"skin": {
+			"tone": "palette_medium_grey"
+		}
+	},
+	"compat_version": 18,
+	"is_nhp": true,
+	"is_stock": true,
+	"offsets": {},
+	"slices": {
+		"accessories_glasses": "blank",
+		"accessories_hair": "commander_cap",
+		"accessories_other": "tubes",
+		"background": "solid",
+		"body": "body",
+		"clothing_inner": "shirt_and_tie",
+		"eyebrows": "blank",
+		"hair": "thickerbraids",
+		"head": "slim"
+	},
+	"token": {
+		"colors": {
+			"0": {
+				"base": "6e6e6eff",
+				"tone": "tone_standard"
+			},
+			"1": {
+				"base": "6e6e6eff",
+				"tone": "tone_standard"
+			},
+			"2": {
+				"base": "e3c55cff",
+				"tone": "tone_standard"
+			},
+			"3": {
+				"tone": "tone_standard"
+			}
+		},
+		"frame_id": "bod_human"
+	}
+}

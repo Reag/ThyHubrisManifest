@@ -176,15 +176,10 @@ static func owned_tears(unit:Unit) -> Array[Unit]:
 ## Loaded lazily rather than as a plain `static var ... = load(...)` (the shape every engine file
 ## uses). This script is preloaded by unit_tile.gd_ext.gd and unit_relation.gd_ext.gd, which
 ## ModLoader installs during mod_main's _init - far earlier than any engine script's own static
-## initialisers run - and a static var initialiser would drag choice_bus.tres and camera_bus.tres
-## into that window for no benefit. Nothing here needs a bus until a player is actually asked
-## something. load() is cached, so this is the same instance SpecFactory's responder connects to.
-static var _choice_bus:ChoiceBus
+## initialisers run - and a static var initialiser would drag camera_bus.tres into that window for
+## no benefit. Prompts go through Compat, which loads its bus lazily for the same reason.
+const Compat := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/reag_compat.gd')
 static var _camera_bus:CameraBus
-
-static func _bus() -> ChoiceBus:
-	if _choice_bus == null: _choice_bus = load('res://ui/choice_controller/choice_bus.tres')
-	return _choice_bus
 
 static func _camera() -> CameraBus:
 	if _camera_bus == null: _camera_bus = load('res://engine/level/camera/camera_bus.tres')
@@ -206,7 +201,7 @@ static func _camera() -> CameraBus:
 ## tears"; action_bend_reality.gd had already documented the same trap and dodged it by targeting
 ## tiles, and this is that dodge made reusable.
 ##
-## choose_target_tiles routes to tilepicker_ability.gd, which takes the tile set as given
+## Compat.pick_tile_from offers the tile set as given (tilepicker_ability on 1.3.3, our own picker on 1.4.0)
 ## (update_tiles_in_range overrides it wholesale) and never asks what unit is standing there:
 ## tilepicker_compcon.handle_pressed_tile only ever uses the unit lookup to FILL IN pick.unit, and
 ## appends the pick regardless of whether it found one. So a marker's tile picks cleanly.
@@ -231,9 +226,9 @@ static func choose_tear(specific:SpecificAction, tears:Array[Unit]) -> Unit:
 	if tiles.is_empty(): return null
 
 	_camera().show_all_tiles(tiles, true)
-	var plan:CompconPlan = await _bus().choose_target_tiles(specific, tiles)
-	if plan == null or plan.target_tiles.is_empty(): return null
-	return tear_at_tile(candidates, plan.target_tiles.front())
+	var picked:Vector2i = await Compat.pick_tile_from(specific, tiles)
+	if picked == Tile.INVALID: return null
+	return tear_at_tile(candidates, picked)
 
 ## Resolve a picked tile back to one of `candidates`.
 ##

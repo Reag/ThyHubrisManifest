@@ -16,8 +16,10 @@
 # ownership is decided by mirror path and pilot_core.gd counts license levels per manufacturer.
 # Clause 1 it cannot cover at all. Each has a test below saying so.
 #
-# Adding the next variant frame is one row in VARIANTS. The Draugr is deliberately absent - it is
-# wholly unique and clones nothing.
+# Adding the next variant frame is one row in VARIANTS. li_draugr is deliberately NOT a row here,
+# and never will be: the Draugr is a full HORUS license of its own rather than a reskin of another
+# manufacturer's, so it has no base license to be compared against. Its own registration test lives
+# in test_content_integrity.gd.
 extends GutTest
 
 ## variant license -> { base license it clones, frame it must grant in place of the base's }

@@ -9,7 +9,9 @@
 # build against the actual cp_the_keening trait rather than a standalone probe kit.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
+const PromptWatcher := preload('res://testkit/prompt_watcher.gd')
 
 const BANSHEE_FRAME := 'res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/mf_banshee.tres'
 const RANGED_WEAPON_ID := &'mw_smartgun' # weapon_type unset -> defaults to RIFLE (ranged)
@@ -19,9 +21,11 @@ const MOURNING_CALL_USAGE_GROUP := &'action_mourning_call'
 const MourningCallAction := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/action_mourning_call.gd')
 
 var game:Gamemaster
+var watcher:PromptWatcher
 
 func before_each():
 	game = SpecFactory.setup_gamemaster(self)
+	watcher = add_child_autoqfree(PromptWatcher.new())
 
 ## Arms the Banshee with its own frame. change_mech_frame, NOT core.frame = load(...) - the latter
 ## skips loadout.regenerate_derived_gear (unit_printer.gd:94), so cp_the_keening's
@@ -196,6 +200,7 @@ func test_it_deals_4_on_a_hit():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY) # on the 5x5 test map
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100 # headroom -- don't let the weapon hit + Mourning Call kill it
 	target.core.full_repair()
 
@@ -227,6 +232,7 @@ func test_it_deals_6_on_a_crit_and_not_10():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY) # on the 5x5 test map
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
@@ -313,6 +319,7 @@ func test_a_target_killed_by_mourning_call_leaves_no_wreck():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1 # one hit below zero structure kills outright -- see header
 	# 8 = the weapon's flat 4 (leaves exactly 4, alive) + Mourning Call's non-crit 4 (0, dead) -- see
 	# the Task 3 header for why this changed from the old fixture value of 4.
@@ -338,6 +345,7 @@ func test_a_target_killed_by_mourning_call_leaves_no_wreck():
 func test_a_target_killed_BY_ANYTHING_ELSE_STILL_leaves_a_wreck():
 	var banshee := _arm_banshee() # present (carries the wreckless trait), but not involved in this kill
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.full_repair()
 	var wrecks_before := _wreck_count()
@@ -351,6 +359,7 @@ func test_the_banshee_becomes_intangible_on_a_kill():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8 # weapon's 4 (survives) + Mourning Call's 4 (dies) -- see Task 3 header
 	target.core.full_repair()
@@ -365,6 +374,7 @@ func test_the_banshee_stays_tangible_when_the_target_survives():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100 # headroom -- survives the weapon hit AND Mourning Call's damage
 	target.core.full_repair()
 
@@ -395,6 +405,7 @@ func test_it_finishes_off_a_target_the_weapon_already_wounded():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	# 7, not the kill tests' 8: the weapon's flat 4 alone leaves 3 -- comfortably alive, not a
 	# hairline zero, so "the weapon's hit alone does not kill" is unambiguous. Only Mourning Call's
@@ -430,6 +441,7 @@ func test_a_kill_lets_the_banshee_relocate_a_tear_within_sensors():
 	# combine a tear action with something else in one turn.
 	banshee.state.overcharge_actions = 99
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8 # see the Task 4 header
 	target.core.full_repair()
@@ -448,18 +460,11 @@ func test_a_kill_lets_the_banshee_relocate_a_tear_within_sensors():
 	# responder -- it still answers the request (front of the candidate list, same as every other
 	# choose_target_tiles fixture in this mod; see action_bind_thy_flesh.gd's choose_anchor_tile), so
 	# there is exactly one thing "the chosen tile" can mean here: the front of what we captured.
-	#
-	# assign(), NOT `=` -- a GDScript lambda captures an outer local by a COPY of its value at
-	# creation time, so reassigning the captured slot inside the lambda never reaches the outer
-	# variable. Mutating the array IN PLACE (same object, same capture) does.
-	var offered_tiles:Array[Vector2i] = []
-	var capture_offer := func(_request, _specific, from_tiles):
-		offered_tiles.assign(from_tiles)
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
-
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits (evasion 8), does not crit, kills
 
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+	var offers := watcher.kinds(PromptWatcher.KIND.tile_set)
+	var offered_tiles:Array[Vector2i] = []
+	if not offers.is_empty(): offered_tiles.assign(offers.back().tiles)
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
 	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
@@ -477,6 +482,7 @@ func test_the_relocation_pick_is_not_an_unanswerable_unit_pick():
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	banshee.state.overcharge_actions = 99 # two tears plus the attack plus Mourning Call in one turn
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8
 	target.core.full_repair()
@@ -488,25 +494,19 @@ func test_the_relocation_pick_is_not_an_unanswerable_unit_pick():
 	if tears.size() != 2: return fail_test('Fixture: two tears, so the relocation genuinely has to ask.')
 	var tear_tiles:Array[Vector2i] = [tears[0].tile(), tears[1].tile()]
 
-	# Listening alongside SpecFactory's responder, which still answers everything.
-	var unit_picks_offering_a_tear:Array[int] = [0]
-	var watch_unit_picks := func(_request, from_units, _can_cancel, _specific, _secondary):
-		for candidate in from_units:
-			if candidate is Unit and TearRouting.is_tear(candidate):
-				unit_picks_offering_a_tear[0] += 1 # mutated IN PLACE; see the capture note above
-				break
-	var tile_picks:Array = []
-	var watch_tile_picks := func(_request, _specific, from_tiles): tile_picks.append(from_tiles.duplicate())
-	SpecFactory.choice_bus.on_choose_unit.connect(watch_unit_picks)
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(watch_tile_picks)
-
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1]) # hits, does not crit, kills
 
-	SpecFactory.choice_bus.on_choose_unit.disconnect(watch_unit_picks)
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(watch_tile_picks)
+	var unit_picks_offering_a_tear := 0
+	for offer:Dictionary in watcher.kinds(PromptWatcher.KIND.unit):
+		for candidate in offer.units:
+			if candidate is Unit and TearRouting.is_tear(candidate):
+				unit_picks_offering_a_tear += 1
+				break
+	var tile_picks:Array = []
+	for offer:Dictionary in watcher.kinds(PromptWatcher.KIND.tile_set): tile_picks.append(offer.tiles)
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
-	assert_eq(unit_picks_offering_a_tear[0], 0,
+	assert_eq(unit_picks_offering_a_tear, 0,
 		'Clause 9 picks a tear by tile. A unit pick over MARKERs is a prompt the player cannot answer.')
 
 	# And the pick it DID make is the tear tiles - not merely "some tile pick happened", which the
@@ -525,14 +525,15 @@ func test_a_tile_beyond_sensors_is_not_offerable():
 	var banshee := _arm_banshee(Vector2i(0, 0))
 	# A private copy: load(BANSHEE_FRAME) is shared (cached) across every test in this file via
 	# _arm_banshee, so mutating sensor_range on it directly would leak a shrunk Banshee sensor range
-	# into every OTHER test that arms one afterward. duplicate(true) deep-copies the Statblock
+	# into every OTHER test that arms one afterward. FrameIsolation deep-copies the Statblock
 	# sub-resource too, so this mutation is private to this test alone.
-	banshee.core.frame = banshee.core.frame.duplicate(true)
+	FrameIsolation.isolate_frame(banshee)
 	banshee.core.frame.stat.sensor_range = 1 # shrinks SENSORS so the 5x5 test map's far corner is out of range
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	banshee.state.overcharge_actions = 99 # see the sibling test above
 
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8
 	target.core.full_repair()
@@ -540,14 +541,11 @@ func test_a_tile_beyond_sensors_is_not_offerable():
 	await SpecFactory.use(game, banshee, KEENING_KIT_ID, &'action_tear', [Vector2i(1, 1)]) # inside the shrunk range
 	assert_eq(TearRouting.open_tears(game.map).size(), 1, 'sanity: the tear was actually placed.')
 
-	var offered_tiles:Array[Vector2i] = []
-	var capture_offer := func(_request, _specific, from_tiles):
-		offered_tiles.assign(from_tiles) # see the sibling test above for why assign(), not `=`
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
-
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
 
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+	var offers := watcher.kinds(PromptWatcher.KIND.tile_set)
+	var offered_tiles:Array[Vector2i] = []
+	if not offers.is_empty(): offered_tiles.assign(offers.back().tiles)
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
 	assert_false(Unit.is_valid(target), 'sanity: the target actually died.')
@@ -561,6 +559,7 @@ func test_the_core_point_comes_back_after_a_kill():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8
 	target.core.full_repair()
@@ -577,6 +576,7 @@ func test_the_core_point_does_not_come_back_a_second_time_in_the_same_scene():
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 
 	var target1 := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target1)
 	target1.core.frame.stat.structure = 1
 	target1.core.frame.stat.health = 8
 	target1.core.full_repair()
@@ -596,6 +596,7 @@ func test_the_core_point_does_not_come_back_a_second_time_in_the_same_scene():
 
 	await SpecFactory.start_turn(game, banshee) # refresh actions and the per-round usage counter
 	var target2 := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target2)
 	target2.core.frame.stat.structure = 1
 	target2.core.frame.stat.health = 8
 	target2.core.full_repair()
@@ -626,8 +627,8 @@ func _count_cp_pop(text:String, _tile:Vector2i, _is_large:bool) -> void:
 ## Every yes/no prompt title the run raised. Titles, not a bare count, so a test can say WHICH
 ## prompt it did or did not expect without being confused by an unrelated confirmation.
 var _yesno_titles:Array[String] = []
-func _record_yesno(_request, _tile:Vector2i, title:String, _description:String, _encourage_yes:bool) -> void:
-	_yesno_titles.append(title)
+func _record_prompt(kind:StringName, info:Dictionary) -> void:
+	if kind == PromptWatcher.KIND.yesno: _yesno_titles.append(info.title)
 
 func _mourning_call_prompt_title() -> String:
 	return X.tr('battle.confirm.use').format({action = tr('gear.cp_the_keening.action_mourning_call.name')})
@@ -642,13 +643,12 @@ func _watch_buses() -> void:
 	_cp_pops = 0
 	_yesno_titles = []
 	SpecFactory.effect_bus.on_play_text.connect(_count_cp_pop)
-	SpecFactory.choice_bus.on_quick_yesno.connect(_record_yesno)
+	watcher.prompt.connect(_record_prompt)
 
 func _unwatch_buses() -> void:
 	if SpecFactory.effect_bus.on_play_text.is_connected(_count_cp_pop):
 		SpecFactory.effect_bus.on_play_text.disconnect(_count_cp_pop)
-	if SpecFactory.choice_bus.on_quick_yesno.is_connected(_record_yesno):
-		SpecFactory.choice_bus.on_quick_yesno.disconnect(_record_yesno)
+	if watcher.prompt.is_connected(_record_prompt): watcher.prompt.disconnect(_record_prompt)
 
 func _uses_this_round(unit:Unit) -> int:
 	var gear:GearCore = unit.get_gear(KEENING_KIT_ID)
@@ -666,6 +666,7 @@ func test_activating_spends_the_core_point_exactly_once():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100 # survive, so the refund cannot muddy the count
 	target.core.full_repair()
 
@@ -682,6 +683,7 @@ func test_activating_records_exactly_one_use():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
@@ -696,6 +698,7 @@ func test_the_intangibility_from_a_kill_expires_at_the_start_of_the_next_turn():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.structure = 1
 	target.core.frame.stat.health = 8 # weapon's 4 (survives) + Mourning Call's 4 (dies)
 	target.core.full_repair()
@@ -722,6 +725,7 @@ func test_no_prompt_is_offered_without_a_core_point():
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	banshee.core.has_core_power = false # already spent it earlier in the mission
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
@@ -746,6 +750,7 @@ func test_an_ai_banshee_is_never_prompted():
 	assert_false(banshee.is_player_controlled(), 'sanity: this Banshee is AI-controlled.')
 
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.PLAYER)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 
@@ -764,6 +769,7 @@ func test_a_grappled_banshee_cannot_mourning_call():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100
 	target.core.full_repair()
 	SpecFactory.apply(banshee, Lancer.STATUS.GRAPPLED)
@@ -784,17 +790,17 @@ func test_the_player_picks_the_landing_tile():
 	var banshee := _arm_banshee()
 	banshee.core.equip_system(RANGED_WEAPON_ID)
 	var target := SpecFactory.create_unit(game.map, Vector2i(3, 3), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(target)
 	target.core.frame.stat.health = 100 # survive, so the tear-relocation pick never runs and cannot
 	target.core.full_repair()           # overwrite what this capture saw
 
 	# Same capture shape as the tear-relocation tests above: SpecFactory's own responder still
 	# answers (front of the offered list), so the landing tile must be offered_tiles.front().
-	var offered_tiles:Array[Vector2i] = []
-	var capture_offer := func(_request, _specific, from_tiles):
-		offered_tiles.assign(from_tiles)
-	SpecFactory.choice_bus.on_choose_target_tiles.connect(capture_offer)
 	await _attack_with_roll(banshee, RANGED_WEAPON_ID, target, [15, 1])
-	SpecFactory.choice_bus.on_choose_target_tiles.disconnect(capture_offer)
+
+	var offers := watcher.kinds(PromptWatcher.KIND.tile_set)
+	var offered_tiles:Array[Vector2i] = []
+	if not offers.is_empty(): offered_tiles.assign(offers.back().tiles)
 
 	assert_true(_mourning_call_ran(banshee), 'sanity: Mourning Call actually ran.')
 	assert_false(offered_tiles.is_empty(), 'The player is offered the free tiles adjacent to the target.')

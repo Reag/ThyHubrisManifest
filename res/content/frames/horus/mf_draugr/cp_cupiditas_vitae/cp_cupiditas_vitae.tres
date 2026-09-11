@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="Kit" format=3]
+
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_action"]
+[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="2_passive"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="3_kit"]
+[ext_resource type="Script" uid="uid://5pqtbuyqw6eo" path="res://engine/character/gear_passive/passive_die_counter.gd" id="4_die_counter"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_ceaseless_death.tres" id="5_ceaseless_death"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_ceaseless_death_structure.tres" id="6_ceaseless_death_structure"]
+[ext_resource type="Script" uid="uid://dy4kg537rc55e" path="res://engine/character/gear_passive/passive_buff_applicator.gd" id="7_applicator"]
+[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="8_buff"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/buff_ceaseless_death.tres" id="9_buff_ceaseless_death"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_plague_vent_dispersal.tres" id="10_plague_vent"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/buff_plague_fog_accuracy.tres" id="11_buff_fog_accuracy"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_cupiditas_vitae_efficient.tres" id="12_efficient"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/passive_resilience_fx.tres" id="13_resilience_fx"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/cp_cupiditas_vitae.svg" id="icon_vitae"]
+
+[sub_resource type="Resource" id="Resource_resilience_counter"]
+script = ExtResource("4_die_counter")
+key = "resilience"
+starting_value = 0
+max_value = 8
+min_value = 0
+
+[sub_resource type="Resource" id="Resource_cupiditas_applicator"]
+script = ExtResource("7_applicator")
+applied_buffs = Array[ExtResource("8_buff")]([ExtResource("9_buff_ceaseless_death"), ExtResource("11_buff_fog_accuracy")])
+
+[resource]
+script = ExtResource("3_kit")
+actions = Array[ExtResource("1_action")]([ExtResource("5_ceaseless_death"), ExtResource("6_ceaseless_death_structure"), ExtResource("10_plague_vent"), ExtResource("12_efficient")])
+passives = Array[ExtResource("2_passive")]([SubResource("Resource_resilience_counter"), SubResource("Resource_cupiditas_applicator"), ExtResource("13_resilience_fx")])
+is_trait = true
+icon_override = ExtResource("icon_vitae")

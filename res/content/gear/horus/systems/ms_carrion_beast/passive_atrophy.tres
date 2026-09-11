@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="1_buff"]
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/passive_atrophy.gd" id="2_atrophy_passive"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/buff_atrophy.tres" id="3_atrophy_buff"]
+
+[resource]
+script = ExtResource("2_atrophy_passive")
+buffs = Array[ExtResource("1_buff")]([ExtResource("3_atrophy_buff")])
+applies_to_self = false

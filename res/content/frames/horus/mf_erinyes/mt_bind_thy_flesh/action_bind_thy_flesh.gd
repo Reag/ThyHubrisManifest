@@ -16,6 +16,8 @@
 # leash is the one that sticks rather than being silently re-measured.
 extends ActionReaction
 
+const Compat := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/reag_compat.gd')
+
 const ANCHOR_FRAME_ID := &'dep_chain_erinyes'
 const CHAIN_BUFF_ID := &'buff_bind_thy_flesh'
 
@@ -253,6 +255,4 @@ func choose_anchor_tile(context:Context, erinyes:Unit, candidate_tiles:Array[Vec
 	if candidate_tiles.is_empty(): return fallback_tile
 	if not erinyes.is_player_controlled(): return fallback_tile # the AI takes the middle
 
-	var plan = await choice_bus.choose_target_tiles(SpecificAction.from_context(context), candidate_tiles)
-	if plan == null or plan.target_tiles.is_empty(): return Tile.INVALID
-	return plan.target_tiles.front()
+	return await Compat.pick_tile_from(SpecificAction.from_context(context), candidate_tiles)

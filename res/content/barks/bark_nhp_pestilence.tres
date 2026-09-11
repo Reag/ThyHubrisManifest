@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="BarkSet" format=3]
+
+[ext_resource type="Script" uid="uid://c0y2qrcbe5qxw" path="res://engine/dialogue/bark/bark_set.gd" id="1_barkset"]
+
+[resource]
+script = ExtResource("1_barkset")
+is_nhp = true

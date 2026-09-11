@@ -30,6 +30,8 @@ extends ActionReaction
 # who uses their core power - which is most rounds - would never see the reaction offered at all.
 # Diagnosed from a play session with X.DEBUG_REACTION armed: every gate passed except availa.
 
+const Compat := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/reag_compat.gd')
+
 const CHAIN_BUFF_ID := &'buff_bind_thy_flesh'
 const ANCHOR_KEY := 'anchor'
 ## Effects we already extended, as "<key>@<round>" where key is "<unit id>|status|<type>" or
@@ -206,7 +208,8 @@ func choose_effect(context:Context, ending_unit:Unit, extendable:Array):
 	var names:Array[String] = []
 	for effect in extendable: names.append(effect_name(effect))
 	var specific := SpecificAction.from_context(context)
-	var chosen_index:int = await choice_bus.choose_from_multiple_choice(
+	var chosen_index:int = await Compat.multiple_choice(
+		specific,
 		names,
 		specific.action.name(specific),
 		specific.action.effect_text(specific),

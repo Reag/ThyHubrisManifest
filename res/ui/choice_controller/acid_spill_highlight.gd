@@ -22,20 +22,16 @@ const CP_ID := &'cp_truth_in_filth'
 
 const AcidSpill := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/passive_acid_spill.gd')
 
-static var choice_bus:ChoiceBus = load("res://ui/choice_controller/choice_bus.tres")
+const Compat := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/reag_compat.gd')
+
 static var effect_bus:EffectsControllerBus = load("res://engine/gamemaster/effects_controller/effects_controller_bus.tres")
 
 func _ready() -> void:
-	choice_bus.on_choose_move_tile.connect(_on_choose_move_tile)
+	# The bus signal differs per engine (a per-prompt signal on 1.3.3, one typed request signal on
+	# 1.4.0); the shim hands us the same three values either way.
+	Compat.connect_move_pick(_on_move_pick)
 
-# The fifth parameter exists because the signal disagrees with itself: choice_bus.gd:99 DECLARES
-# on_choose_move_tile with four parameters, but :102 EMITS it with five (valid_targets appended).
-# Godot 4 errors when a connected callable has fewer parameters than the emit supplies - "Method
-# expected 4 argument(s), but called with 5" - so a four-parameter handler here is not merely
-# incomplete, it is never invoked at all, on every single movement pick. Vanilla's own receiver,
-# tilepicker_movement.handle_activate, already carries the fifth parameter (defaulted, unused) for
-# exactly this reason; this handler mirrors that shape.
-func _on_choose_move_tile(request:ChoiceRequest, unit, pathfinder, _can_cancel:bool, _valid_targets:Array[Vector2i] = []) -> void:
+func _on_move_pick(request, unit, pathfinder) -> void:
 	if not (unit is Unit) or not (pathfinder is Pathfinder): return
 	# Unqualified: statics are callable without a prefix from inside their own script, and this file
 	# has no class_name to qualify with.

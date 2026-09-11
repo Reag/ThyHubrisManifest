@@ -11,6 +11,7 @@
 # the same event.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const AcidSpill := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/cp_truth_in_filth/passive_acid_spill.gd')
 
 const CP_ID := &'cp_truth_in_filth'
@@ -159,6 +160,7 @@ func test_a_boosted_move_is_a_single_event_and_every_tile_is_post_boost():
 	# speed first. Everything that follows is still derived at runtime, not hardcoded, so a change to
 	# the fixture's frame or map size cannot silently turn this back into a vacuous test.
 	var max_reach:int = game.map.size.x - 1 - START.x # farthest tile east of START that is still on the map
+	FrameIsolation.isolate_frame(nuckelavee)
 	nuckelavee.core.frame.stat.speed = maxi(1, max_reach / 2)
 
 	await SpecFactory.start_turn(game, nuckelavee)

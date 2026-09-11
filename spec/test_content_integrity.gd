@@ -6,12 +6,13 @@
 extends GutTest
 
 const ModContentAudit := preload('res://testkit/mod_content_audit.gd')
+const Compat := preload('res://testkit/modkit_compat.gd')
 const PassiveEarthstep := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_nuckelavee/mt_earthstep/passive_earthstep.gd')
 
 const MOD_ID := 'Reag-ThyHubris'
 
 func test_the_mod_is_actually_loaded():
-	assert_true(ModLoaderMod.is_mod_active(MOD_ID), '%s is loaded and active.' % MOD_ID)
+	assert_true(Compat.is_mod_active(MOD_ID), '%s is loaded and active.' % MOD_ID)
 
 func test_no_resource_is_filed_under_the_wrong_index():
 	# ContentLibrary sorts by filename prefix, not script class. See mod_content_audit.gd.
@@ -29,18 +30,238 @@ func test_infection_is_registered_as_a_buff():
 
 func test_draugr_frame_and_traits_are_registered():
 	assert_true(is_instance_valid(ContentLibrary.get_mech_frame(&'mf_draugr')), 'mf_draugr is in the frames index.')
-	for kit_id:StringName in [&'mt_raging_plague', &'mt_seeping_rot', &'mt_spreading_stain']:
+	for kit_id:StringName in DRAUGR_TRAITS + [DRAUGR_CORE_POWER]:
 		assert_true(Kit.is_valid(ContentLibrary.get_kit(kit_id)), '%s is in the kits index.' % kit_id)
 
-# li_draugr is parked at D:\DEV\lancer-tactics-claude\parked\li_draugr.tres so the Draugr does not
-# ship in the prototype. Its registration test goes back in with the license. The frame and trait
-# tests below stay - those resources are still here, just unreachable without a license.
+func test_draugr_license_grants_the_frame_at_rank_2():
+	# Unparked 2026-09-09 with the frame alone (design doc 2026-09-09-draugr-design.md, decision D7).
+	# All three ranks are now filled; this test guards the rank-2 frame link specifically.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
+	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
+	if not is_instance_valid(license): return
+	var primary:Frame = license.get_primary_frame()
+	assert_true(is_instance_valid(primary), 'Rank 2 grants a frame.')
+	if is_instance_valid(primary): assert_eq(primary.compcon_id, &'mf_draugr', 'That frame is the Draugr.')
+
+const DRAUGR_LICENSE_II := [&'mw_injector_drill', &'ms_quarantine']
+
+func test_draugr_license_grants_the_drill_and_quarantine_at_rank_2():
+	# Design 2026-09-09-draugr-design.md section 5. Rank 2 grants the FRAME as well - the frame test
+	# above is the other half and both must stay green.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
+	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
+	if not is_instance_valid(license): return
+	var granted:Array[StringName] = []
+	for kit:Kit in license.rank_2.granted_gear: granted.append(kit.compcon_id)
+	assert_eq(granted, DRAUGR_LICENSE_II as Array[StringName], 'Rank II is the Injector Drill then Quarantine.')
+	assert_eq(license.rank_2.granted_frames.size(), 1, 'And it still grants the frame.')
+
+const DRAUGR_LICENSE_I := [&'ms_disease', &'ms_root']
+
+func test_draugr_license_grants_disease_and_root_at_rank_1():
+	# Design 2026-09-09-draugr-design.md section 4.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
+	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
+	if not is_instance_valid(license): return
+	var granted:Array[StringName] = []
+	for kit:Kit in license.rank_1.granted_gear: granted.append(kit.compcon_id)
+	assert_eq(granted, DRAUGR_LICENSE_I as Array[StringName], 'Rank I is Disease then Root.')
+
+const DRAUGR_LICENSE_III := [&'ms_carrion_beast', &'ms_pestilence_class_nhp']
+
+func test_draugr_license_grants_the_carrion_beast_and_pestilence_at_rank_3():
+	# Design 2026-09-09-draugr-design.md section 6. With this, all three ranks are filled and the
+	# frame is complete.
+	var license:UnlockTree = ContentLibrary.get_license_tree(&'li_draugr')
+	assert_true(is_instance_valid(license), 'li_draugr is in the licenses index.')
+	if not is_instance_valid(license): return
+	var granted:Array[StringName] = []
+	for kit:Kit in license.rank_3.granted_gear: granted.append(kit.compcon_id)
+	assert_eq(granted, DRAUGR_LICENSE_III as Array[StringName], 'Rank III is the Carrion Beast then PESTILENCE.')
+
+func test_the_license_i_systems_are_registered_and_unique():
+	# A filename prefix decides the index, not the script class: ms_*.tres lands in resgrp_kits.
+	for kit_id:StringName in DRAUGR_LICENSE_I:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		assert_true(Kit.is_valid(kit), '%s is in the kits index.' % kit_id)
+		if not Kit.is_valid(kit): continue
+		assert_eq(kit.sp_cost, 2, '%s costs 2 SP.' % kit_id)
+		assert_true(kit.is_unique(), '%s is Unique.' % kit_id)
+		assert_false(kit.is_trait, '%s is a real, destructible system.' % kit_id)
+
+func test_the_disease_invades_do_not_share_an_allowance():
+	# Same trap as the Kraken's and the Nuckelavee's: actions on one Kit default to a usage_group
+	# keyed on the gear id (gear_core.gd:166-168), so "each may be used 1/round" would come out as
+	# "one of them, once per round". Both options are 1/round in their own right.
+	var kit:Kit = ContentLibrary.get_kit(&'ms_disease')
+	if not Kit.is_valid(kit): return fail_test('ms_disease loaded.')
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Every invade option has its own usage_group.')
+	assert_eq(kit.actions.size(), 2, 'Symptom and Spreader.')
+
+func test_the_injector_drill_is_registered_as_a_limited_weapon():
+	# A filename prefix decides the index, not the script class: mw_*.tres lands in resgrp_kits.
+	var kit:Kit = ContentLibrary.get_kit(&'mw_injector_drill')
+	assert_true(Kit.is_valid(kit), 'mw_injector_drill is in the kits index.')
+	if not Kit.is_valid(kit): return
+	assert_eq(kit.charges_max, 4, 'Limited 4.')
+	assert_eq(kit.actions.size(), 1, 'One attack profile.')
+	assert_true(kit.actions[0] is ActionAttackWeapon, 'And it is a weapon attack.')
+	assert_true(kit.is_destructable(), 'It is a real, destructible weapon.')
+
+func test_quarantine_is_registered_and_its_invades_do_not_share_an_allowance():
+	# Same trap as Disease's: actions on one Kit default to a usage_group keyed on the gear id
+	# (gear_core.gd:166-168), so "each may be used 1/round" would come out as "one of them, once per
+	# round". Both options are 1/round in their own right.
+	var kit:Kit = ContentLibrary.get_kit(&'ms_quarantine')
+	assert_true(Kit.is_valid(kit), 'ms_quarantine is in the kits index.')
+	if not Kit.is_valid(kit): return
+	assert_eq(kit.sp_cost, 2, 'Two SP.')
+	assert_true(kit.is_unique(), 'Unique.')
+	assert_eq(kit.actions.size(), 2, 'Isolation and Lockdown.')
+	var groups := {}
+	for action:Action in kit.actions: groups[action.usage_group] = true
+	assert_eq(groups.size(), kit.actions.size(), 'Every invade option has its own usage_group.')
+
+func test_the_carrion_beast_is_registered_as_a_two_sp_system():
+	# A filename prefix decides the index, not the script class: ms_*.tres lands in resgrp_kits.
+	# Design 2026-09-09-draugr-design.md section 6 gives it 2 SP and does NOT make it Unique, unlike
+	# Disease, Root and Quarantine - the tags on this one are deliberately empty.
+	var kit:Kit = ContentLibrary.get_kit(&'ms_carrion_beast')
+	assert_true(Kit.is_valid(kit), 'ms_carrion_beast is in the kits index.')
+	if not Kit.is_valid(kit): return
+	assert_eq(kit.sp_cost, 2, 'Two SP.')
+	assert_false(kit.is_trait, 'It is a real, destructible system.')
+	assert_true(kit.has_passive_type(PassiveBuffApplicator), 'It hands out the reach buff.')
+	# Task 3b: action_atrophy carries no behaviour of its own - it exists so Isolation's reaction gate
+	# has something to test (buff_atrophy.gd) - but it still has to be wired onto the Kit to be found.
+	var action_ids:Array[StringName] = []
+	for action:Action in kit.actions: action_ids.append(action.get_id())
+	assert_true(action_ids.has(&'action_atrophy'), 'The Atrophy reaction shell is registered on the Kit.')
+
+func test_pestilence_is_registered_as_an_nhp_system():
+	# A filename prefix decides the index, not the script class: ms_*.tres lands in resgrp_kits.
+	# system_tags 13 is UNIQUE 1 + AI 4 + NHP 8 (kit.gd:30) - what all ten vanilla NHP systems set.
+	var kit:Kit = ContentLibrary.get_kit(&'ms_pestilence_class_nhp')
+	assert_true(Kit.is_valid(kit), 'ms_pestilence_class_nhp is in the kits index.')
+	if not Kit.is_valid(kit): return
+	assert_eq(kit.sp_cost, 3, 'Three SP.')
+	assert_eq(kit.system_tags, 13, 'Unique, AI and NHP.')
+	assert_true(kit.has_passive_type(PassiveAiPrivilege), 'It carries an AI privilege passive.')
 
 func test_implemented_content_is_localized():
 	# A key with an empty value in the CSV is not registered at all, so tr() hands back the raw
 	# key and that is what renders in game.
 	for key:String in ['frame.mf_draugr.name', 'frame.mf_draugr.flavor.short', 'gear.buff_infection.name']:
 		assert_ne(tr(key), key, '%s resolves to real text.' % key)
+
+# The Draugr license text was transcribed on 2026-09-09, ahead of the gear that will read it. Every
+# rule-text row is asserted here so the compiled artifact cannot silently drift from the CSV (an
+# outdated localizations.en.translation hands back raw keys and looks like broken content). The
+# flavor rows are deliberately blank until the author pastes the lore, so they are not listed.
+const DRAUGR_LICENSE_KEYS := [
+	'gear.buff_infection.name.count',
+	'gear.mt_spreading_stain.effect', 'gear.mt_spreading_stain.trigger',
+	'gear.mt_raging_plague.effect',
+	'gear.mt_seeping_rot.effect', 'gear.mt_seeping_rot.trigger',
+	'gear.cp_cupiditas_vitae.name', 'gear.cp_cupiditas_vitae.effect', 'gear.cp_cupiditas_vitae.flavor',
+	'gear.cp_cupiditas_vitae.resilience',
+	'gear.cp_cupiditas_vitae.action_ceaseless_death.name', 'gear.cp_cupiditas_vitae.action_ceaseless_death.effect',
+	'gear.cp_cupiditas_vitae.action_plague_vent_dispersal.name', 'gear.cp_cupiditas_vitae.action_plague_vent_dispersal.effect',
+	'gear.ms_disease.name', 'gear.ms_disease.effect',
+	'gear.ms_disease.action_symptom.name', 'gear.ms_disease.action_symptom.effect',
+	'gear.ms_disease.action_spreader.name', 'gear.ms_disease.action_spreader.effect',
+	'gear.buff_spreader.name', 'gear.buff_spreader.effect',
+	'gear.buff_infection.eot.log', 'gear.ms_stabilize.burn.infection.effect',
+	'gear.ms_root.name', 'gear.ms_root.effect',
+	'gear.ms_root.action_dig_in.name', 'gear.ms_root.action_dig_in.effect', 'gear.ms_root.action_dig_in.trigger',
+	'gear.mw_injector_drill.name', 'gear.mw_injector_drill.effect', 'gear.mw_injector_drill.on_hit',
+	'gear.ms_quarantine.name', 'gear.ms_quarantine.effect',
+	'gear.ms_quarantine.action_isolation.name', 'gear.ms_quarantine.action_isolation.effect',
+	'gear.ms_quarantine.action_lockdown.name', 'gear.ms_quarantine.action_lockdown.effect',
+	'gear.buff_isolation.name', 'gear.buff_isolation.effect',
+	'gear.buff_lockdown.name', 'gear.buff_lockdown.effect',
+	'gear.ms_carrion_beast.name', 'gear.ms_carrion_beast.effect',
+	'gear.ms_carrion_beast.action_atrophy.name', 'gear.ms_carrion_beast.action_atrophy.effect',
+	'gear.ms_carrion_beast.action_atrophy.trigger',
+	'gear.ms_pestilence_class_nhp.name', 'gear.ms_pestilence_class_nhp.default_name',
+	'gear.ms_pestilence_class_nhp.effect',
+	'gear.ms_pestilence_class_nhp.action_kill_host.name', 'gear.ms_pestilence_class_nhp.action_kill_host.effect',
+	'gear.ms_pestilence_class_nhp.action_kill_host.option_impair',
+	'gear.ms_pestilence_class_nhp.action_kill_host.option_slow',
+]
+
+func test_draugr_license_text_is_localized():
+	var raw:PackedStringArray = []
+	for key:String in DRAUGR_LICENSE_KEYS:
+		if tr(key) == key: raw.append(key)
+	assert_eq(raw, PackedStringArray(), 'Every Draugr license rule-text key resolves to real text.')
+
+func test_the_core_power_names_its_efficient_tag():
+	# The glossary term is only reachable through a |Efficient| label in some rule text.
+	assert_true(tr('gear.cp_cupiditas_vitae.effect').contains('|Efficient|'), 'CUPIDITAS VITAE says it is Efficient.')
+
+func test_infection_has_a_glossary_entry():
+	# Every Draugr row says |INFECTION|; without a registered term plus a .desc row the label is
+	# coloured but has no hover text (glossary_item.gd:199-208 refuses a key with no description).
+	# mod_main.register_glossary_terms appends the key; the CSV carries both rows. Matching is
+	# case-insensitive there, so |Infection| in the buff rows resolves to the same entry.
+	assert_eq(GlossaryItem.find_key_from_label('INFECTION'), 'lancer.term.infection',
+		'The signature term links to its own glossary entry.')
+	assert_eq(GlossaryItem.find_key_from_label('Infection'), 'lancer.term.infection', 'Either case.')
+
+func test_resilience_has_a_glossary_entry():
+	assert_eq(GlossaryItem.find_key_from_label('Resilience'), 'lancer.term.resilience',
+		'The core power rows say |Resilience|; it links to its own entry.')
+
+func test_draugr_rows_link_their_own_actions():
+	# The wiki style guide's |Label=gear.<kit>.<action>| form gives the label the kit tooltip link
+	# (glossary_item.gd:230-250 takes the explicit key and links any gear.* key whose kit exists).
+	# A typo in the key silently degrades to plain coloured text, so every explicit link is checked.
+	var links := {
+		'gear.ms_disease.effect': ['gear.ms_disease.action_symptom', 'gear.ms_disease.action_spreader'],
+		'gear.ms_root.effect': ['gear.ms_root.action_dig_in'],
+		'gear.ms_quarantine.effect': ['gear.ms_quarantine.action_isolation', 'gear.ms_quarantine.action_lockdown'],
+		'gear.ms_carrion_beast.effect': ['gear.ms_carrion_beast.action_atrophy'],
+		'gear.ms_pestilence_class_nhp.effect': ['gear.ms_pestilence_class_nhp.action_kill_host'],
+		'gear.cp_cupiditas_vitae.effect': ['gear.cp_cupiditas_vitae.action_ceaseless_death', 'gear.cp_cupiditas_vitae.action_plague_vent_dispersal'],
+		'gear.buff_infection.effect': ['gear.ms_stabilize'],
+	}
+	for row:String in links:
+		var processed:Dictionary = GlossaryItem.process_glossed_text(tr(row))
+		for key:String in links[row]:
+			assert_true(tr(row).contains('=%s|' % key), '%s links %s.' % [row, key])
+			var kit_id:String = key.split('.')[1]
+			assert_true(processed.bbcoded.contains('{"kit":"%s"}' % kit_id), '%s renders a kit link for %s.' % [row, kit_id])
+			assert_true(tr('%s.name' % key) != '%s.name' % key, 'And the linked key has a name row.')
+
+func test_every_draugr_kit_action_and_visible_buff_has_an_icon():
+	# Icons drawn 2026-09-10 in the vanilla language (specs/2026-09-10-icon-language.md). A kit or
+	# action without icon_override falls back to the generic glyph; a visible buff without `icon`
+	# does the same. Hidden buffs (hide_from_player) need none.
+	var kits:Array[StringName] = [&'mt_raging_plague', &'mt_seeping_rot', &'mt_spreading_stain', &'cp_cupiditas_vitae',
+		&'mt_plague_fog', &'ms_disease', &'ms_root', &'ms_quarantine', &'ms_carrion_beast', &'ms_pestilence_class_nhp',
+		&'mw_injector_drill']
+	for kit_id:StringName in kits:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): fail_test('%s resolves.' % kit_id); continue
+		assert_not_null(kit.icon_override, '%s has an icon.' % kit_id)
+		for action:Action in kit.actions:
+			if not action.show_in_tooltip(kit): continue
+			if kit.actions.size() == 1: continue # a lone action wears the kit icon
+			assert_not_null(action.icon_override, '%s: %s has its own icon.' % [kit_id, action.resource_path.get_file()])
+	for buff_id:StringName in [&'buff_infection', &'buff_spreader', &'buff_isolation', &'buff_lockdown']:
+		var buff:Buff = ContentLibrary.get_buff(buff_id)
+		if not (is_instance_valid(buff) and buff is Buff): fail_test('%s resolves.' % buff_id); continue
+		assert_false(buff.hide_from_player, '%s is player-facing.' % buff_id)
+		assert_not_null(buff.icon, '%s has an icon.' % buff_id)
+
+func test_atrophy_rows_carry_the_automatic_warning():
+	# Author request 2026-09-10: the reaction fires automatically (engine limitation, design D4), and
+	# the player is told so in red on both the kit and the action.
+	for row:String in ['gear.ms_carrion_beast.effect', 'gear.ms_carrion_beast.action_atrophy.effect']:
+		assert_true(tr(row).contains('[color=#e07057]') and tr(row).contains('[/color]'), '%s has the red warning.' % row)
 
 func test_draugr_traits_are_localized():
 	# The three trait rows exist in localizations.csv but their values are still blank - the mod is
@@ -142,6 +363,7 @@ func test_erinyes_gear_effects_are_written():
 	assert_true(true, 'Every Erinyes trait and the core power has effect text.')
 
 const DRAUGR_TRAITS := [&'mt_spreading_stain', &'mt_raging_plague', &'mt_seeping_rot']
+const DRAUGR_CORE_POWER := &'cp_cupiditas_vitae'
 
 func test_the_draugr_frame_carries_its_traits():
 	# These three loaded and were indexed for two commits while attached to nothing: the frame had
@@ -150,14 +372,72 @@ func test_the_draugr_frame_carries_its_traits():
 	if not is_instance_valid(frame): return fail_test('mf_draugr loaded.')
 	var wired:Array[StringName] = []
 	for kit:Kit in frame.traits: wired.append(kit.compcon_id)
-	assert_eq(wired, DRAUGR_TRAITS, 'All three Draugr traits are on the frame.')
+	assert_eq(wired, DRAUGR_TRAITS + [DRAUGR_CORE_POWER], 'Three traits, then the core power.')
 
 func test_draugr_traits_are_flagged_as_traits():
-	for kit_id:StringName in DRAUGR_TRAITS:
+	for kit_id:StringName in DRAUGR_TRAITS + [DRAUGR_CORE_POWER]:
 		var kit:Kit = ContentLibrary.get_kit(kit_id)
 		if not Kit.is_valid(kit): continue
 		assert_true(kit.is_trait, '%s is flagged is_trait.' % kit_id)
 		assert_false(kit.is_destructable(), 'And so is not destructible.')
+
+func test_the_draugr_core_power_reads_as_a_core_power():
+	# Kit.is_core_power() is nothing but a cp_ prefix check, so this is really a filename test -
+	# and the filename is also what puts the kit in the kits index rather than the frames one.
+	var kit:Kit = ContentLibrary.get_kit(DRAUGR_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % DRAUGR_CORE_POWER)
+	assert_true(kit.is_core_power(), '%s is a core power.' % DRAUGR_CORE_POWER)
+
+func test_the_core_power_carries_the_resilience_counter():
+	# The die counter's key is what Translate.gear(kit_id, key) looks up for the tooltip label
+	# (passive_die_counter.gd:48), and gear.cp_cupiditas_vitae.resilience is the row that answers it.
+	var kit:Kit = ContentLibrary.get_kit(DRAUGR_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % DRAUGR_CORE_POWER)
+	var counters:Array[Passive] = kit.get_passives(PassiveDieCounter)
+	assert_eq(counters.size(), 1, 'Exactly one die counter on the core power.')
+	if counters.is_empty(): return
+	var die:PassiveDieCounter = counters[0]
+	assert_eq(die.key, 'resilience', 'Keyed "resilience".')
+	assert_eq(die.starting_value, 0, 'Starts empty.')
+	assert_eq(die.min_value, 0, 'And can reach empty; the engine default of 1 would strand a point.')
+	assert_ne(tr('gear.cp_cupiditas_vitae.%s' % die.key), 'gear.cp_cupiditas_vitae.%s' % die.key,
+		'The counter label resolves to real text.')
+
+func test_the_plague_fog_is_registered_and_named():
+	# dep_ files land in the FRAMES index and mt_ files in the KITS index, by filename prefix alone
+	# (engine/resource_groups/). A fog filed under the wrong one loads fine and is never found by
+	# ContentLibrary.get_mech_frame, which is what ActionSystemDeploy needs.
+	var fog:Frame = ContentLibrary.get_mech_frame(&'dep_plague_fog')
+	assert_true(is_instance_valid(fog), 'dep_plague_fog is in the frames index.')
+	if not is_instance_valid(fog): return
+	assert_eq(fog.entity_type, Frame.ENTITY.MARKER, 'It is a marker, like every vanilla smoke cloud.')
+	var wired:Array[StringName] = []
+	for kit:Kit in fog.traits: wired.append(kit.compcon_id)
+	assert_eq(wired, [&'mt_plague_fog', &'mt_expiration'] as Array[StringName],
+		'Its own kit, then vanilla expiration - which is what makes it last until the end of the next turn.')
+	assert_ne(tr('frame.dep_plague_fog.name'), 'frame.dep_plague_fog.name', 'And it has a name.')
+
+func test_the_core_power_carries_all_four_of_its_actions():
+	# Two named abilities plus two pieces of bookkeeping. The bookkeeping pair have no localization
+	# rows and hide themselves from the tooltip, so nothing else would notice them going missing.
+	var kit:Kit = ContentLibrary.get_kit(DRAUGR_CORE_POWER)
+	if not Kit.is_valid(kit): return fail_test('%s loaded.' % DRAUGR_CORE_POWER)
+	var action_ids:Array[StringName] = []
+	for action:Action in kit.actions: action_ids.append(action.get_id())
+	for expected:StringName in [
+		&'action_ceaseless_death', &'action_ceaseless_death_structure',
+		&'action_plague_vent_dispersal', &'action_cupiditas_vitae_efficient',
+	]:
+		assert_true(action_ids.has(expected), '%s is on the core power.' % expected)
+
+	# Sharing a usage_group would make one action's use silently consume another's allowance
+	# (gear_core.gd:166-168). The Erinyes was bitten by exactly this; see
+	# action_face_thy_judgement.gd's header.
+	var groups:Array[StringName] = []
+	for action:Action in kit.actions:
+		if action.usage_group.is_empty(): continue
+		assert_false(groups.has(action.usage_group), '%s has a usage group of its own.' % action.get_id())
+		groups.append(action.usage_group)
 
 # ==================== DHIYED Observation ====================
 # The core power is two sub-abilities on one kit, the way the Denali's Auto-Logistic CompCon carries

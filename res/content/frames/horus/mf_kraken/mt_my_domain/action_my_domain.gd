@@ -85,6 +85,8 @@
 # "fixing" it in the belief that it is the only one will have tightened nothing.
 extends ActionReaction
 
+const Compat := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/reag_compat.gd')
+
 const TETHER_BUFF_ID := &'buff_my_domain_tether'
 const GRAPPLE_KIT := &'mw_grapple'
 const GRAPPLE_ACTION := &'action_grapple'
@@ -203,9 +205,9 @@ func take_hold(activation:EventCore, context:Context, kraken:Unit, caught:Array[
 		# Bracketed the way the domain buffs are, and for the same reason: raised, one await, put
 		# away. A cancel, a miss and a Kraken that dies mid-attack all leave through the same line,
 		# and a whois panel or a target line still up after the domain closes is a visible bug.
-		var marked := mark_target(kraken, target)
+		var mark := mark_target(kraken, target)
 		await grapple(activation, context, kraken, target)
-		if marked: unmark_target()
+		if mark.marked: unmark_target(mark.handle)
 
 		# choose_and_use's bool does NOT report a hit, whatever its comment says: it returns
 		# SpecificAction.is_valid(chosen) (common_action_util.gd:736), and with a single option and a
@@ -226,10 +228,10 @@ func take_hold(activation:EventCore, context:Context, kraken:Unit, caught:Array[
 ## camera, the whois panel, and a line from the Kraken. Guarded on player control because there is
 ## nobody to inform on an AI turn, which is the same gate choose_and_use puts on its copy.
 ##
-## show_whois is deliberately not awaited: it opens an info request and then waits for that request
-## to resolve, and every vanilla caller starts it and walks away (common_action_util.gd:648,
-## action_aegis_shield_generator_reduction.gd:46). The targeting request that follows ends it
-## (choice_bus.gd:69-70).
+## show_whois is deliberately not awaited on either engine: on 1.3.3 it opens an info request that the
+## targeting request which follows ends (choice_bus.gd:69-70); on 1.4.0 Compat raises a request only
+## the "any"-typed panels respond to, and the targeting request's arrival deactivates it. Known 1.4.0
+## difference: the panel drops when targeting OPENS rather than when it resolves.
 ##
 ## THE LINE IS THE WEAKEST OF THE THREE, and knowingly so. tilepicker_compcon draws a target line of
 ## its own while the player hovers and hides it when they are not over a valid target
@@ -238,10 +240,14 @@ func take_hold(activation:EventCore, context:Context, kraken:Unit, caught:Array[
 ## the whole offer. Kept anyway because it costs nothing, it is what choose_and_use would have drawn,
 ## and it is the marker that reads at a glance during the pan.
 ##
-## Returns whether anything was shown, so the caller can put it away again without interrogating a
-## Kraken that may not have survived the attack.
-func mark_target(kraken:Unit, target:Unit) -> bool:
-	if not kraken.is_player_controlled(): return false
+## Returns {marked:bool, handle}, so the caller can put the markers away again without interrogating
+## a Kraken that may not have survived the attack. A Dictionary, not a bare handle or a bare bool:
+## this Action resource is shared across every Kraken (no per-instance state to stash the handle in,
+## unlike the old _whois_handle field), and Compat.show_whois's own handle is null both when nothing
+## was marked (not player-controlled) AND when it was marked on 1.3.3 (see show_whois) - so `handle`
+## alone can't tell those apart and `marked` carries the distinction instead.
+func mark_target(kraken:Unit, target:Unit) -> Dictionary:
+	if not kraken.is_player_controlled(): return {marked = false, handle = null}
 
 	# No zoom reset and no rotation: this runs once per character, and re-framing the board between
 	# each one would be worse than not moving at all. choose_and_use re-centres on the acting Kraken
@@ -249,16 +255,17 @@ func mark_target(kraken:Unit, target:Unit) -> bool:
 	# rather than a hold on it.
 	camera_bus.focus_on_unit(target, false, false)
 
-	choice_bus.show_whois(target)
+	var handle = Compat.show_whois(target)
 	effect_bus.show_target_line(
 		UnitTile.position_center(kraken), UnitTile.position_center(target), Action.FLAVOR.WEAPON)
-	return true
+	return {marked = true, handle = handle}
 
-## Put the markers away again. Takes nothing and checks nothing: it is called only from the bracket
-## that raised them, and it has to run even if the Kraken did not survive the attack.
-func unmark_target() -> void:
-	choice_bus.hide_whois()
-	effect_bus.hide_target_line()
+## Put the markers away again. Takes the handle mark_target returned and checks nothing else: it is
+## called only from the bracket that raised them, and it has to run even if the Kraken did not
+## survive the attack.
+func unmark_target(handle) -> void:
+	Compat.hide_whois(handle)
+	Compat.hide_target_lines()
 
 ## The attack: the Kraken's own Grapple, aimed at one character, routed rather than reimplemented.
 ## A contested roll that can miss, with mw_grapple's own on-hit effect doing the attaching and the

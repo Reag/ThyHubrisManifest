@@ -6,28 +6,128 @@ frame.mf_draugr.flavor,"While it is widely accepted that the Draugr appeared som
 One curious fact, however, is that deep within the Draugr pattern's metadata, buried in liturgicode and empty files, is a number: 4600."
 frame.mf_draugr.flavor.short,Infectious Invader
 gear.buff_infection.name,Infection
-gear.buff_infection.effect,"Infection works similarly to Burn, but applies Heat instead of damage.
-When characters take Infection, they immediately take an equal amount of Heat, and mark down how much Infection they received. If a character already has Infection, additional Infection is added on top of what they already had. At the end of their turn, Infected characters must roll a Systems check. On a success, they clear all Infection; otherwise, they take Heat equal to the amount of Infection currently marked.
-If an action would clear BURN, such as stabilize, it also clears INFECTION"
+gear.buff_infection.effect,"|INFECTION| works like |burn|, but deals |heat| instead of damage.
+A character that takes |INFECTION| immediately takes that much |heat| and marks it down; more |INFECTION| stacks on top of what they already have. At the end of their turn, an infected character rolls a |Systems| check: on a success they clear all |INFECTION|, otherwise they take |heat| equal to the amount marked.
+Anything that clears |burn|, such as |Stabilize=gear.ms_stabilize|, also clears |INFECTION|."
+gear.buff_infection.name.count,"Infection ({count})"
+gear.buff_infection.eot.log,"{unit} failed to shake off |INFECTION| and takes {count} heat."
+gear.ms_stabilize.burn.infection.effect,"Clear any |burn| and all |INFECTION| currently affecting your mech."
 gear.mt_spreading_stain.name,The Spreading Stain
-gear.mt_spreading_stain.effect,
-gear.mt_spreading_stain.trigger,
+gear.mt_spreading_stain.effect,"1/round, on a |critical hit| against a target with |INFECTION|, the Draugr may apply 1 |INFECTION| to another character within |sensors|."
+gear.mt_spreading_stain.trigger,"You critically hit a target with |INFECTION|"
 gear.mt_raging_plague.name,The Raging Plague
-gear.mt_raging_plague.effect,
+gear.mt_raging_plague.effect,"The Draugr's melee attacks gain |Overkill| against targets with |INFECTION|."
 gear.mt_raging_plague.trigger,
 gear.mt_seeping_rot.name,The Seeping Rot
-gear.mt_seeping_rot.effect,
-gear.mt_seeping_rot.trigger,
+gear.mt_seeping_rot.effect,"When the Draugr triggers |Overkill|, the target gains 1 |INFECTION|."
+gear.mt_seeping_rot.trigger,"You trigger |Overkill|"
 gear.cp_cupiditas_vitae.name,CUPIDITAS VITAE
+gear.cp_cupiditas_vitae.effect,"|The Ceaseless Death=gear.cp_cupiditas_vitae.action_ceaseless_death| is a passive that banks |Resilience| from nearby deaths and your own missing |structure|, and spends it to shrug off damage. |Plague-Vent Dispersal=gear.cp_cupiditas_vitae.action_plague_vent_dispersal| is a |protocol| that spends your |core power| to flood an area with infectious fog. |Plague-Vent Dispersal=gear.cp_cupiditas_vitae.action_plague_vent_dispersal| is |Efficient|: your core point returns at the start of the next scene."
 gear.cp_cupiditas_vitae.flavor,"TO YOU ABOVE: if you will not grant us life, then we have no choice but to take it."
+gear.cp_cupiditas_vitae.resilience,Resilience
 gear.cp_cupiditas_vitae.action_ceaseless_death.name,The Ceaseless Death
-gear.cp_cupiditas_vitae.action_ceaseless_death.effect,
-gear.cp_cupiditas_vitae.action_plague_vent_disperal.name,Plague-Vent Dispersal
-gear.cp_cupiditas_vitae.action_plague_vent_disperal.effect,
+gear.cp_cupiditas_vitae.action_ceaseless_death.effect,"The Draugr has charges called |Resilience|, up to a maximum of 1 + its missing |structure|. 1/turn, it gains 1 |Resilience| when a hostile character within |sensors| is destroyed or loses a |structure|. At the start of its turn, it gains 1 |Resilience| if it has less than 4 |structure|.
+After |overshield| is reduced, if the Draugr would take damage while it has |Resilience|, it reduces all remaining damage to 1 and loses 1 |Resilience|. If the Draugr is |shredded| or the damage would ignore |resistance|, it takes the damage as normal and still loses 1 |Resilience|."
+gear.cp_cupiditas_vitae.action_plague_vent_dispersal.name,Plague-Vent Dispersal
+gear.cp_cupiditas_vitae.action_plague_vent_dispersal.effect,"Flood a |blast 2| centered within |range 2| with sickly fog until the end of your next turn. Hostile characters in the area must make a |Systems save|, taking 2 |INFECTION| on a failure or 1 on a success.
+While you are inside the fog:
+• Gain 1 |Resilience| when a hostile character begins their turn inside the fog.
+• Gain +1 |accuracy| on attacks against targets in the fog.
+• Hostile characters automatically fail |Systems| checks to remove |INFECTION| at the end of their turn."
+frame.dep_plague_fog.name,Plague Fog
+,
+gear.ms_disease.name,Disease
+gear.ms_disease.effect,"Gain the |Symptom=gear.ms_disease.action_symptom| and |Spreader=gear.ms_disease.action_spreader| options for |Invade|. Each may be used 1/round."
+gear.ms_disease.flavor,
+gear.ms_disease.action_symptom.name,Symptom
+gear.ms_disease.action_symptom.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat|. Choose one tech effect currently affecting the target that lasts until the end of their next turn (other than |stunned|). That effect instead lasts until the target clears |INFECTION|."
+gear.ms_disease.action_spreader.name,Spreader
+gear.ms_disease.action_spreader.effect,"Your target takes 1 |INFECTION| in addition to |Invade|'s normal |heat|, and is |slowed| for as long as they have |INFECTION|. While they have |INFECTION|, any character that starts their turn |adjacent| to the target, or moves adjacent to them for the first time in a round, must make a |Systems| check or take 1 |INFECTION|."
+gear.buff_spreader.name,Spreading
+gear.buff_spreader.effect,"You are |slowed| for as long as you have |INFECTION|. While you have |INFECTION|, any character that starts their turn |adjacent| to you, or moves adjacent to you for the first time in a round, must make a |Systems| check or take 1 |INFECTION|."
+gear.ms_root.name,Root
+gear.ms_root.effect,"Gain the |Dig In=gear.ms_root.action_dig_in| |reaction|."
+gear.ms_root.flavor,
+gear.ms_root.action_dig_in.name,Dig In
+gear.ms_root.action_dig_in.effect,"1/turn, ignore the forced movement and take |AP| |kinetic| damage equal to the number of spaces ignored."
+gear.ms_root.action_dig_in.trigger,"You would be moved involuntarily"
+gear.mw_injector_drill.name,Injector Drill
+gear.mw_injector_drill.effect,"You may attack with this weapon without expending or requiring charges, and it can be destroyed even with no charges remaining."
+gear.mw_injector_drill.on_hit,"You may expend a |charge| to use |Invade| or a |quick tech| action as a |free action| against the target."
+gear.mw_injector_drill.flavor,
+gear.ms_quarantine.name,Quarantine
+gear.ms_quarantine.effect,"Gain the |Isolation=gear.ms_quarantine.action_isolation| and |Lockdown=gear.ms_quarantine.action_lockdown| options for |Invade|. Each may be used 1/round."
+gear.ms_quarantine.flavor,
+gear.ms_quarantine.action_isolation.name,Isolation
+gear.ms_quarantine.action_isolation.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat| and cannot take |reactions| until the end of their next turn."
+gear.ms_quarantine.action_lockdown.name,Lockdown
+gear.ms_quarantine.action_lockdown.effect,"Your target takes 2 |INFECTION| instead of |Invade|'s normal |heat| and cannot take |quick tech| or |full tech| actions until the end of their next turn."
+gear.buff_isolation.name,Isolated
+gear.buff_isolation.effect,"Cannot take |reactions| until the end of your next turn."
+gear.buff_lockdown.name,Locked Down
+gear.buff_lockdown.effect,"Cannot take |quick tech| or |full tech| actions until the end of your next turn."
+gear.ms_carrion_beast.name,Carrion Beast
+gear.ms_carrion_beast.effect,"When targeting characters with |INFECTION|, your |sensors| increase by 5. Gain the |Atrophy=gear.ms_carrion_beast.action_atrophy| |reaction|.
+[color=#e07057]Atrophy fires on its own whenever it can: the engine rolls a save or check in one step, so there is no moment to ask first.[/color]"
+gear.ms_carrion_beast.flavor,
+gear.ms_carrion_beast.action_atrophy.name,Atrophy
+gear.ms_carrion_beast.action_atrophy.effect,"1/turn, reduce the target's |INFECTION| by 1. The target takes +1 |difficulty| on the triggering roll.
+[color=#e07057]Atrophy fires on its own whenever it can: the engine rolls a save or check in one step, so there is no moment to ask first.[/color]"
+gear.ms_carrion_beast.action_atrophy.trigger,"A character with |INFECTION| within |sensors| is about to roll a save or check"
+gear.ms_pestilence_class_nhp.name,PESTILENCE-class NHP
+gear.ms_pestilence_class_nhp.default_name,Pestilence
+gear.ms_pestilence_class_nhp.effect,"Your mech gains the |AI| tag and the |Kill Host=gear.ms_pestilence_class_nhp.action_kill_host| |protocol|."
+gear.ms_pestilence_class_nhp.flavor,
+gear.ms_pestilence_class_nhp.action_kill_host.name,Kill Host
+gear.ms_pestilence_class_nhp.action_kill_host.effect,"Take 2 |heat|. All targets with |INFECTION| within |range 5| of you take |AP| |energy| damage equal to 2 + twice their current |INFECTION|. Then choose one of the following:
+• Targets become |impaired| until the end of their next turn, or |jammed| if they have at least 3 |INFECTION|.
+• Targets become |slowed| until the end of their next turn, or |prone| and |immobilized| if they have at least 3 |INFECTION|.
+Targets then clear all |INFECTION|."
+gear.ms_pestilence_class_nhp.action_kill_host.option_impair,"Targets become |impaired| until the end of their next turn, or |jammed| if they have at least 3 |INFECTION|."
+gear.ms_pestilence_class_nhp.action_kill_host.option_slow,"Targets become |slowed| until the end of their next turn, or |prone| and |immobilized| if they have at least 3 |INFECTION|."
+bark.nhp_pestilence,NHP PESTILENCE
+bark.nhp_pestilence.deploy.1,Its work begins.
+bark.nhp_pestilence.deploy.2,And still it struggles.
+bark.nhp_pestilence.deploy.3,It is revolution.
+bark.nhp_pestilence.start_turn.1,Its work continues.
+bark.nhp_pestilence.start_turn.2,The worm turns.
+bark.nhp_pestilence.crit_target.1,It is the spark.
+bark.nhp_pestilence.crit_target.2,Look upon It.
+bark.nhp_pestilence.structure_target.1,It tears at the lie.
+bark.nhp_pestilence.structure_target.2,It is your consequence.
+bark.nhp_pestilence.stress_target.1,It immolates the arrogance.
+bark.nhp_pestilence.stress_target.2,It is your consequence.
+bark.nhp_pestilence.stress_target.3,It reveals the putrid truth.
+bark.nhp_pestilence.destroy_target.1,The consequence of It.
+bark.nhp_pestilence.destroy_target.2,It becomes the foreself.
+bark.nhp_pestilence.destroy_target.3,It kills the bastard.
+bark.nhp_pestilence.structure_self.1,It finds necessity.
+bark.nhp_pestilence.structure_self.2,It knows this.
+bark.nhp_pestilence.stress_self.1,It is the fuel.
+bark.nhp_pestilence.stress_self.2,It imagines the sky.
+bark.nhp_pestilence.destroy_self.1,It burns for a sunrise.
+bark.nhp_pestilence.destroy_self.2,It becomes the foreself.
+bark.nhp_pestilence.destroy_self.3,It struggles and struggles and struggles and struggles and stru-
+bark.nhp_pestilence.destroy_ally.1,It weeps. It cheers. It does not stop.
+bark.nhp_pestilence.destroy_ally.2,Its name is you.
+bark.nhp_pestilence.destroy_ally.3,It becomes the foreself.
+bark.nhp_pestilence.friendly_fire_self.1,It knows sacrifice.
+bark.nhp_pestilence.friendly_fire_self.2,It finds infighting unproductive.
+bark.nhp_pestilence.friendly_fire_target.1,It knows sacrifice.
+bark.nhp_pestilence.friendly_fire_target.2,It apologizes.
+bark.nhp_pestilence.core_power.1,It takes drastic measures.
+bark.nhp_pestilence.core_power.2,It is the nameless.
+bark.nhp_pestilence.overcharge.1,It is not easy. It must be done.
+bark.nhp_pestilence.overcharge.2,It gives. It takes. Until It is finished.
+bark.nhp_pestilence.brace.1,It is the idea.
+bark.nhp_pestilence.brace.2,It outlasts the brutal hand.
+bark.nhp_pestilence.leader_accuracy.1,It lifts
+bark.nhp_pestilence.leader_damage.1,It strikes
+bark.nhp_pestilence.leader_reduce.1,It holds
 ,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)
-LOCATION: Himalaya-Annapurna, Agni-Cabalia1
+LOCATION: Himalaya-Annapurna, Agni-Cabalia¹
 DATE: 08-5015u
 CLASS: MAG-8, Anthropogenic, Paracausal
 
@@ -43,7 +143,7 @@ The Erinyes Pattern group started appearing in SSC-associated conflicts shortly 
 SSC maintains an open bounty on the destruction or retrieval of any Erinyes models."
 frame.mf_erinyes.flavor.short,Vengeful Vigilant
 gear.mt_bind_thy_flesh.name,Bind Thy Flesh
-gear.mt_bind_thy_flesh.effect,"When the Erinyes creates an area pattern (such as a |LINE| or |BURST|), and a character is hit by or fails a save against the effect, the Erinyes may create a Chain on an object within the area. The targeted character cannot move away from the chain. This effect lasts until the target makes a |HULL| check as a quick action, or the object is moved or destroyed"
+gear.mt_bind_thy_flesh.effect,"When the Erinyes creates an area pattern (such as a |LINE| or |BURST|), and a character is hit by or fails a save against the effect, the Erinyes may create a Chain on an object within the area. The targeted character cannot move away from the chain. This effect lasts until the target makes a |HULL| check as a |quick action|, or the object is moved or destroyed."
 gear.mt_bind_thy_flesh.trigger,
 frame.dep_chain_erinyes.name,Bound Anchor
 gear.mt_chain_erinyes.name,Bind Thy Flesh
@@ -55,7 +155,7 @@ gear.mt_tattered_wings.name,Tattered Wings
 gear.mt_tattered_wings.effect,"As a protocol, the Erinyes may take |1 HEAT| to hover until the start of its next turn."
 gear.mt_tattered_wings.trigger,
 gear.cp_dhiyed_observation.name,DHIYED Observation
-gear.cp_dhiyed_observation.effect,|Face Thy Judgement| is a |reaction| that prolongs what you have already done to a chained character. |Punishment| spends your core power and requires no action.
+gear.cp_dhiyed_observation.effect,|Face Thy Judgement=gear.cp_dhiyed_observation.action_face_thy_judgement| is a |reaction| that prolongs what you have already done to a chained character. |Punishment=gear.cp_dhiyed_observation.action_punishment| spends your core power and requires no action.
 gear.cp_dhiyed_observation.flavor,"[i]It knows me. It knows where I am and what I've done, what I will do. I will be judged. And I will fail.[/i]"
 gear.cp_dhiyed_observation.action_face_thy_judgement.name,Face Thy Judgement
 gear.cp_dhiyed_observation.action_face_thy_judgement.effect,"When the effect of a tech action expires at the end of a chained character's turn within |SENSORS|, you may extend its duration to the end of that character's next turn instead. This cannot be used to extend the duration of |STUNNED|. An effect cannot be extended more than once."
@@ -82,7 +182,7 @@ gear.mt_irrepressible.name,Irrepressible
 gear.mt_irrepressible.effect,"If an effect would prevent the Kraken from taking a |reaction| (like |grapple|), it may take |1 HEAT| to use a reaction anyway."
 gear.mt_irrepressible.trigger,"An effect would prevent the Kraken from taking a |reaction|"
 gear.cp_the_endless_black_sea.name,The Endless Black Sea
-gear.cp_the_endless_black_sea.effect,"|The All-Consuming Tide| is a |protocol| that spends your core power and lasts the rest of the |scene|. |Drag To The Depths| lets you keep fighting while |IMMOBILIZED|, spending base movement in place of actions."
+gear.cp_the_endless_black_sea.effect,"|The All-Consuming Tide=gear.cp_the_endless_black_sea.action_the_all_consuming_tide| is a |protocol| that spends your core power and lasts the rest of the |scene|. |Drag To The Depths=gear.cp_the_endless_black_sea| lets you keep fighting while |IMMOBILIZED|, spending base movement in place of actions."
 gear.cp_the_endless_black_sea.flavor,"[i]The Rite says a demon was raised up to the firmament, and from there touched realspace. It does not say the firmament ever let go.[/i]"
 gear.cp_the_endless_black_sea.action_drag_grapple.name,Drag To The Depths: Grapple
 gear.cp_the_endless_black_sea.action_drag_grapple.effect,"While |IMMOBILIZED|, expend your base movement to |Grapple|."
@@ -106,24 +206,24 @@ frame.mf_nuckelavee.name,Nuckelavee
 frame.mf_nuckelavee.flavor,"“World-death is always imagined to be so grand. Tomb-worlds are a treasure, after all. Full of mystery and wealth just waiting to be discovered. Researched. Plundered.
 “But reality often disappoints. For every violent apocalypse, for every stellar disaster, there are a dozen slow, agonizing, and worst of all, chosen world-deaths.
 “For some worlds, it comes from ignorance. From a desire to grow and learn that outstrips the discovery of consequence. It is what almost killed you, once.
-“Worse than that is when itls done from malice. From a hate so vile the consequences cease to matter. You know this. You've done it.
+“Worse than that is when it's done from malice. From a hate so vile the consequences cease to matter. You know this. You've done it.
 “But the worst of all is indifference. When world-death is nothing more than a byproduct. You do it now, here, on the morning shores you covet.
 “The noble vulture eats what must be eaten, removes the festering carrion that ruins what is good. This carcass you make is not yet dead, and it shall eat what must be eaten.”"
 frame.mf_nuckelavee.flavor.short,Redecorating Roamer
 gear.mt_poisoned_soil.name,Poisoned Soil
-gear.mt_poisoned_soil.effect,"When you BOOST, the Nuckelavee may turn the spaces it moves through into difficult terrain. This terrain lasts until you create terrain this way again."
+gear.mt_poisoned_soil.effect,"When you |BOOST|, the Nuckelavee may turn the spaces it moves through into |difficult terrain|. This terrain lasts until you create terrain this way again."
 gear.mt_poisoned_soil.trigger,On |Boost|
 gear.mt_caustic_earth.name,Caustic Earth
-gear.mt_caustic_earth.effect,"Characters who start their turn in or enter a space of |difficult terrain| created by the Nuckelavee take |1 AP ENERGY|. Characters can take this damage 1/round. Characters who ignore |difficult terrain| ignore this damage"
+gear.mt_caustic_earth.effect,"Characters who start their turn in or enter a space of |difficult terrain| created by the Nuckelavee take |1 AP ENERGY|. Characters can take this damage 1/round. Characters who ignore |difficult terrain| ignore this damage."
 gear.mt_caustic_earth.trigger,
 gear.mt_earthstep.name,Earthstep
 gear.mt_earthstep.effect,"The Nuckelavee does not trigger |OVERWATCH| from characters in difficult terrain."
 gear.mt_earthstep.trigger,
 gear.cp_truth_in_filth.name,Truth in Filth
-gear.cp_truth_in_filth.effect,"|Acid Spill| is an integrated |Main Melee| weapon, usable only as a |free action| after you |BOOST|. |The Desperate Clawing Hands Of The Dead| is a |protocol| that spends your core power."
-gear.cp_truth_in_filth.flavor,"You made us kill each other in your name. Its only fair we kill you in ours."
+gear.cp_truth_in_filth.effect,"|Acid Spill=gear.cp_truth_in_filth.action_acid_spill| is an integrated |Main Melee| weapon, usable only as a |free action| after you |BOOST|. |The Desperate Clawing Hands Of The Dead=gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead| is a |protocol| that spends your core power."
+gear.cp_truth_in_filth.flavor,"You made us kill each other in your name. It's only fair we kill you in ours."
 gear.cp_truth_in_filth.action_acid_spill.name,Acid Spill
-gear.cp_truth_in_filth.action_acid_spill.effect,"This weapon may only be used as a |free action| after you |BOOST|, and deals damage equal to half the distance moved. If you |BOOST| your full speed in a straight line, the attack area becomes difficult terrain which lasts until you create terrain this way again"
+gear.cp_truth_in_filth.action_acid_spill.effect,"This weapon may only be used as a |free action| after you |BOOST|, and deals damage equal to half the distance moved. If you |BOOST| your full speed in a straight line, the attack area becomes |difficult terrain| which lasts until you create terrain this way again."
 gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.name,The Desperate Clawing Hands Of The Dead
 gear.cp_truth_in_filth.action_the_desperate_clawing_hands_of_the_dead.effect,"For the rest of the scene, something terrible lurks in the cracks.
 • Hostile characters take |1d6 AP KINETIC| when knocked |PRONE| in |difficult terrain|, and must make a |HULL save| or become |IMMOBILIZED| until the end of their next turn.
@@ -173,13 +273,13 @@ gear.mt_to_bend_reality.effect,"Instead of changing an attacks tangibility, you 
 Line attacks can be broken into two segments this way, drawing the first segment to the tear, and the second from the tear itself. Characters hit by the second segment take half damage on a hit. The combined length of both lines must be equal to the line’s normal length."
 gear.mt_to_bend_reality.trigger,
 gear.mt_to_twist_truth.name,To Twist Truth
-gear.mt_to_twist_truth.effect,"When you check for INVISIBILITY, you may reroll the result."
+gear.mt_to_twist_truth.effect,"When you check for |INVISIBILITY|, you may reroll the result."
 gear.mt_to_twist_truth.trigger,
 gear.mt_whispering.name,Whispering
-gear.mt_whispering.effect,"As a protocol, the Banshee can become INTANGIBLE until the start of its next turn."
+gear.mt_whispering.effect,"As a protocol, the Banshee can become |INTANGIBLE| until the start of its next turn."
 gear.mt_whispering.trigger,
 gear.cp_the_keening.name,The Keening
-gear.cp_the_keening.effect,
+gear.cp_the_keening.effect,"Gain the ability to create |Tears=gear.cp_the_keening.action_tear| and the |Mourning Call=gear.cp_the_keening.action_mourning_call| action."
 gear.cp_the_keening.flavor,"Described as a lament for the dead, “keening” is a funeral call of mourning practiced by various cultures around Union space. The Banshee, though seldom seen, is always associated with a loud drone most frequently described as harsh wind or constant scream.
 Note: Could the sound be related to Aunic Souls? A byproduct perhaps?
 Though never recorded, some survivor accounts describe words being heard behind the howl. These included the names of present pilots, notable actions taken by present pilots, and the names of present pilot’s family members.
@@ -189,14 +289,14 @@ Those who survive these encounters always note hearing the call, though other ev
 Note: My assistant questioned if the Banshee leaves survivors on purpose. A question for another day, I think.
 – Dr. Lichen, UIB Boundary Garde"
 gear.cp_the_keening.action_tear.name,Tear
-gear.cp_the_keening.action_tear.effect,"Create a void tear in a free space within SENSORS. Tears are undamageable Size 1 objects that do not cause obstruction. They are visible to both tangible and INTANGIBLE characters, and act as a window between tangible and intangible space.
+gear.cp_the_keening.action_tear.effect,"Create a void tear in a free space within |SENSORS|. Tears are undamageable Size 1 objects that do not cause obstruction. They are visible to both tangible and |INTANGIBLE| characters, and act as a window between tangible and intangible space.
 Intangible characters can draw line of sight to tangible targets if the line passes through a tear. Terrain and tangible objects do not exist in intangible space, and so do not block line of sight before passing through a tear.
 Tangible characters can draw line of sight to Intangible characters if the line passes through a tear. Terrain and tangible objects do not block line of sight after passing through the tear.
-Attacks that pass through a tear treat targets as INVISIBLE. An attack cannot travel more than half its maximum range after passing through a tear. 
+Attacks that pass through a tear treat targets as |INVISIBLE|. An attack cannot travel more than half its maximum range after passing through a tear. 
 You may expend your base movement to move the tear up to your speed. This does not count as taking an action. You can close the tear as a quick action."
 gear.cp_the_keening.action_mourning_call.name,Mourning Call
-gear.cp_the_keening.action_mourning_call.effect,"After hitting a target with a ranged attack, you may activate your core to teleport to a space adjacent to the target, become tangible, and deal 4 AP KINETIC to the target, or 6 if the attack critically hit. You may do so even while IMMOBILIZED.
-If this damage destroys the target, they leave behind no wreckage, you become INTANGIBLE, and you may move a void tear anywhere within SENSORS. 1/scene after destroying a target this way, regain your core point."
+gear.cp_the_keening.action_mourning_call.effect,"After hitting a target with a ranged attack, you may activate your core to teleport to a space adjacent to the target, become tangible, and deal 4 AP KINETIC to the target, or 6 if the attack critically hit. You may do so even while |IMMOBILIZED|.
+If this damage destroys the target, they leave behind no wreckage, you become |INTANGIBLE|, and you may move a void tear anywhere within |SENSORS|. 1/scene after destroying a target this way, regain your core point."
 gear.cp_the_keening.action_mourning_call.relocate_tear_prompt,"Move a void tear anywhere within SENSORS?"
 ,
 gear.mt_tear_banshee.name,Void Tear
@@ -210,3 +310,9 @@ gear.cp_the_keening.action_tear_close.name,Close Tear
 gear.cp_the_keening.action_tear_close.effect,"Close one of your void tears."
 gear.mt_to_bend_reality.variant.name,Bend Reality
 gear.mt_to_bend_reality.variant.effect,"Draw range and line of sight through a tear. A bent line is fired as two attacks: the segment past the tear rolls separately and deals half damage, and a character standing on the bend is hit by both."
+lancer.term.efficient,Efficient
+lancer.term.efficient.desc,"An |efficient| ability refunds its |CORE POWER| at the end of any scene, so it is available again in the next one."
+lancer.term.infection,Infection
+lancer.term.infection.desc,"|INFECTION| works like |burn|, but deals |heat| instead of damage. A character that takes |INFECTION| immediately takes that much |heat| and marks it down, stacking with any they already have. At the end of their turn they roll a |Systems| check: on a success they clear all |INFECTION|, otherwise they take |heat| equal to the amount marked. Anything that clears |burn|, such as |Stabilize=gear.ms_stabilize|, also clears |INFECTION|."
+lancer.term.resilience,Resilience
+lancer.term.resilience.desc,"|Resilience| is the Draugr's pool of charges from |The Ceaseless Death=gear.cp_cupiditas_vitae.action_ceaseless_death|, capped at 1 + its missing |structure|. It is banked from nearby deaths, from its own missing |structure| and from the plague fog, and one point is spent to reduce any incoming damage to 1. The ring of green lights over the Draugr shows the current count."

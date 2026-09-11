@@ -9,6 +9,7 @@
 # AttackUtil is a dead extension seam - see buff_tear_invisibility.gd for the full reasoning.
 extends GutTest
 
+const FrameIsolation := preload('res://testkit/frame_isolation.gd')
 const TearRouting := preload('res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_banshee/cp_the_keening/tear/tear_routing.gd')
 const BUFF_ID := &'buff_tear_invisibility'
 
@@ -27,6 +28,7 @@ func before_each():
 	banshee.update_cached_values_and_token(SpecFactory.dummy_event())
 
 	ghost = SpecFactory.create_unit(game.map, Vector2i(9,9), Faction.AI_ENEMY)
+	FrameIsolation.isolate_frame(ghost)
 	ghost.core.frame.stat.evasion = 0
 
 func after_each():

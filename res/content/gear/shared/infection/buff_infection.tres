@@ -1,7 +1,12 @@
-[gd_resource type="Resource" script_class="Buff" format=3 uid="uid://63vxq00is8xr"]
+[gd_resource type="Resource" format=3 uid="uid://63vxq00is8xr"]
 
-[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="1_eitpk"]
+[ext_resource type="Script" uid="uid://dr6njqe20mbhm" path="res://unpacked/Reag-ThyHubris/res/content/gear/shared/infection/buff_infection.gd" id="1_infect"]
+[ext_resource type="PackedScene" path="res://unpacked/Reag-ThyHubris/res/content/fx_endless/character/fxe_infected.tscn" id="2_fxe"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/buff_infection.svg" id="icon_ection"]
 
 [resource]
-script = ExtResource("1_eitpk")
-metadata/_custom_type_script = "uid://cqrqkdgcf8mti"
+script = ExtResource("1_infect")
+triggers_on = Array[StringName]([&"end_turn", &"clear_burn", &"stabilize"])
+trigger_timing = 0
+fxe = ExtResource("2_fxe")
+icon = ExtResource("icon_ection")

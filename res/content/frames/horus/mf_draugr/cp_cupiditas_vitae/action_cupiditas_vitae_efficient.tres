@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/cp_cupiditas_vitae/action_cupiditas_vitae_efficient.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+triggers_on = Array[StringName]([&"unit_spawn"])
+consumes_rxn = false
+suppress_logging = true

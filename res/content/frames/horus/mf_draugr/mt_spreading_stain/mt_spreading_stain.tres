@@ -1,10 +1,20 @@
 [gd_resource type="Resource" script_class="Kit" format=3 uid="uid://dqmg1ek75nxek"]
 
-[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="1_frpgc"]
 [ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="2_1htpl"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="3_1pdyr"]
+[ext_resource type="Script" uid="uid://dy4kg537rc55e" path="res://engine/character/gear_passive/passive_buff_applicator.gd" id="4_applicator"]
+[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="5_buff"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_draugr/mt_spreading_stain/buff_spreading_stain.tres" id="6_buff_res"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/mt_spreading_stain.svg" id="icon_stain"]
+
+[sub_resource type="Resource" id="Resource_stain_passive"]
+script = ExtResource("4_applicator")
+applied_buffs = Array[ExtResource("5_buff")]([ExtResource("6_buff_res")])
+metadata/_custom_type_script = "uid://dy4kg537rc55e"
 
 [resource]
 script = ExtResource("3_1pdyr")
+passives = Array[ExtResource("2_1htpl")]([SubResource("Resource_stain_passive")])
 is_trait = true
 metadata/_custom_type_script = "uid://ckrv6mvs5q65e"
+icon_override = ExtResource("icon_stain")

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/weapons/mw_injector_drill/action_injector_drill.gd" id="1_action_script"]
+
+[resource]
+script = ExtResource("1_action_script")
+damage_dice = "1d6+3"
+weapon_size = 2
+weapon_type = 2
+aim_range = 0
+threat = 2

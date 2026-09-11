@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cpo0avwwyjnuw"
-path="res://.godot/imported/mt_undulating_form.png-6901e0e238567d06cc9e8eb5039099a8.ctex"
+uid="uid://bp2qy5dqu3b7a"
+path="res://.godot/imported/cp_cupiditas_vitae.svg-5ee4156a0b21b39a0b951bacf85ff9c9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/mt_undulating_form.png"
-dest_files=["res://.godot/imported/mt_undulating_form.png-6901e0e238567d06cc9e8eb5039099a8.ctex"]
+source_file="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/cp_cupiditas_vitae.svg"
+dest_files=["res://.godot/imported/cp_cupiditas_vitae.svg-5ee4156a0b21b39a0b951bacf85ff9c9.ctex"]
 
 [params]
 
@@ -38,3 +38,6 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=0
+svg/scale=1.0
+editor/scale_with_editor_scale=false
+editor/convert_colors_with_editor_theme=false

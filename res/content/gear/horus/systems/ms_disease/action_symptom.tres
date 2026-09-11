@@ -1,0 +1,10 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_disease/action_symptom.gd" id="1_action_script"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/action_symptom.svg" id="icon_ymptom"]
+
+[resource]
+script = ExtResource("1_action_script")
+usage_group = &"disease_symptom"
+is_invade = true
+icon_override = ExtResource("icon_ymptom")

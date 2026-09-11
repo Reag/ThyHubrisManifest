@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://ck34knquhucbv" path="res://engine/gamemaster/effects_controller/fx_endless/fx_endless.gd" id="1_fxe"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pip"]
+shading_mode = 0
+albedo_color = Color(0.72, 1, 0.62, 1)
+emission_enabled = true
+emission = Color(0.35, 0.95, 0.4, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="SphereMesh" id="SphereMesh_pip"]
+material = SubResource("StandardMaterial3D_pip")
+radius = 0.5
+height = 1.0
+radial_segments = 12
+rings = 6
+
+[node name="FxeResilience3" type="Node3D"]
+script = ExtResource("1_fxe")
+
+[node name="Pip1" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.11, 0, 0, 0, 0.11, 0, 0, 0, 0.11, 0.420, 1.05, 0.000)
+cast_shadow = 0
+mesh = SubResource("SphereMesh_pip")
+
+[node name="Pip2" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.11, 0, 0, 0, 0.11, 0, 0, 0, 0.11, -0.210, 1.05, 0.364)
+cast_shadow = 0
+mesh = SubResource("SphereMesh_pip")
+
+[node name="Pip3" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.11, 0, 0, 0, 0.11, 0, 0, 0, 0.11, -0.210, 1.05, -0.364)
+cast_shadow = 0
+mesh = SubResource("SphereMesh_pip")

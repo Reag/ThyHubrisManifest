@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/buff_carrion_beast_reach.gd" id="1_reach"]
+
+[resource]
+script = ExtResource("1_reach")
+to = &"action_tiles"
+hide_from_player = true
+localization_key_override = "ms_carrion_beast"

@@ -4,7 +4,6 @@
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
 [ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/frames/horus/mf_erinyes/mt_know_thy_sins/action_know_thy_sins.tres" id="3_action_know_thy_sins"]
 [ext_resource type="Texture2D" uid="uid://5gwo0al5d540" path="res://assets/icons/burning.svg" id="3_ucckv"]
-[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="4_ltm77"]
 
 [resource]
 script = ExtResource("2_kit")

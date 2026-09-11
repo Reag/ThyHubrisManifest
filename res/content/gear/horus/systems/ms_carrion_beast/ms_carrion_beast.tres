@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="Kit" format=3]
+
+[ext_resource type="Script" uid="uid://n33no7rw7y82" path="res://engine/character/gear_passive/passive.gd" id="1_passive"]
+[ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="2_kit"]
+[ext_resource type="Script" uid="uid://dy4kg537rc55e" path="res://engine/character/gear_passive/passive_buff_applicator.gd" id="3_applicator"]
+[ext_resource type="Script" uid="uid://cqrqkdgcf8mti" path="res://engine/character/buff/buff.gd" id="4_buff"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/buff_carrion_beast_reach.tres" id="5_reach"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/passive_atrophy.tres" id="6_atrophy"]
+[ext_resource type="Script" uid="uid://b8unc74nyhjr0" path="res://engine/character/gear_action/action.gd" id="7_action"]
+[ext_resource type="Resource" path="res://unpacked/Reag-ThyHubris/res/content/gear/horus/systems/ms_carrion_beast/action_atrophy.tres" id="8_atrophy_action"]
+[ext_resource type="Texture2D" path="res://unpacked/Reag-ThyHubris/res/assets/frames/icons/ms_carrion_beast.svg" id="icon_beast"]
+
+[sub_resource type="Resource" id="Resource_carrion_reach"]
+script = ExtResource("3_applicator")
+applied_buffs = Array[ExtResource("4_buff")]([ExtResource("5_reach")])
+
+[resource]
+script = ExtResource("2_kit")
+passives = Array[ExtResource("1_passive")]([SubResource("Resource_carrion_reach"), ExtResource("6_atrophy")])
+actions = Array[ExtResource("7_action")]([ExtResource("8_atrophy_action")])
+sp_cost = 2
+icon_override = ExtResource("icon_beast")

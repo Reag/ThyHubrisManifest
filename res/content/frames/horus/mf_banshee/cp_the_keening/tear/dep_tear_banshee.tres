@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="Frame" format=3 uid="uid://iynn7krqprm3"]
 
 [ext_resource type="Script" uid="uid://daycu0mqh1rbq" path="res://engine/character/unit_core/frame.gd" id="1_frame"]
-[ext_resource type="Script" uid="uid://djuk56crywqss" path="res://engine/character/unit_core/mount_type.gd" id="1_wrn38"]
 [ext_resource type="Script" uid="uid://bxpc46igtsmvw" path="res://engine/character/unit/statblock.gd" id="2_statblock"]
 [ext_resource type="Script" uid="uid://ckrv6mvs5q65e" path="res://engine/character/gear/kit.gd" id="3_kit"]
 [ext_resource type="Texture2D" uid="uid://che1iapn1u0c1" path="res://assets/frames/shared/blank.png" id="4_sprite"]
