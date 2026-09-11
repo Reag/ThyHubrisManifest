@@ -74,6 +74,20 @@ func test_the_nhp_has_its_own_barkset():
 	if BarkSet.is_valid(unit.core.pilot.nhp_barks):
 		assert_eq(unit.core.pilot.nhp_barks.compcon_id, &'bark_nhp_pestilence', 'And it is this one.')
 
+func test_the_barkset_finds_its_lines():
+	# The author's 38 lines (2026-09-11) live in localizations.csv as bark.nhp_pestilence.<incident>.<n>.
+	# get_possible_bark_keys_for walks n = 1, 2, ... until a key has no translation, so a gap in the
+	# numbering would silently drop everything after it; every incident is checked for at least one
+	# line and deploy for its full three.
+	var barkset:BarkSet = ContentLibrary.get_barkset(&'bark_nhp_pestilence')
+	if not BarkSet.is_valid(barkset): return fail_test('bark_nhp_pestilence resolves.')
+	assert_eq(barkset.name(), 'NHP PESTILENCE', 'Named from bark.nhp_pestilence.')
+	for incident:StringName in BarkSet.BARKS.keys():
+		assert_false(barkset.get_possible_bark_keys_for(incident).is_empty(), '%s has at least one line.' % incident)
+	assert_eq(barkset.get_possible_bark_keys_for(&'deploy').size(), 3, 'Three deploy lines, numbered without a gap.')
+	var line:Dictionary = barkset.get_bark_for(&'deploy', {}, [], true)
+	assert_false(line.text.is_empty(), 'And a deploy bark comes back with text: %s' % line.text)
+
 func test_the_portrait_actually_deserializes():
 	# A malformed or too-old json would be refused at portrait_sandwich_core.gd:131-132 and the mech
 	# would render with a blank face and no error the player could act on.

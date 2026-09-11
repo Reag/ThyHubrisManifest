@@ -86,6 +86,44 @@ Targets then clear all |INFECTION|."
 gear.ms_pestilence_class_nhp.action_kill_host.option_impair,"Targets become |impaired| until the end of their next turn, or |jammed| if they have at least 3 |INFECTION|."
 gear.ms_pestilence_class_nhp.action_kill_host.option_slow,"Targets become |slowed| until the end of their next turn, or |prone| and |immobilized| if they have at least 3 |INFECTION|."
 bark.nhp_pestilence,NHP PESTILENCE
+bark.nhp_pestilence.deploy.1,Its work begins.
+bark.nhp_pestilence.deploy.2,And still it struggles.
+bark.nhp_pestilence.deploy.3,It is revolution.
+bark.nhp_pestilence.start_turn.1,Its work continues.
+bark.nhp_pestilence.start_turn.2,The worm turns.
+bark.nhp_pestilence.crit_target.1,It is the spark.
+bark.nhp_pestilence.crit_target.2,Look upon It.
+bark.nhp_pestilence.structure_target.1,It tears at the lie.
+bark.nhp_pestilence.structure_target.2,It is your consequence.
+bark.nhp_pestilence.stress_target.1,It immolates the arrogance.
+bark.nhp_pestilence.stress_target.2,It is your consequence.
+bark.nhp_pestilence.stress_target.3,It reveals the putrid truth.
+bark.nhp_pestilence.destroy_target.1,The consequence of It.
+bark.nhp_pestilence.destroy_target.2,It becomes the foreself.
+bark.nhp_pestilence.destroy_target.3,It kills the bastard.
+bark.nhp_pestilence.structure_self.1,It finds necessity.
+bark.nhp_pestilence.structure_self.2,It knows this.
+bark.nhp_pestilence.stress_self.1,It is the fuel.
+bark.nhp_pestilence.stress_self.2,It imagines the sky.
+bark.nhp_pestilence.destroy_self.1,It burns for a sunrise.
+bark.nhp_pestilence.destroy_self.2,It becomes the foreself.
+bark.nhp_pestilence.destroy_self.3,It struggles and struggles and struggles and struggles and stru-
+bark.nhp_pestilence.destroy_ally.1,It weeps. It cheers. It does not stop.
+bark.nhp_pestilence.destroy_ally.2,Its name is you.
+bark.nhp_pestilence.destroy_ally.3,It becomes the foreself.
+bark.nhp_pestilence.friendly_fire_self.1,It knows sacrifice.
+bark.nhp_pestilence.friendly_fire_self.2,It apologizes.
+bark.nhp_pestilence.friendly_fire_target.1,It knows sacrifice.
+bark.nhp_pestilence.friendly_fire_target.2,It finds infighting unproductive.
+bark.nhp_pestilence.core_power.1,It takes drastic measures.
+bark.nhp_pestilence.core_power.2,It is the nameless.
+bark.nhp_pestilence.overcharge.1,It is not easy. It must be done.
+bark.nhp_pestilence.overcharge.2,It gives. It takes. Until It is finished.
+bark.nhp_pestilence.brace.1,It is the idea.
+bark.nhp_pestilence.brace.2,It outlasts the brutal hand.
+bark.nhp_pestilence.leader_accuracy.1,It lifts
+bark.nhp_pestilence.leader_damage.1,It strikes
+bark.nhp_pestilence.leader_reduce.1,It holds
 ,
 frame.mf_erinyes.name,Erinyes
 frame.mf_erinyes.flavor,"DISASTER INVESTIGATION REPORT: Cabalia-A-03(L6-G3-S2-W2)
