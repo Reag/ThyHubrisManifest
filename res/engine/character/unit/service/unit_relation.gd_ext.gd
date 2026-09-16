@@ -37,9 +37,17 @@ static func grapples_at_distance(gear:GearCore) -> bool:
 			return passive.is_grapple and passive.ignores_adjacency_requirement
 	)
 
-## Both directions. Adjacency is symmetric everywhere else in the engine - is_adjacent(a, b) and
+## Both directions. Adjacency is symmetric everywhere else in VANILLA - is_adjacent(a, b) and
 ## is_adjacent(b, a) are the same question - so widening only the Kraken's view would leave a
 ## grappled character unable to swing back at something the Kraken counts as being in its face.
+##
+## "EVERYWHERE ELSE IN THE ENGINE" WAS TOO STRONG, corrected 2026-09-16. is_adjacent(a, b) is
+## adjacent_characters(a).has(b) (unit_relation.gd:7-8), so only the FIRST argument's buffs are
+## consulted - and a third-party mod can widen that one-sidedly. gavstarb-talents_1st_party's House
+## Guard does exactly that (a to = &'adjacency_range' buff plus its own adjacent_characters
+## override), which makes is_adjacent genuinely asymmetric whenever it is installed. Nothing here
+## needs to change: doing both directions is what keeps OUR half symmetric, and that is still the
+## right call. Measured and pinned by spec/test_compat.gd.
 static func adjacent_characters(unit:Unit) -> Array[Unit]:
 	var adjacent_units := super.adjacent_characters(unit)
 	if not Unit.is_valid(unit): return adjacent_units
