@@ -237,9 +237,11 @@ func test_draugr_rows_link_their_own_actions():
 			assert_true(tr('%s.name' % key) != '%s.name' % key, 'And the linked key has a name row.')
 
 func test_every_draugr_kit_action_and_visible_buff_has_an_icon():
-	# Icons drawn 2026-09-10 in the vanilla language (specs/2026-09-10-icon-language.md). A kit or
-	# action without icon_override falls back to the generic glyph; a visible buff without `icon`
-	# does the same. Hidden buffs (hide_from_player) need none.
+	# Icons drawn 2026-09-10 in the vanilla language (specs/2026-09-10-icon-language.md). A kit
+	# without icon_override falls back to the generic glyph; an action without one inherits its
+	# Kit's instead (action.gd:324-326 -> kit.gd:209), and only every action checked here carries
+	# its own regardless, since each of these Kits has more than one. A visible buff without `icon`
+	# falls back to generic. Hidden buffs (hide_from_player) need none.
 	var kits:Array[StringName] = [&'mt_raging_plague', &'mt_seeping_rot', &'mt_spreading_stain', &'cp_cupiditas_vitae',
 		&'mt_plague_fog', &'ms_disease', &'ms_root', &'ms_quarantine', &'ms_carrion_beast', &'ms_pestilence_class_nhp',
 		&'mw_injector_drill']
@@ -1072,10 +1074,12 @@ func test_the_banshee_has_art():
 
 # --- Banshee icons (2026-09-08) ---
 #
-# Every player-facing Kit and Action on the Banshee carries an icon_override. Without one the
-# engine falls back to Kit.DEFAULT_SYSTEM_ICON / Action.DEFAULT_ICON - the generic grey box - which
-# is not an error and produces no warning, so a lost or mistyped reference is invisible except by
-# looking at the gear bar.
+# Every player-facing Kit on the Banshee carries an icon_override, and every Action either carries
+# its own or is a KIT row that inherits the Kit's (action.gd:324-326 -> kit.gd:209) - mt_whispering's
+# action_whispering is the one KIT row here. Without either, the engine falls back to
+# Kit.DEFAULT_SYSTEM_ICON / Action.DEFAULT_ICON - the generic grey box - which is not an error and
+# produces no warning, so a lost or mistyped reference is invisible except by looking at the gear
+# bar.
 #
 # Asserts only that an icon is SET and LOADS, deliberately not WHICH one. The choice of art is the
 # author's and may well change; a test naming specific files would have to be edited every time
@@ -1161,6 +1165,9 @@ func test_every_player_facing_banshee_action_belongs_to_a_glyph_family():
 				assert_eq(kits_per_action.get(action.resource_path, 0), 1,
 					'%s is carried by exactly one tabled Kit (action.gd:58 caches the inherited icon).'
 						% label)
+				assert_eq(action.get_icon(kit), kit.icon_override,
+					'%s is a KIT row: the engine fallback it depends on (action.gd:324-326 -> kit.gd:209) must actually resolve to the Kit glyph, or it renders a generic grey box.'
+						% label)
 				continue
 			assert_not_null(action.icon_override, '%s has an icon_override' % label)
 			if action.icon_override == null: continue
@@ -1175,6 +1182,6 @@ func test_every_player_facing_banshee_action_belongs_to_a_glyph_family():
 		for family:StringName in texture_by_family:
 			var tex:Texture2D = texture_by_family[family]
 			assert_false(claimed.has(tex),
-				'%s: family %s wears a texture no other family on this Kit uses (clashes with %s).'
+				'%s: family %s wears the same texture as family %s - the gear bar draws them as one button.'
 					% [kit_id, family, claimed.get(tex, &'-')])
 			claimed[tex] = family
