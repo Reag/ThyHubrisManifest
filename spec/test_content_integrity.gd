@@ -1085,15 +1085,26 @@ func test_the_banshee_has_art():
 # icon to show. Both reactions (action_mourning_call_wreckless, action_tear_neither_side) are
 # excluded for the same reason - ActionReaction is filtered out of the gear bar entirely.
 
+## A row whose family is KIT carries no icon_override and inherits its Kit's glyph through
+## Action.get_icon(kit) (action.gd:324-326 -> kit.gd:209). Any other value names a GLYPH FAMILY:
+## every row with that name carries the identical texture. Rule:
+## specs/2026-09-18-icon-sharing-design.md section 3.
+const KIT := &'__kit__'
+
 const BANSHEE_ICON_TARGETS := {
 	# action_tear_close sits on cp_the_keening, NOT on the tear's own kit. It was moved there on
 	# 2026-09-08: a tear is ENTITY.MARKER, so it never takes a turn and an action on its own kit is
 	# unreachable in play. mt_tear_banshee now carries only the visual passive and no actions.
-	&'cp_the_keening': [&'action_tear', &'action_mourning_call', &'action_tear_move', &'action_tear_close'],
-	&'mt_tear_banshee': [],
-	&'mt_to_bend_reality': [],
-	&'mt_to_twist_truth': [],
-	&'mt_whispering': [&'action_whispering'],
+	&'cp_the_keening': {&'action_tear': &'blinkspace_jump',
+						&'action_mourning_call': &'action_hologram_teleport',
+						&'action_tear_move': &'move',
+						&'action_tear_close': &'deactivate'},
+	&'mt_tear_banshee': {},
+	&'mt_to_bend_reality': {},
+	&'mt_to_twist_truth': {},
+	# The trait IS the action: one mechanic, one glyph. Both ends pointed at buff_flash_cloak.svg,
+	# so this drops a duplicate reference rather than changing anything the player sees.
+	&'mt_whispering': {&'action_whispering': KIT},
 }
 
 ## action_bend_reality belongs to no Kit. It is a VARIANT action: buff_to_bend_reality swaps it in
@@ -1115,16 +1126,55 @@ func test_every_player_facing_banshee_kit_has_an_icon():
 		if not Kit.is_valid(kit): continue
 		assert_not_null(kit.icon_override, '%s has an icon_override' % kit_id)
 
-func test_every_player_facing_banshee_action_has_an_icon():
+func test_every_player_facing_banshee_action_belongs_to_a_glyph_family():
 	# action_tear_close lives on the TEAR's kit, not the Banshee's, so this walks the map rather
 	# than assuming one owner.
+	#
+	# A KIT row carries NO icon_override and inherits the Kit's glyph; a named family carries one,
+	# and every row sharing that name carries the identical texture. Two families on one Kit must
+	# look different, or the gear bar draws two buttons the player cannot tell apart.
+	var kits_per_action := {}
+	for kit_id:StringName in BANSHEE_ICON_TARGETS:
+		var kit:Kit = ContentLibrary.get_kit(kit_id)
+		if not Kit.is_valid(kit): continue
+		for action:Action in kit.actions:
+			kits_per_action[action.resource_path] = kits_per_action.get(action.resource_path, 0) + 1
+
+	var family_texture := {}
 	for kit_id:StringName in BANSHEE_ICON_TARGETS:
 		var kit:Kit = ContentLibrary.get_kit(kit_id)
 		if not Kit.is_valid(kit): continue
 		var by_id := {}
 		for action:Action in kit.actions: by_id[action.get_id()] = action
+		var texture_by_family := {}
 		for action_id:StringName in BANSHEE_ICON_TARGETS[kit_id]:
 			assert_true(by_id.has(action_id), '%s carries %s' % [kit_id, action_id])
 			if not by_id.has(action_id): continue
-			assert_not_null(by_id[action_id].icon_override,
-				'%s.%s has an icon_override' % [kit_id, action_id])
+			var action:Action = by_id[action_id]
+			var label:String = '%s.%s' % [kit_id, action_id]
+			var family:StringName = BANSHEE_ICON_TARGETS[kit_id][action_id]
+			if family == KIT:
+				assert_null(action.icon_override,
+					'%s is a KIT row, so it carries NO icon_override and inherits the Kit glyph.' % label)
+				assert_not_null(kit.icon_override,
+					'%s inherits from %s, which therefore needs an icon_override.' % [label, kit_id])
+				assert_eq(kits_per_action.get(action.resource_path, 0), 1,
+					'%s is carried by exactly one tabled Kit (action.gd:58 caches the inherited icon).'
+						% label)
+				continue
+			assert_not_null(action.icon_override, '%s has an icon_override' % label)
+			if action.icon_override == null: continue
+			if family_texture.has(family):
+				assert_eq(action.icon_override, family_texture[family][0],
+					'%s wears the same texture as %s - they are one family (%s).'
+						% [label, family_texture[family][1], family])
+			else:
+				family_texture[family] = [action.icon_override, label]
+			if not texture_by_family.has(family): texture_by_family[family] = action.icon_override
+		var claimed := {}
+		for family:StringName in texture_by_family:
+			var tex:Texture2D = texture_by_family[family]
+			assert_false(claimed.has(tex),
+				'%s: family %s wears a texture no other family on this Kit uses (clashes with %s).'
+					% [kit_id, family, claimed.get(tex, &'-')])
+			claimed[tex] = family
