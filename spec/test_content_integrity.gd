@@ -1171,6 +1171,9 @@ func test_every_player_facing_banshee_action_belongs_to_a_glyph_family():
 				continue
 			assert_not_null(action.icon_override, '%s has an icon_override' % label)
 			if action.icon_override == null: continue
+			assert_ne(action.icon_override, kit.icon_override,
+				"%s and its own Kit %s both wear %s - a row duplicating its Kit's glyph should be a KIT row instead."
+					% [label, kit_id, action.icon_override.resource_path])
 			if family_texture.has(family):
 				assert_eq(action.icon_override, family_texture[family][0],
 					'%s wears the same texture as %s - they are one family (%s).'
