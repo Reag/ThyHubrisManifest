@@ -113,7 +113,12 @@ func test_the_mutual_exclusivity_clause_is_not_enforced():
 			for frame:Frame in progress.get_unlocked_frames(): frames.append(frame.compcon_id)
 
 		assert_true(frames.has(VARIANTS[variant_id][&'grants']), 'Holding both grants the variant.')
-		assert_true(frames.size() == 2, 'And the base frame too - the rule is unenforced.')
+		# The base's own frames, counted rather than assumed to be one: another mod may extend the
+		# base license with an alt frame of its own (The Sixth Voice adds the Shackleton to li_nelson).
+		var base_frames := _frame_ids(base)
+		for base_frame:StringName in base_frames:
+			assert_true(frames.has(base_frame), 'And %s too - the rule is unenforced.' % base_frame)
+		assert_eq(frames.size(), base_frames.size() + 1, 'The variant plus every frame the base grants.')
 		assert_eq(pilot.get_cb_max(), 2, 'Six license levels still cap core bonuses at two.')
 
 # ============================== helpers ==============================
