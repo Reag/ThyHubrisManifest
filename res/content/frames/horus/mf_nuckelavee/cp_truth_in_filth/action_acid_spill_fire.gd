@@ -36,7 +36,7 @@ func triggers_on_event(unit:Unit, gear:GearCore, triggering_event:EventCore) -> 
 	# true unconditionally today, and neither ActionAttack nor ActionAttackWeapon overrides it, so the
 	# super call action_acid_spill.gd makes into it currently guards nothing. JAMMED specifically does
 	# not apply here either way - action_acid_spill_fire.tres sets consumes_rxn = false, so
-	# ActionReaction.is_jammable() (action_reaction.gd:64) is false and a jammed Nuckelavee can still
+	# ActionReaction.is_jammable() (action_reaction.gd:66) is false and a jammed Nuckelavee can still
 	# fire Acid Spill. The super call stays in action_acid_spill.gd regardless, as correct defensive
 	# practice for composability, but this delegation should not be read as buying a block it doesn't.
 	var weapon:ActionAttackWeapon = gear.kit.get_action(&'action_acid_spill')
