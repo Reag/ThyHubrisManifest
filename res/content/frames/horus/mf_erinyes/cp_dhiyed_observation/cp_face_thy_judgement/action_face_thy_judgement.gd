@@ -204,8 +204,11 @@ func activate(context:Context, activation:EventCore) -> void:
 ## AI-CONTROLLED, NO PROMPT. fateofman's Cascades hands a cascading player mech to the AI and its
 ## Cascade Personalities runs every system on the mech through the AI; this is a REACTION, which its
 ## fallback never gathers and its safety scan never reads, so when the engine fires it for an
-## AI-held Erinyes both prompts below would be opened on an AI turn and awaited forever. Kill Host's
-## shape (action_kill_host.gd:135): the AI takes the first extendable effect and never declines -
+## AI-held Erinyes the MENU below would be opened on an AI turn and awaited forever. (The one-effect
+## confirm_use already answers for an AI unit by itself - common_action_util.gd:303-309 returns
+## ai_confirms_use, whose unoverridden default is true - so that path never hung; the guard covers
+## both paths for one shape.) Kill Host's shape (action_kill_host.gd:135): the AI takes the first
+## extendable effect and never declines -
 ## "you may" is a player's choice, and a mech nobody is steering has no reason to waste a free
 ## extension. spec/test_ai_safe_prompts.gd pins it. Design 2026-09-28 §4.
 func choose_effect(context:Context, ending_unit:Unit, extendable:Array):

@@ -166,7 +166,9 @@ func test_an_ai_controlled_erinyes_with_one_effect_skips_the_confirm_too():
 
 	var chosen = await judgement.action.choose_effect(judgement.context, victim, extendable)
 
-	assert_true(watcher.kinds(PromptWatcher.KIND.yesno).is_empty(), 'The single-effect confirm_use is skipped for an AI unit.')
+	# confirm_use answers for an AI unit by itself (ai_confirms_use, default true), so this passed before
+	# the guard too; it pins the behaviour, not the skip.
+	assert_true(watcher.kinds(PromptWatcher.KIND.yesno).is_empty(), 'No confirm is raised for an AI unit.')
 	assert_eq(chosen, extendable.front(), 'And the one effect is extended.')
 
 func test_a_player_controlled_erinyes_is_still_asked_which_effect():
