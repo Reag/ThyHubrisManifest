@@ -102,3 +102,83 @@ func test_nearest_tear_breaks_ties_by_list_order():
 	assert_eq(TearRouting.nearest_tear(banshee, tears), tears[0], 'Both at distance 3: the first in the list wins, deterministically.')
 	var reversed:Array[Unit] = [tears[1], tears[0]]
 	assert_eq(TearRouting.nearest_tear(banshee, reversed), tears[1], 'Reverse the list and the other wins - it is list order, not identity.')
+
+# ------------------------------------------------------------------ Erinyes: choose_effect
+
+const CORE_POWER_ID := &'cp_dhiyed_observation'
+const CHAIN_TRAIT_ID := &'mt_bind_thy_flesh'
+const TECH_KIT := &'ms_lock_on' ## a real tech action, so "the effect of a tech action" is honest
+
+func _erinyes(faction:Faction.SIDE) -> Unit:
+	var unit := SpecFactory.create_unit(game.map, Vector2i(0, 0), faction)
+	unit.core.equip_system(CORE_POWER_ID)
+	unit.core.equip_system(CHAIN_TRAIT_ID)
+	unit.core.equip_system(TECH_KIT)
+	return unit
+
+## test_dhiyed_observation.gd's _chained_victim: an enemy chained to an anchor the Erinyes owns.
+func _chained_victim(erinyes:Unit, tile:Vector2i) -> Unit:
+	var victim := SpecFactory.create_unit(game.map, tile, Faction.AI_ENEMY)
+	var anchor_core := UnitCore.create(erinyes.get_faction(), ContentLibrary.get_mech_frame(&'dep_chain_erinyes'))
+	var anchor := Unit.create(anchor_core)
+	UnitAction.set_deployable_owner(anchor, erinyes, erinyes.get_gear(CHAIN_TRAIT_ID))
+	await game.execute_event(&'event_unit_spawn', {unit = anchor, target_tiles = [Vector2i(1, 1)]})
+	var chain_buff:Buff = ContentLibrary.get_buff(&'buff_bind_thy_flesh')
+	var buff_core := UnitCondition.apply_buff(SpecFactory.dummy_event(), victim, chain_buff, erinyes.get_gear(CHAIN_TRAIT_ID))
+	chain_buff.bind(buff_core, anchor, victim)
+	return victim
+
+## TWO expiring tech statuses, so the choice between them is real and the menu path is reached.
+func _two_expiring_effects(erinyes:Unit, victim:Unit) -> void:
+	var tech_gear:GearCore = erinyes.get_gear(TECH_KIT)
+	SpecFactory.apply(victim, &'impaired', Lancer.UNTIL.END_OF_THIS_TURN, tech_gear.persistent_id)
+	SpecFactory.apply(victim, &'slowed', Lancer.UNTIL.END_OF_THIS_TURN, tech_gear.persistent_id)
+
+func _judgement(erinyes:Unit) -> Dictionary:
+	var gear:GearCore = erinyes.get_gear(CORE_POWER_ID)
+	var action:Action = gear.get_action(&'action_face_thy_judgement')
+	return {gear = gear, action = action, context = Context.create({unit = erinyes, gear = gear, action = action})}
+
+func test_an_ai_controlled_erinyes_is_never_asked_which_effect():
+	var erinyes := _erinyes(Faction.AI_ALLY)
+	assert_false(erinyes.is_player_controlled(), 'Fixture: the AI holds the Erinyes.')
+	var victim := await _chained_victim(erinyes, Vector2i(2, 2))
+	_two_expiring_effects(erinyes, victim)
+	var judgement := _judgement(erinyes)
+	var extendable:Array = judgement.action.extendable_effects(erinyes, judgement.gear, victim)
+	if extendable.size() != 2: return fail_test('Fixture: two extendable effects, got %d.' % extendable.size())
+	watcher.prompts.clear()
+
+	var chosen = await judgement.action.choose_effect(judgement.context, victim, extendable)
+
+	assert_true(watcher.kinds(PromptWatcher.KIND.multiple_choice).is_empty(), 'No menu was opened on an AI turn.')
+	assert_true(watcher.kinds(PromptWatcher.KIND.yesno).is_empty(), 'And no confirm either.')
+	assert_eq(chosen, extendable.front(), 'The first extendable effect is the AI default - "you may" is not declined by a mech nobody is steering.')
+
+func test_an_ai_controlled_erinyes_with_one_effect_skips_the_confirm_too():
+	var erinyes := _erinyes(Faction.AI_ALLY)
+	var victim := await _chained_victim(erinyes, Vector2i(2, 2))
+	SpecFactory.apply(victim, &'impaired', Lancer.UNTIL.END_OF_THIS_TURN, erinyes.get_gear(TECH_KIT).persistent_id)
+	var judgement := _judgement(erinyes)
+	var extendable:Array = judgement.action.extendable_effects(erinyes, judgement.gear, victim)
+	if extendable.size() != 1: return fail_test('Fixture: one extendable effect, got %d.' % extendable.size())
+	watcher.prompts.clear()
+
+	var chosen = await judgement.action.choose_effect(judgement.context, victim, extendable)
+
+	assert_true(watcher.kinds(PromptWatcher.KIND.yesno).is_empty(), 'The single-effect confirm_use is skipped for an AI unit.')
+	assert_eq(chosen, extendable.front(), 'And the one effect is extended.')
+
+func test_a_player_controlled_erinyes_is_still_asked_which_effect():
+	var erinyes := _erinyes(Faction.PLAYER)
+	var victim := await _chained_victim(erinyes, Vector2i(2, 2))
+	_two_expiring_effects(erinyes, victim)
+	var judgement := _judgement(erinyes)
+	var extendable:Array = judgement.action.extendable_effects(erinyes, judgement.gear, victim)
+	if extendable.size() != 2: return fail_test('Fixture: two extendable effects, got %d.' % extendable.size())
+	watcher.prompts.clear()
+
+	var chosen = await judgement.action.choose_effect(judgement.context, victim, extendable)
+
+	assert_eq(watcher.kinds(PromptWatcher.KIND.multiple_choice).size(), 1, 'The player is asked exactly once.')
+	assert_eq(chosen, extendable.front(), 'The stock responder answers index 0.')

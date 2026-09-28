@@ -200,7 +200,17 @@ func activate(context:Context, activation:EventCore) -> void:
 
 ## The ability extends "the effect", singular, and is a 1/round reaction - so when several tech
 ## effects expire at once the player picks which one. Cancelling is how "you may" is declined.
+##
+## AI-CONTROLLED, NO PROMPT. fateofman's Cascades hands a cascading player mech to the AI and its
+## Cascade Personalities runs every system on the mech through the AI; this is a REACTION, which its
+## fallback never gathers and its safety scan never reads, so when the engine fires it for an
+## AI-held Erinyes both prompts below would be opened on an AI turn and awaited forever. Kill Host's
+## shape (action_kill_host.gd:135): the AI takes the first extendable effect and never declines -
+## "you may" is a player's choice, and a mech nobody is steering has no reason to waste a free
+## extension. spec/test_ai_safe_prompts.gd pins it. Design 2026-09-28 §4.
 func choose_effect(context:Context, ending_unit:Unit, extendable:Array):
+	if not context.unit.is_player_controlled(): return extendable.front()
+
 	if extendable.size() == 1:
 		var confirmed:bool = await CommonActionUtil.confirm_use(context, [ending_unit], [])
 		return extendable.front() if confirmed else null
