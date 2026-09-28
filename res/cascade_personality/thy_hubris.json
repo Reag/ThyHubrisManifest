@@ -1,0 +1,18 @@
+{
+	"personalities": {
+		"ms_pestilence_class_nhp": {
+			"trait_weights": {
+				"aggression": 0.4,
+				"self_preservation": -0.3,
+				"range_preference": 0.4,
+				"restraint": -0.5,
+				"misanthropy": 0.8,
+				"logical_emotional": -0.5,
+				"subtlety": -0.3,
+				"esotericism": 0.8,
+				"relationship_with_pilot": -0.4
+			},
+			"tag_affinity": { "protocol": 1.5, "nhp": 1.5, "debuff": 1.0 }
+		}
+	}
+}
