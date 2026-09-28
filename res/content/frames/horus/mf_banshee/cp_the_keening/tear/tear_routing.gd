@@ -5,9 +5,12 @@
 # This project has three confirmed cases of extensions that install cleanly and never run, so a
 # testable brain is worth the indirection.
 #
-# HARD CONSTRAINT: nothing here may consult buffs. can_affect delegates to this file, and aura buff
-# delivery is itself gated on can_affect (passive_aura.gd:68), so a buff lookup here closes a real
-# cycle. Ask about tears, geometry and tangibility STATUS - nothing else.
+# HARD CONSTRAINT: nothing on the can_affect path may consult buffs. can_affect delegates to this
+# file, and aura buff delivery is itself gated on can_affect (passive_aura.gd:68), so a buff lookup
+# in the routing, geometry or tangibility code closes a real cycle. Ask about tears, geometry and
+# tangibility STATUS - nothing else. THE ONE EXCEPTION is choose_tear, a verb-time pick reached only
+# from an action's activate (Tear Move, Tear Close, Mourning Call) and never from can_affect: its
+# is_player_controlled() call reads buff_hand_over_control (unit.gd:252), and that is fine THERE.
 #
 # THE RULE, after the agreed terrain relaxation and the 2026-09-08 collinearity correction:
 #
@@ -219,6 +222,14 @@ static func choose_tear(specific:SpecificAction, tears:Array[Unit]) -> Unit:
 	if candidates.size() == 1: return candidates.front()
 	if not SpecificAction.is_valid(specific): return null
 
+	# AI-CONTROLLED, NO PROMPT. fateofman's Cascades hands a cascading player mech to the AI and its
+	# Cascade Personalities then runs every system on the mech through the AI - and its safety scan
+	# recognises only a literal `choice_bus.`, never our Compat. shim, so this prompt would be opened
+	# on an AI turn and awaited forever. Kill Host's shape (action_kill_host.gd:135): decide here.
+	# The nearest tear is the default a player most often picks; ties go to list order.
+	# spec/test_ai_safe_prompts.gd pins both halves. Design 2026-09-28 §4.
+	if not specific.unit.is_player_controlled(): return nearest_tear(specific.unit, candidates)
+
 	var tiles:Array[Vector2i] = []
 	for tear:Unit in candidates:
 		for tile:Vector2i in tear.occupied_tiles():
@@ -229,6 +240,19 @@ static func choose_tear(specific:SpecificAction, tears:Array[Unit]) -> Unit:
 	var picked:Vector2i = await Compat.pick_tile_from(specific, tiles)
 	if picked == Tile.INVALID: return null
 	return tear_at_tile(candidates, picked)
+
+## The candidate closest to `unit` by UnitRelation.distance_between; ties resolve to the earlier
+## entry, so the result is deterministic for a given list. Null for an empty or all-invalid list.
+static func nearest_tear(unit:Unit, candidates:Array[Unit]) -> Unit:
+	var best:Unit = null
+	var best_distance:int = -1
+	for tear:Unit in candidates:
+		if not Unit.is_valid(tear): continue
+		var distance:int = UnitRelation.distance_between(unit, tear)
+		if best == null or distance < best_distance:
+			best = tear
+			best_distance = distance
+	return best
 
 ## Resolve a picked tile back to one of `candidates`.
 ##
