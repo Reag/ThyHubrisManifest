@@ -223,11 +223,15 @@ static func choose_tear(specific:SpecificAction, tears:Array[Unit]) -> Unit:
 	if not SpecificAction.is_valid(specific): return null
 
 	# AI-CONTROLLED, NO PROMPT. fateofman's Cascades hands a cascading player mech to the AI and its
-	# Cascade Personalities then runs every system on the mech through the AI - and its safety scan
-	# recognises only a literal `choice_bus.`, never our Compat. shim, so this prompt would be opened
-	# on an AI turn and awaited forever. Kill Host's shape (action_kill_host.gd:135): decide here.
-	# The nearest tear is the default a player most often picks; ties go to list order.
-	# spec/test_ai_safe_prompts.gd pins both halves. Design 2026-09-28 §4.
+	# Cascade Personalities then runs every system on the mech through the AI. Its safety scan skips
+	# an action whose script text contains a literal `choice_bus.` with no `is_player_controlled` -
+	# a RAW text match, comments included (cascade_system_action_ai.gd:129-138, 1.43.0) - and it
+	# cannot see our Compat. shim at all. Tear Move and Tear Close happen to be skipped TODAY because
+	# their headers mention choice_bus.choose_unit in a comment; reword those comments, or hand the
+	# mech to an AI that does not run the scan (GM Mode), and this prompt would be awaited forever.
+	# So the guard is a defence, not a patch for a hang seen in play. Kill Host's shape
+	# (action_kill_host.gd:135): decide here. The nearest tear is the default a player most often
+	# picks; ties go to list order. spec/test_ai_safe_prompts.gd pins both halves. Design 2026-09-28 §4.
 	if not specific.unit.is_player_controlled(): return nearest_tear(specific.unit, candidates)
 
 	var tiles:Array[Vector2i] = []

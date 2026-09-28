@@ -4,11 +4,17 @@
 # (cascade_system_action_ai.gd gather_specifics) - not only the NHP's own. Its safety scan skips an
 # action whose script chain contains a literal `choice_bus.` with no `is_player_controlled`
 # (:129-138), but this mod prompts through reag_compat's `Compat.`, which the scan cannot see. An
-# unguarded prompt on an AI turn awaits an answer nobody can give: a soft-lock.
+# unguarded prompt reached on an AI turn awaits an answer nobody can give: a soft-lock.
 #
 # Two sites were unguarded (design 2026-09-28 §1): TearRouting.choose_tear (Tear Move, Tear Close)
 # and Face Thy Judgement's choose_effect. Every other Compat. prompt in this mod already has a
 # Kill Host-shaped `if not unit.is_player_controlled(): return <default>` (action_kill_host.gd:135).
+# NOTE (review, 2026-09-28): the scan is a RAW text match, comments included, and the two Tear
+# callers mention `choice_bus.choose_unit` in their header comments - so Cascades happens to skip
+# them today, and the Banshee guard is a defence against a LATENT hang (reworded comments, a changed
+# scan, or an AI hand-over that runs no scan), not a repair of one seen in play. Face Thy Judgement
+# is a REACTION, which the fallback never gathers and the scan never reads, so its guard is the one
+# that stands between a triggered reaction on an AI unit and an unanswerable prompt.
 #
 # THE ASSERTION IS A PROMPT COUNT, via testkit/prompt_watcher.gd, listening ALONGSIDE the stock
 # responder. In a spec the responder answers every prompt, so an unguarded prompt does not hang here
