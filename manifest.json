@@ -5,7 +5,8 @@
 	],
 	"compatible_game_version": [
 		"1.4.2",
-		"1.4.3"
+		"1.4.3",
+		"1.4.4"
 	],
 	"dependencies": [],
 	"description": "[i]As humanity spreads across the vast worlds of the Orion arm, so too does its shadow. In the dark corners of a million worlds fester twisted reflections of forgotten cruelties. From the resplendent Baronies to the dutiful Armory, from the just Union to the sacred Ascendancy, the ghosts of their pasts reach out in retribution with sins made manifest.[/i]\n\nA full implementation of HORUS: Thy Hubris Manifest, a 3pp supplement for Lancer. Please support the official release at itch.io",
