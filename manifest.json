@@ -15,12 +15,12 @@
 	"load_before": [],
 	"mod_meta": {
 		"date_added": 1788354236,
-		"date_updated": 1789766254,
-		"file_id": 8240682,
+		"date_updated": 1790678740,
+		"file_id": 8283115,
 		"game_version": "1.3.3",
 		"modio_id": 6353712,
 		"name_id": "dgco-reag",
-		"revision": 16,
+		"revision": 18,
 		"user_id": 61561194,
 		"username": "Mr_Reag"
 	},
@@ -34,6 +34,6 @@
 		"Systems and weapons"
 	],
 	"title": "HORUS: Thy Hubris Manifest",
-	"version_number": "1.0.4",
+	"version_number": "1.0.5",
 	"website_url": "https://github.com/Reag/ThyHubrisManifest"
 }
